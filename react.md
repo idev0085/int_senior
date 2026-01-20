@@ -2769,3 +2769,508 @@ function Profile() {
   );
 }
 ```
+
+---
+
+### Q71: How do you implement Error Boundaries in functional components?
+
+**Answer:**
+Error Boundaries can **only** be implemented as class components currently. However, you can use hooks to catch errors in specific scenarios and wrap functional components with class-based error boundaries.
+
+**Class-based Error Boundary:**
+```javascript
+// ErrorBoundary.jsx (Class component - required!)
+import React from 'react';
+
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    // Update state so next render shows fallback UI
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    // Log error to error reporting service
+    console.error('Error caught by boundary:', error, errorInfo);
+    // logErrorToService(error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      // Fallback UI
+      return (
+        <div>
+          <h2>Something went wrong!</h2>
+          <details>
+            <summary>Error details</summary>
+            <pre>{this.state.error?.message}</pre>
+          </details>
+          <button onClick={() => this.setState({ hasError: false, error: null })}>
+            Try again
+          </button>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+export default ErrorBoundary;
+```
+
+**Using Error Boundary with functional components:**
+```javascript
+// App.jsx
+import ErrorBoundary from './ErrorBoundary';
+
+function ProblematicComponent() {
+  const [count, setCount] = useState(0);
+  
+  if (count > 5) {
+    throw new Error('Count exceeded limit!');
+  }
+  
+  return (
+    <div>
+      <p>Count: {count}</p>
+      <button onClick={() => setCount(count + 1)}>Increment</button>
+    </div>
+  );
+}
+
+function App() {
+  return (
+    <ErrorBoundary>
+      <ProblematicComponent />
+    </ErrorBoundary>
+  );
+}
+```
+
+**Custom Error Boundary with logging:**
+```javascript
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null, errorInfo: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    // Store error details
+    this.setState({
+      error,
+      errorInfo
+    });
+    
+    // Log to external service (Sentry, LogRocket, etc.)
+    if (this.props.onError) {
+      this.props.onError(error, errorInfo);
+    }
+  }
+
+  resetError = () => {
+    this.setState({ hasError: false, error: null, errorInfo: null });
+  };
+
+  render() {
+    if (this.state.hasError) {
+      // Custom fallback from props or default
+      if (this.props.fallback) {
+        return this.props.fallback(this.state.error, this.resetError);
+      }
+      
+      return (
+        <div className="error-boundary">
+          <h1>Oops! Something went wrong</h1>
+          <p>{this.state.error?.message}</p>
+          <button onClick={this.resetError}>Try Again</button>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+// Usage with custom fallback
+<ErrorBoundary
+  onError={(error, errorInfo) => {
+    logToSentry(error, errorInfo);
+  }}
+  fallback={(error, reset) => (
+    <div>
+      <h2>Custom Error UI</h2>
+      <p>{error.message}</p>
+      <button onClick={reset}>Reset</button>
+    </div>
+  )}
+>
+  <MyApp />
+</ErrorBoundary>
+```
+
+**Catching async errors in functional components:**
+```javascript
+// Error boundaries DON'T catch these:
+// - Async errors (promises, setTimeout)
+// - Event handlers
+
+// Solution: Use try-catch in functional components
+function UserProfile() {
+  const [error, setError] = useState(null);
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    async function fetchUser() {
+      try {
+        const response = await fetch('/api/user');
+        if (!response.ok) throw new Error('Failed to fetch');
+        const data = await response.json();
+        setUser(data);
+      } catch (err) {
+        setError(err); // Handle async error
+      }
+    }
+    fetchUser();
+  }, []);
+
+  if (error) {
+    return <div>Error: {error.message}</div>;
+  }
+
+  return <div>{user?.name}</div>;
+}
+```
+
+**Multiple Error Boundaries (granular error handling):**
+```javascript
+function App() {
+  return (
+    <ErrorBoundary fallback={<AppError />}>
+      <Header />
+      
+      <ErrorBoundary fallback={<SidebarError />}>
+        <Sidebar />
+      </ErrorBoundary>
+      
+      <ErrorBoundary fallback={<MainContentError />}>
+        <MainContent />
+      </ErrorBoundary>
+      
+      <Footer />
+    </ErrorBoundary>
+  );
+}
+```
+
+**React 19 Proposed Hook (Future):**
+```javascript
+// Note: Not yet available, but proposed for future React versions
+function MyComponent() {
+  const [error, resetError] = useErrorBoundary();
+  
+  if (error) {
+    return <div>Error: {error.message}</div>;
+  }
+  
+  return <div>Normal content</div>;
+}
+```
+
+**What Error Boundaries catch:**
+- ✅ Render errors
+- ✅ Lifecycle method errors
+- ✅ Constructor errors
+
+**What Error Boundaries DON'T catch:**
+- ❌ Event handler errors (use try-catch)
+- ❌ Async code (use try-catch or .catch())
+- ❌ Server-side rendering errors
+- ❌ Errors in the error boundary itself
+
+---
+
+### Q72: How do you replicate lifecycle methods in functional components with hooks?
+
+**Answer:**
+Functional components use hooks to replicate class component lifecycle methods.
+
+**Lifecycle equivalents:**
+
+**1. componentDidMount (run once on mount):**
+```javascript
+// Class component
+class MyComponent extends React.Component {
+  componentDidMount() {
+    console.log('Component mounted');
+    fetchData();
+  }
+}
+
+// Functional component equivalent
+function MyComponent() {
+  useEffect(() => {
+    console.log('Component mounted');
+    fetchData();
+  }, []); // Empty dependency array = run once on mount
+}
+```
+
+**2. componentDidUpdate (run on updates):**
+```javascript
+// Class component
+class MyComponent extends React.Component {
+  componentDidUpdate(prevProps, prevState) {
+    if (prevProps.userId !== this.props.userId) {
+      this.fetchUser(this.props.userId);
+    }
+  }
+}
+
+// Functional component equivalent
+function MyComponent({ userId }) {
+  useEffect(() => {
+    fetchUser(userId);
+  }, [userId]); // Run when userId changes
+}
+```
+
+**3. componentWillUnmount (cleanup):**
+```javascript
+// Class component
+class MyComponent extends React.Component {
+  componentDidMount() {
+    this.timer = setInterval(() => console.log('tick'), 1000);
+  }
+  
+  componentWillUnmount() {
+    clearInterval(this.timer);
+  }
+}
+
+// Functional component equivalent
+function MyComponent() {
+  useEffect(() => {
+    const timer = setInterval(() => console.log('tick'), 1000);
+    
+    // Cleanup function = componentWillUnmount
+    return () => {
+      clearInterval(timer);
+    };
+  }, []);
+}
+```
+
+**4. componentDidMount + componentDidUpdate + componentWillUnmount:**
+```javascript
+// Class component
+class UserProfile extends React.Component {
+  componentDidMount() {
+    this.subscribe(this.props.userId);
+  }
+  
+  componentDidUpdate(prevProps) {
+    if (prevProps.userId !== this.props.userId) {
+      this.unsubscribe(prevProps.userId);
+      this.subscribe(this.props.userId);
+    }
+  }
+  
+  componentWillUnmount() {
+    this.unsubscribe(this.props.userId);
+  }
+}
+
+// Functional component equivalent (cleaner!)
+function UserProfile({ userId }) {
+  useEffect(() => {
+    subscribe(userId); // Mount + Update
+    
+    return () => {
+      unsubscribe(userId); // Unmount + before next effect
+    };
+  }, [userId]);
+}
+```
+
+**5. shouldComponentUpdate (prevent re-renders):**
+```javascript
+// Class component
+class MyComponent extends React.Component {
+  shouldComponentUpdate(nextProps, nextState) {
+    return nextProps.value !== this.props.value;
+  }
+}
+
+// Functional component equivalent
+const MyComponent = React.memo(({ value }) => {
+  return <div>{value}</div>;
+}, (prevProps, nextProps) => {
+  // Return true if props are equal (skip render)
+  return prevProps.value === nextProps.value;
+});
+```
+
+**6. getDerivedStateFromProps:**
+```javascript
+// Class component
+class MyComponent extends React.Component {
+  static getDerivedStateFromProps(props, state) {
+    if (props.value !== state.prevValue) {
+      return {
+        prevValue: props.value,
+        derivedValue: props.value * 2
+      };
+    }
+    return null;
+  }
+}
+
+// Functional component equivalent (usually not needed!)
+function MyComponent({ value }) {
+  // Just derive during render
+  const derivedValue = value * 2;
+  
+  // Or use state if needed
+  const [prevValue, setPrevValue] = useState(value);
+  const [derivedValue, setDerivedValue] = useState(value * 2);
+  
+  if (value !== prevValue) {
+    setPrevValue(value);
+    setDerivedValue(value * 2);
+  }
+}
+```
+
+**Complete lifecycle comparison:**
+```javascript
+// Class component with all lifecycles
+class CompleteExample extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { count: 0 };
+  }
+  
+  componentDidMount() {
+    console.log('Mounted');
+    this.timer = setInterval(this.tick, 1000);
+  }
+  
+  componentDidUpdate(prevProps, prevState) {
+    if (prevState.count !== this.state.count) {
+      console.log('Count updated:', this.state.count);
+    }
+  }
+  
+  componentWillUnmount() {
+    console.log('Unmounting');
+    clearInterval(this.timer);
+  }
+  
+  tick = () => {
+    this.setState(state => ({ count: state.count + 1 }));
+  }
+  
+  render() {
+    return <div>Count: {this.state.count}</div>;
+  }
+}
+
+// Functional component equivalent
+function CompleteExample() {
+  const [count, setCount] = useState(0);
+  
+  // componentDidMount + componentWillUnmount
+  useEffect(() => {
+    console.log('Mounted');
+    
+    const timer = setInterval(() => {
+      setCount(c => c + 1);
+    }, 1000);
+    
+    return () => {
+      console.log('Unmounting');
+      clearInterval(timer);
+    };
+  }, []);
+  
+  // componentDidUpdate (when count changes)
+  useEffect(() => {
+    console.log('Count updated:', count);
+  }, [count]);
+  
+  return <div>Count: {count}</div>;
+}
+```
+
+**Advanced patterns:**
+
+**Run effect only after first render (skip mount):**
+```javascript
+function MyComponent({ value }) {
+  const isFirstRender = useRef(true);
+  
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return; // Skip on mount
+    }
+    
+    console.log('Value changed:', value);
+  }, [value]);
+}
+```
+
+**Custom hook for lifecycle logging:**
+```javascript
+function useLifecycleLogger(componentName) {
+  useEffect(() => {
+    console.log(`${componentName} mounted`);
+    
+    return () => {
+      console.log(`${componentName} unmounted`);
+    };
+  }, [componentName]);
+  
+  useEffect(() => {
+    console.log(`${componentName} updated`);
+  });
+}
+
+// Usage
+function MyComponent() {
+  useLifecycleLogger('MyComponent');
+  return <div>Content</div>;
+}
+```
+
+**useLayoutEffect (componentDidMount/Update synchronously):**
+```javascript
+// Similar to useEffect but runs synchronously after DOM mutations
+// Use for measuring DOM elements or preventing visual flicker
+
+function MyComponent() {
+  const ref = useRef();
+  const [height, setHeight] = useState(0);
+  
+  useLayoutEffect(() => {
+    // Runs before browser paint (synchronous)
+    setHeight(ref.current.offsetHeight);
+  }, []);
+  
+  return <div ref={ref}>Content</div>;
+}
+```
+
+**Key differences:**
+- **useEffect**: Asynchronous, runs after paint
+- **useLayoutEffect**: Synchronous, runs before paint (like componentDidMount)
