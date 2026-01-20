@@ -3718,3 +3718,9 @@ module.exports = withBundleAnalyzer({
 8. **API Routes or Server Actions** - Backend in same codebase
 9. **Middleware for cross-cutting concerns** - Auth, i18n, redirects
 10. **Test and measure** - Use analytics and profiling tools
+
+---
+
+## Beginner Level Questions
+
+### Q35: What is the difference between pages and app directory?
