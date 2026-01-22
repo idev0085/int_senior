@@ -14250,6 +14250,744 @@ async function gracefulShutdown() {
 
 ---
 
+## Event Loop Deep Dive
+
+### Q1.78: What is the difference between setImmediate() and process.nextTick()?
+
+**Answer:**
+
+Both `setImmediate()` and `process.nextTick()` are Node.js-specific methods for scheduling callback execution, but they work very differently in the Event Loop.
+
+#### Quick Comparison
+
+| Feature | `process.nextTick()` | `setImmediate()` |
+|---------|---------------------|------------------|
+| **Execution Timing** | Before Event Loop continues | After current phase completes |
+| **Priority** | Highest (microtask queue) | Lower (check phase) |
+| **When Executed** | After current operation, before I/O | After I/O events |
+| **Can Block Event Loop** | Yes (if recursive) | No (limited per iteration) |
+| **Use Case** | Emit events, execute ASAP | Break up long operations |
+
+---
+
+#### process.nextTick()
+
+**What it is:**
+- Schedules callback to execute **immediately after the current operation**
+- Executes **before** the Event Loop continues to the next phase
+- Part of the **microtask queue** (highest priority)
+- **All** nextTick callbacks execute before moving on
+
+**Syntax:**
+```javascript
+process.nextTick(callback, [arg1], [arg2], [...]);
+```
+
+**Example - Basic Usage:**
+
+```javascript
+console.log('1. Start');
+
+process.nextTick(() => {
+  console.log('3. nextTick callback');
+});
+
+console.log('2. End');
+
+// OUTPUT:
+// 1. Start
+// 2. End
+// 3. nextTick callback  ← Executes after current code, before I/O
+```
+
+**Example - Multiple nextTick:**
+
+```javascript
+console.log('1. Start');
+
+process.nextTick(() => console.log('3. nextTick 1'));
+process.nextTick(() => console.log('4. nextTick 2'));
+process.nextTick(() => console.log('5. nextTick 3'));
+
+console.log('2. End');
+
+setTimeout(() => console.log('6. setTimeout'), 0);
+
+// OUTPUT:
+// 1. Start
+// 2. End
+// 3. nextTick 1   ← All nextTick callbacks execute together
+// 4. nextTick 2
+// 5. nextTick 3
+// 6. setTimeout   ← Then other phases
+```
+
+**Example - Priority over Promises:**
+
+```javascript
+process.nextTick(() => console.log('1. nextTick'));
+Promise.resolve().then(() => console.log('2. Promise'));
+
+// OUTPUT:
+// 1. nextTick  ← Higher priority than Promises!
+// 2. Promise
+```
+
+**⚠️ Warning - Can Block Event Loop:**
+
+```javascript
+// ❌ BAD: Infinite nextTick recursion blocks everything
+let count = 0;
+
+function recursiveNextTick() {
+  count++;
+  console.log('Count:', count);
+  
+  if (count < 1000000) {
+    process.nextTick(recursiveNextTick); // Blocks Event Loop!
+  }
+}
+
+process.nextTick(recursiveNextTick);
+
+// This blocks I/O, timers, everything!
+// The Event Loop cannot proceed to other phases
+```
+
+**Use Cases for process.nextTick():**
+
+```javascript
+// 1. Emit events after constructor finishes
+const EventEmitter = require('events');
+
+class MyEmitter extends EventEmitter {
+  constructor() {
+    super();
+    
+    // Emit event AFTER constructor completes
+    process.nextTick(() => {
+      this.emit('initialized');
+    });
+  }
+}
+
+const emitter = new MyEmitter();
+emitter.on('initialized', () => {
+  console.log('Emitter is ready!');
+});
+
+// 2. Allow API to be fully defined before executing callback
+function apiCall(callback) {
+  // Ensure callback is always async
+  process.nextTick(callback);
+}
+
+const result = apiCall(() => {
+  console.log('Callback executed');
+});
+
+console.log('API call made');
+
+// OUTPUT:
+// API call made
+// Callback executed
+
+// 3. Error handling - ensure errors are caught
+function riskyOperation(callback) {
+  if (!callback) {
+    process.nextTick(() => {
+      throw new Error('Callback required');
+    });
+    return;
+  }
+  
+  // do work
+  process.nextTick(callback);
+}
+```
+
+---
+
+#### setImmediate()
+
+**What it is:**
+- Schedules callback to execute in the **check phase** of the Event Loop
+- Executes **after** I/O events are processed
+- Part of the **macrotask queue** (lower priority than microtasks)
+- Only executes a **limited number per Event Loop iteration**
+
+**Syntax:**
+```javascript
+setImmediate(callback, [arg1], [arg2], [...]);
+```
+
+**Example - Basic Usage:**
+
+```javascript
+console.log('1. Start');
+
+setImmediate(() => {
+  console.log('3. setImmediate callback');
+});
+
+console.log('2. End');
+
+// OUTPUT:
+// 1. Start
+// 2. End
+// 3. setImmediate callback  ← Executes in check phase
+```
+
+**Example - setImmediate vs setTimeout:**
+
+```javascript
+// OUTSIDE I/O cycle - order is non-deterministic
+setTimeout(() => console.log('setTimeout'), 0);
+setImmediate(() => console.log('setImmediate'));
+
+// OUTPUT: Either order possible (system-dependent)
+// setTimeout
+// setImmediate
+// OR
+// setImmediate
+// setTimeout
+
+// INSIDE I/O cycle - setImmediate is ALWAYS first
+const fs = require('fs');
+
+fs.readFile(__filename, () => {
+  setTimeout(() => console.log('setTimeout'), 0);
+  setImmediate(() => console.log('setImmediate'));
+});
+
+// OUTPUT (guaranteed):
+// setImmediate  ← Always first in I/O callbacks
+// setTimeout
+```
+
+**Why the difference?**
+
+```javascript
+// Outside I/O cycle:
+// - setTimeout(0) goes to TIMERS phase (phase 1)
+// - setImmediate goes to CHECK phase (phase 5)
+// - Depends on system clock precision which starts first
+
+// Inside I/O cycle (already in POLL phase):
+// - Current phase is POLL (phase 4)
+// - Next phase is CHECK (phase 5) → setImmediate executes
+// - TIMERS phase (phase 1) → setTimeout executes next loop
+```
+
+**Example - Multiple setImmediate:**
+
+```javascript
+console.log('Start');
+
+setImmediate(() => console.log('Immediate 1'));
+setImmediate(() => console.log('Immediate 2'));
+setImmediate(() => console.log('Immediate 3'));
+
+console.log('End');
+
+// OUTPUT:
+// Start
+// End
+// Immediate 1
+// Immediate 2
+// Immediate 3
+```
+
+**✅ Safe for Long Operations:**
+
+```javascript
+// ✅ GOOD: setImmediate allows Event Loop to continue
+function processLargeArray(array, callback) {
+  const chunk = 1000;
+  let index = 0;
+  
+  function processChunk() {
+    const end = Math.min(index + chunk, array.length);
+    
+    for (let i = index; i < end; i++) {
+      // Process array[i]
+      heavyOperation(array[i]);
+    }
+    
+    index = end;
+    
+    if (index < array.length) {
+      // Allow other operations between chunks
+      setImmediate(processChunk);
+    } else {
+      callback();
+    }
+  }
+  
+  processChunk();
+}
+
+// This allows I/O, timers, etc. to execute between chunks
+```
+
+**Use Cases for setImmediate():**
+
+```javascript
+// 1. Breaking up long-running operations
+function processHugeDataset(data) {
+  let index = 0;
+  const batchSize = 100;
+  
+  function processBatch() {
+    const batch = data.slice(index, index + batchSize);
+    
+    // Process batch
+    batch.forEach(item => {
+      heavyComputation(item);
+    });
+    
+    index += batchSize;
+    
+    if (index < data.length) {
+      setImmediate(processBatch); // Give Event Loop a break
+    }
+  }
+  
+  processBatch();
+}
+
+// 2. Execute callback after I/O events
+const fs = require('fs');
+
+fs.readFile('file.txt', (err, data) => {
+  if (err) throw err;
+  
+  // Execute after all I/O in this phase
+  setImmediate(() => {
+    console.log('File processing complete');
+  });
+});
+
+// 3. Deferring execution to allow I/O to be processed
+function deferredLog(message) {
+  setImmediate(() => {
+    console.log(message);
+  });
+}
+```
+
+---
+
+#### Complete Priority Order
+
+**Example 1: Basic Execution Order**
+
+```javascript
+console.log("Start");
+setImmediate(() => console.log("Inside setImmediate"));
+process.nextTick(() => console.log("Inside process.nextTick"));
+console.log("End");
+
+// OUTPUT:
+// Start
+// End
+// Inside process.nextTick
+// Inside setImmediate
+```
+
+**Step-by-Step Explanation:**
+
+1. **`console.log("Start")`** 
+   - ✅ Synchronous code executes immediately
+   - Output: `Start`
+
+2. **`setImmediate(() => ...)`**
+   - ⏳ Callback scheduled in the **check phase** (Event Loop phase 5)
+   - Will execute after I/O operations
+
+3. **`process.nextTick(() => ...)`**
+   - ⚡ Callback scheduled in the **nextTick queue** (microtask)
+   - Highest priority - executes before Event Loop continues
+
+4. **`console.log("End")`**
+   - ✅ Synchronous code executes immediately
+   - Output: `End`
+
+5. **Call Stack is now empty** → Check microtask queues
+   - 🏆 **process.nextTick queue** is processed first
+   - Output: `Inside process.nextTick`
+
+6. **Microtasks complete** → Event Loop continues to check phase
+   - ⏰ **setImmediate** callbacks execute
+   - Output: `Inside setImmediate`
+
+**Visual Timeline:**
+
+```
+Execution Timeline:
+┌──────────────────────────────────────────────────┐
+│ 1. Synchronous Code (Call Stack)                │
+│    console.log("Start")        → Start           │
+│    console.log("End")          → End             │
+└─────────────────┬────────────────────────────────┘
+                  │
+                  ▼
+┌──────────────────────────────────────────────────┐
+│ 2. Microtask Queue (process.nextTick)           │
+│    process.nextTick callback   → Inside process.nextTick │
+└─────────────────┬────────────────────────────────┘
+                  │
+                  ▼
+┌──────────────────────────────────────────────────┐
+│ 3. Event Loop - Check Phase (setImmediate)      │
+│    setImmediate callback       → Inside setImmediate │
+└──────────────────────────────────────────────────┘
+```
+
+---
+
+**Example 2: Complete Execution Order**
+
+```javascript
+// Demonstrate complete execution order
+
+console.log('1. Sync code');
+
+setTimeout(() => console.log('6. setTimeout'), 0);
+
+setImmediate(() => console.log('7. setImmediate'));
+
+process.nextTick(() => console.log('3. nextTick 1'));
+process.nextTick(() => console.log('4. nextTick 2'));
+
+Promise.resolve().then(() => console.log('5. Promise'));
+
+console.log('2. More sync code');
+
+// OUTPUT:
+// 1. Sync code
+// 2. More sync code
+// 3. nextTick 1       ← process.nextTick (highest priority)
+// 4. nextTick 2       ← process.nextTick
+// 5. Promise          ← Promises (microtasks)
+// 6. setTimeout       ← Macrotasks (could be 7)
+// 7. setImmediate     ← Macrotasks (could be 6)
+```
+
+**Visual Representation:**
+
+```
+┌──────────────────────────────────────────────────┐
+│         Current JavaScript Execution             │
+│              (Call Stack)                        │
+└────────────────────┬─────────────────────────────┘
+                     │
+                     ▼
+    ┌────────────────────────────────────┐
+    │   1. process.nextTick Queue        │ ← Highest Priority
+    │      (Microtask - Node.js only)    │
+    └────────────────┬───────────────────┘
+                     │
+                     ▼
+    ┌────────────────────────────────────┐
+    │   2. Promise Microtask Queue       │
+    │      (Microtasks)                  │
+    └────────────────┬───────────────────┘
+                     │
+                     ▼
+         ┌──────────────────────┐
+         │   Event Loop Phases   │
+         │                       │
+         │  ┌─────────────────┐ │
+         │  │ 1. timers       │ │ ← setTimeout, setInterval
+         │  ├─────────────────┤ │
+         │  │ 2. pending      │ │
+         │  ├─────────────────┤ │
+         │  │ 3. idle         │ │
+         │  ├─────────────────┤ │
+         │  │ 4. poll         │ │ ← I/O operations
+         │  ├─────────────────┤ │
+         │  │ 5. check        │ │ ← setImmediate
+         │  ├─────────────────┤ │
+         │  │ 6. close        │ │
+         │  └─────────────────┘ │
+         └──────────────────────┘
+```
+
+---
+
+#### Real-World Comparison Examples
+
+**Example 1: Server Response Timing**
+
+```javascript
+const http = require('http');
+
+const server = http.createServer((req, res) => {
+  console.log('Request received');
+  
+  // Using nextTick - executes ASAP
+  process.nextTick(() => {
+    console.log('nextTick: Before response');
+  });
+  
+  // Using setImmediate - executes after I/O
+  setImmediate(() => {
+    console.log('setImmediate: After I/O phase');
+  });
+  
+  res.end('Hello World');
+  console.log('Response sent');
+});
+
+// Request comes in:
+// OUTPUT:
+// Request received
+// Response sent
+// nextTick: Before response      ← Executes before next phase
+// setImmediate: After I/O phase  ← Executes in check phase
+```
+
+**Example 2: Database Operations**
+
+```javascript
+const db = require('./database');
+
+function getUserWithPosts(userId, callback) {
+  db.getUser(userId, (err, user) => {
+    if (err) {
+      // Use nextTick to ensure async error handling
+      return process.nextTick(() => callback(err));
+    }
+    
+    db.getPosts(userId, (err, posts) => {
+      if (err) {
+        return process.nextTick(() => callback(err));
+      }
+      
+      user.posts = posts;
+      
+      // Use setImmediate to allow other I/O
+      setImmediate(() => {
+        callback(null, user);
+      });
+    });
+  });
+}
+```
+
+**Example 3: Event Emitter Pattern**
+
+```javascript
+const EventEmitter = require('events');
+
+class DataFetcher extends EventEmitter {
+  constructor() {
+    super();
+    
+    // ✅ Use nextTick to ensure listeners are registered first
+    process.nextTick(() => {
+      this.emit('ready');
+    });
+  }
+  
+  fetchData() {
+    // Simulate async operation
+    setTimeout(() => {
+      const data = { id: 1, name: 'Test' };
+      
+      // Use setImmediate to defer emission
+      setImmediate(() => {
+        this.emit('data', data);
+      });
+    }, 100);
+  }
+}
+
+const fetcher = new DataFetcher();
+
+fetcher.on('ready', () => {
+  console.log('Fetcher is ready');  // This will fire
+});
+
+fetcher.on('data', (data) => {
+  console.log('Data received:', data);
+});
+
+fetcher.fetchData();
+```
+
+---
+
+#### Best Practices
+
+**When to Use process.nextTick():**
+
+```javascript
+// ✅ DO: Ensure callbacks are always async
+function maybeSync(callback) {
+  if (cache.has(key)) {
+    // Make cached result async too
+    process.nextTick(() => callback(cache.get(key)));
+  } else {
+    fetchFromDB(key, callback);
+  }
+}
+
+// ✅ DO: Allow constructors to complete
+class MyClass extends EventEmitter {
+  constructor() {
+    super();
+    process.nextTick(() => this.emit('created'));
+  }
+}
+
+// ✅ DO: Error handling before async operations
+function validateAndProcess(data, callback) {
+  if (!data) {
+    return process.nextTick(() => 
+      callback(new Error('Data required'))
+    );
+  }
+  // process data
+}
+
+// ❌ DON'T: Recursive nextTick (blocks Event Loop)
+function bad() {
+  process.nextTick(bad); // Infinite loop!
+}
+```
+
+**When to Use setImmediate():**
+
+```javascript
+// ✅ DO: Break up CPU-intensive operations
+function processLargeFile(filename, callback) {
+  const stream = fs.createReadStream(filename);
+  let processed = 0;
+  
+  stream.on('data', (chunk) => {
+    processChunk(chunk);
+    processed++;
+    
+    if (processed % 100 === 0) {
+      // Give Event Loop a break every 100 chunks
+      setImmediate(() => {
+        // Allow other operations
+      });
+    }
+  });
+}
+
+// ✅ DO: Defer execution after I/O
+fs.readFile('file.txt', (err, data) => {
+  if (err) throw err;
+  
+  setImmediate(() => {
+    // Process after all I/O callbacks
+    processData(data);
+  });
+});
+
+// ✅ DO: Execute after current phase
+function deferExecution(fn) {
+  setImmediate(fn);
+}
+```
+
+---
+
+#### Common Pitfalls
+
+**Pitfall 1: Blocking with nextTick**
+
+```javascript
+// ❌ BAD
+let i = 0;
+function loop() {
+  console.log(i++);
+  if (i < 1000000) {
+    process.nextTick(loop); // Blocks everything!
+  }
+}
+loop();
+
+// ✅ GOOD
+let i = 0;
+function loop() {
+  console.log(i++);
+  if (i < 1000000) {
+    setImmediate(loop); // Allows Event Loop to breathe
+  }
+}
+loop();
+```
+
+**Pitfall 2: Assuming setTimeout(0) is fastest**
+
+```javascript
+// ❌ WRONG ASSUMPTION
+setTimeout(() => console.log('This is NOT the fastest'), 0);
+process.nextTick(() => console.log('This IS the fastest'));
+
+// OUTPUT:
+// This IS the fastest
+// This is NOT the fastest
+```
+
+**Pitfall 3: Mixing sync and async in APIs**
+
+```javascript
+// ❌ BAD: Sometimes sync, sometimes async
+function getData(useCache, callback) {
+  if (useCache) {
+    return callback(cachedData); // Sync!
+  } else {
+    fetchData((data) => callback(data)); // Async!
+  }
+}
+
+// ✅ GOOD: Always async
+function getData(useCache, callback) {
+  if (useCache) {
+    process.nextTick(() => callback(cachedData)); // Now async
+  } else {
+    fetchData((data) => callback(data));
+  }
+}
+```
+
+---
+
+#### Summary
+
+**Key Takeaways:**
+
+1. **process.nextTick()**
+   - ⚡ Executes ASAP (before Event Loop continues)
+   - 🏆 Highest priority
+   - ⚠️ Can block Event Loop if recursive
+   - 📍 Use for: Emitting events, ensuring async callbacks
+
+2. **setImmediate()**
+   - ⏳ Executes in check phase (after I/O)
+   - 🔄 Lower priority (macrotask)
+   - ✅ Safe for long operations
+   - 📍 Use for: Breaking up work, deferring after I/O
+
+3. **Order of Execution:**
+   - Synchronous code
+   - process.nextTick
+   - Promises (microtasks)
+   - setTimeout/setImmediate (macrotasks)
+
+4. **Rule of Thumb:**
+   - Need it ASAP? → `process.nextTick()`
+   - Can wait? → `setImmediate()`
+   - Need delay? → `setTimeout()`
+
+---
+
 ## Summary
 
 **Node.js Best Practices:**

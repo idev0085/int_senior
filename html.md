@@ -1693,6 +1693,1111 @@ ARIA (Accessible Rich Internet Applications) provides ways to make web content a
 
 ---
 
+### Q15.1: How to Create Accessible Navigation Menus?
+
+**Answer:**
+
+**1. Simple Navigation:**
+
+```html
+<nav aria-label="Main navigation">
+    <ul role="menubar">
+        <li role="none">
+            <a href="/" role="menuitem">Home</a>
+        </li>
+        <li role="none">
+            <a href="/about" role="menuitem">About</a>
+        </li>
+        <li role="none">
+            <a href="/contact" role="menuitem">Contact</a>
+        </li>
+    </ul>
+</nav>
+
+<style>
+    nav ul {
+        list-style: none;
+        padding: 0;
+        display: flex;
+        gap: 20px;
+    }
+    
+    nav a:focus {
+        outline: 2px solid #0066cc;
+        outline-offset: 2px;
+    }
+</style>
+```
+
+**2. Dropdown Menu with Keyboard Support:**
+
+```html
+<nav aria-label="Main navigation">
+    <ul class="menu">
+        <li>
+            <button aria-expanded="false" 
+                    aria-haspopup="true"
+                    aria-controls="dropdown-products">
+                Products
+            </button>
+            <ul id="dropdown-products" hidden>
+                <li><a href="/product1">Product 1</a></li>
+                <li><a href="/product2">Product 2</a></li>
+                <li><a href="/product3">Product 3</a></li>
+            </ul>
+        </li>
+        <li><a href="/about">About</a></li>
+    </ul>
+</nav>
+
+<script>
+document.querySelectorAll('[aria-haspopup="true"]').forEach(button => {
+    button.addEventListener('click', function() {
+        const expanded = this.getAttribute('aria-expanded') === 'true';
+        const dropdown = document.getElementById(this.getAttribute('aria-controls'));
+        
+        // Toggle dropdown
+        this.setAttribute('aria-expanded', !expanded);
+        dropdown.hidden = expanded;
+    });
+    
+    // Keyboard navigation
+    button.addEventListener('keydown', function(e) {
+        const dropdown = document.getElementById(this.getAttribute('aria-controls'));
+        const items = dropdown.querySelectorAll('a');
+        
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            this.setAttribute('aria-expanded', 'true');
+            dropdown.hidden = false;
+            items[0].focus();
+        }
+    });
+});
+
+// Close dropdown when clicking outside
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('[aria-haspopup]')) {
+        document.querySelectorAll('[aria-haspopup]').forEach(button => {
+            button.setAttribute('aria-expanded', 'false');
+            const dropdown = document.getElementById(button.getAttribute('aria-controls'));
+            if (dropdown) dropdown.hidden = true;
+        });
+    }
+});
+</script>
+```
+
+**3. Mobile Responsive Menu:**
+
+```html
+<nav aria-label="Main navigation">
+    <button id="menu-toggle" 
+            aria-expanded="false"
+            aria-controls="main-menu"
+            aria-label="Toggle navigation menu">
+        <span class="hamburger"></span>
+    </button>
+    
+    <ul id="main-menu" hidden>
+        <li><a href="/">Home</a></li>
+        <li><a href="/about">About</a></li>
+        <li><a href="/services">Services</a></li>
+        <li><a href="/contact">Contact</a></li>
+    </ul>
+</nav>
+
+<style>
+    @media (max-width: 768px) {
+        #main-menu {
+            position: absolute;
+            top: 60px;
+            left: 0;
+            right: 0;
+            background: white;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        #main-menu[hidden] {
+            display: none;
+        }
+    }
+    
+    @media (min-width: 769px) {
+        #menu-toggle {
+            display: none;
+        }
+        
+        #main-menu[hidden] {
+            display: flex !important;
+        }
+    }
+</style>
+
+<script>
+document.getElementById('menu-toggle').addEventListener('click', function() {
+    const menu = document.getElementById('main-menu');
+    const expanded = this.getAttribute('aria-expanded') === 'true';
+    
+    this.setAttribute('aria-expanded', !expanded);
+    menu.hidden = expanded;
+});
+</script>
+```
+
+---
+
+### Q15.2: How to Make Interactive Components Accessible?
+
+**Answer:**
+
+**1. Accessible Tabs:**
+
+```html
+<div class="tabs">
+    <div role="tablist" aria-label="Content sections">
+        <button role="tab" 
+                aria-selected="true" 
+                aria-controls="panel-1" 
+                id="tab-1">
+            Tab 1
+        </button>
+        <button role="tab" 
+                aria-selected="false" 
+                aria-controls="panel-2" 
+                id="tab-2" 
+                tabindex="-1">
+            Tab 2
+        </button>
+        <button role="tab" 
+                aria-selected="false" 
+                aria-controls="panel-3" 
+                id="tab-3" 
+                tabindex="-1">
+            Tab 3
+        </button>
+    </div>
+    
+    <div role="tabpanel" 
+         id="panel-1" 
+         aria-labelledby="tab-1" 
+         tabindex="0">
+        <h2>Panel 1 Content</h2>
+        <p>Content for the first tab...</p>
+    </div>
+    
+    <div role="tabpanel" 
+         id="panel-2" 
+         aria-labelledby="tab-2" 
+         tabindex="0" 
+         hidden>
+        <h2>Panel 2 Content</h2>
+        <p>Content for the second tab...</p>
+    </div>
+    
+    <div role="tabpanel" 
+         id="panel-3" 
+         aria-labelledby="tab-3" 
+         tabindex="0" 
+         hidden>
+        <h2>Panel 3 Content</h2>
+        <p>Content for the third tab...</p>
+    </div>
+</div>
+
+<script>
+const tabs = document.querySelectorAll('[role="tab"]');
+const panels = document.querySelectorAll('[role="tabpanel"]');
+
+tabs.forEach((tab, index) => {
+    tab.addEventListener('click', function() {
+        // Deactivate all tabs
+        tabs.forEach(t => {
+            t.setAttribute('aria-selected', 'false');
+            t.setAttribute('tabindex', '-1');
+        });
+        
+        // Hide all panels
+        panels.forEach(p => p.hidden = true);
+        
+        // Activate clicked tab
+        this.setAttribute('aria-selected', 'true');
+        this.setAttribute('tabindex', '0');
+        
+        // Show corresponding panel
+        const panel = document.getElementById(this.getAttribute('aria-controls'));
+        panel.hidden = false;
+    });
+    
+    // Keyboard navigation
+    tab.addEventListener('keydown', function(e) {
+        let newIndex;
+        
+        if (e.key === 'ArrowRight') {
+            newIndex = (index + 1) % tabs.length;
+        } else if (e.key === 'ArrowLeft') {
+            newIndex = (index - 1 + tabs.length) % tabs.length;
+        } else if (e.key === 'Home') {
+            newIndex = 0;
+        } else if (e.key === 'End') {
+            newIndex = tabs.length - 1;
+        }
+        
+        if (newIndex !== undefined) {
+            e.preventDefault();
+            tabs[newIndex].click();
+            tabs[newIndex].focus();
+        }
+    });
+});
+</script>
+```
+
+**2. Accessible Accordion:**
+
+```html
+<div class="accordion">
+    <h3>
+        <button aria-expanded="false" 
+                aria-controls="section-1" 
+                id="accordion-button-1">
+            Section 1 Heading
+        </button>
+    </h3>
+    <div id="section-1" 
+         role="region" 
+         aria-labelledby="accordion-button-1" 
+         hidden>
+        <p>Content for section 1...</p>
+    </div>
+    
+    <h3>
+        <button aria-expanded="false" 
+                aria-controls="section-2" 
+                id="accordion-button-2">
+            Section 2 Heading
+        </button>
+    </h3>
+    <div id="section-2" 
+         role="region" 
+         aria-labelledby="accordion-button-2" 
+         hidden>
+        <p>Content for section 2...</p>
+    </div>
+</div>
+
+<script>
+document.querySelectorAll('.accordion button').forEach(button => {
+    button.addEventListener('click', function() {
+        const expanded = this.getAttribute('aria-expanded') === 'true';
+        const content = document.getElementById(this.getAttribute('aria-controls'));
+        
+        // Toggle current section
+        this.setAttribute('aria-expanded', !expanded);
+        content.hidden = expanded;
+    });
+});
+</script>
+```
+
+**3. Accessible Modal Dialog:**
+
+```html
+<button id="open-modal">Open Dialog</button>
+
+<div role="dialog" 
+     aria-labelledby="dialog-title"
+     aria-describedby="dialog-description"
+     aria-modal="true"
+     id="modal"
+     class="modal"
+     hidden>
+    
+    <div class="modal-content">
+        <h2 id="dialog-title">Dialog Title</h2>
+        <p id="dialog-description">
+            This is the dialog content with important information.
+        </p>
+        
+        <label for="modal-input">Name:</label>
+        <input type="text" id="modal-input">
+        
+        <div class="modal-actions">
+            <button id="confirm-btn">Confirm</button>
+            <button id="cancel-btn">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<style>
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal[hidden] {
+    display: none;
+}
+
+.modal-content {
+    background: white;
+    padding: 30px;
+    border-radius: 8px;
+    max-width: 500px;
+    width: 90%;
+}
+
+.modal-actions {
+    margin-top: 20px;
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+}
+</style>
+
+<script>
+const modal = document.getElementById('modal');
+const openBtn = document.getElementById('open-modal');
+const confirmBtn = document.getElementById('confirm-btn');
+const cancelBtn = document.getElementById('cancel-btn');
+let previousFocus;
+
+function openModal() {
+    previousFocus = document.activeElement;
+    modal.hidden = false;
+    
+    // Focus first focusable element
+    const firstFocusable = modal.querySelector('input, button');
+    firstFocusable.focus();
+    
+    // Trap focus inside modal
+    modal.addEventListener('keydown', trapFocus);
+}
+
+function closeModal() {
+    modal.hidden = true;
+    modal.removeEventListener('keydown', trapFocus);
+    
+    // Restore focus
+    if (previousFocus) {
+        previousFocus.focus();
+    }
+}
+
+function trapFocus(e) {
+    if (e.key === 'Escape') {
+        closeModal();
+        return;
+    }
+    
+    if (e.key === 'Tab') {
+        const focusableElements = modal.querySelectorAll(
+            'button, input, select, textarea, a[href]'
+        );
+        const firstElement = focusableElements[0];
+        const lastElement = focusableElements[focusableElements.length - 1];
+        
+        if (e.shiftKey && document.activeElement === firstElement) {
+            e.preventDefault();
+            lastElement.focus();
+        } else if (!e.shiftKey && document.activeElement === lastElement) {
+            e.preventDefault();
+            firstElement.focus();
+        }
+    }
+}
+
+openBtn.addEventListener('click', openModal);
+confirmBtn.addEventListener('click', closeModal);
+cancelBtn.addEventListener('click', closeModal);
+
+// Close on backdrop click
+modal.addEventListener('click', function(e) {
+    if (e.target === modal) {
+        closeModal();
+    }
+});
+</script>
+```
+
+**4. Accessible Tooltip:**
+
+```html
+<button aria-describedby="tooltip" id="info-button">
+    Information
+    <span class="tooltip" id="tooltip" role="tooltip">
+        This provides additional helpful information
+    </span>
+</button>
+
+<style>
+.tooltip {
+    position: absolute;
+    background: #333;
+    color: white;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 14px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+    z-index: 1000;
+}
+
+#info-button:hover .tooltip,
+#info-button:focus .tooltip {
+    opacity: 1;
+}
+</style>
+```
+
+**5. Accessible Toggle Switch:**
+
+```html
+<div class="toggle-container">
+    <span id="toggle-label">Enable notifications</span>
+    <button role="switch" 
+            aria-checked="false" 
+            aria-labelledby="toggle-label"
+            class="toggle-switch">
+        <span class="toggle-slider"></span>
+    </button>
+</div>
+
+<style>
+.toggle-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.toggle-switch {
+    position: relative;
+    width: 50px;
+    height: 24px;
+    background: #ccc;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.toggle-switch[aria-checked="true"] {
+    background: #4CAF50;
+}
+
+.toggle-slider {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 20px;
+    height: 20px;
+    background: white;
+    border-radius: 50%;
+    transition: transform 0.2s;
+}
+
+.toggle-switch[aria-checked="true"] .toggle-slider {
+    transform: translateX(26px);
+}
+
+.toggle-switch:focus {
+    outline: 2px solid #0066cc;
+    outline-offset: 2px;
+}
+</style>
+
+<script>
+document.querySelectorAll('[role="switch"]').forEach(toggle => {
+    toggle.addEventListener('click', function() {
+        const checked = this.getAttribute('aria-checked') === 'true';
+        this.setAttribute('aria-checked', !checked);
+    });
+    
+    toggle.addEventListener('keydown', function(e) {
+        if (e.key === ' ' || e.key === 'Enter') {
+            e.preventDefault();
+            this.click();
+        }
+    });
+});
+</script>
+```
+
+---
+
+### Q15.3: How to Test for Accessibility?
+
+**Answer:**
+
+**1. Automated Testing Tools:**
+
+```html
+<!-- Include axe-core for automated testing -->
+<script src="https://cdn.jsdelivr.net/npm/axe-core@4.7.0/axe.min.js"></script>
+<script>
+// Run accessibility audit
+axe.run()
+    .then(results => {
+        if (results.violations.length) {
+            console.error('Accessibility violations:', results.violations);
+        } else {
+            console.log('No accessibility violations found!');
+        }
+    })
+    .catch(err => console.error('Error running axe:', err));
+</script>
+```
+
+**2. Manual Testing Checklist:**
+
+```html
+<!-- Keyboard Testing Checklist -->
+<!--
+✓ Can you navigate to all interactive elements using Tab?
+✓ Can you operate all controls with keyboard only?
+✓ Is the focus indicator visible?
+✓ Does Tab order make logical sense?
+✓ Can you close modals/menus with Escape?
+✓ Are skip links working?
+-->
+
+<!-- Screen Reader Testing -->
+<!--
+✓ Test with NVDA (Windows), JAWS (Windows), VoiceOver (Mac/iOS), TalkBack (Android)
+✓ Are images described properly?
+✓ Do form fields have proper labels?
+✓ Are headings in logical order?
+✓ Are landmarks announced correctly?
+✓ Is dynamic content announced?
+-->
+
+<!-- Visual Testing -->
+<!--
+✓ Zoom to 200% - is content still usable?
+✓ Check color contrast (4.5:1 for normal text, 3:1 for large text)
+✓ Test with grayscale - is information conveyed without color?
+✓ Test with different viewport sizes
+✓ Check for text spacing issues
+-->
+```
+
+**3. Browser DevTools Audits:**
+
+```javascript
+// Run Lighthouse accessibility audit programmatically
+// Chrome DevTools → Lighthouse → Accessibility
+// Or use lighthouse CLI:
+// npx lighthouse https://example.com --only-categories=accessibility
+```
+
+**4. Accessibility Testing Script:**
+
+```html
+<script>
+// Simple accessibility checker
+function checkAccessibility() {
+    const issues = [];
+    
+    // Check for images without alt text
+    document.querySelectorAll('img:not([alt])').forEach(img => {
+        issues.push(`Image missing alt text: ${img.src}`);
+    });
+    
+    // Check for empty links
+    document.querySelectorAll('a:empty').forEach(link => {
+        issues.push(`Empty link found: ${link.href}`);
+    });
+    
+    // Check for inputs without labels
+    document.querySelectorAll('input:not([aria-label]):not([aria-labelledby])').forEach(input => {
+        if (!input.id || !document.querySelector(`label[for="${input.id}"]`)) {
+            issues.push(`Input without label: ${input.name || input.type}`);
+        }
+    });
+    
+    // Check for buttons without text
+    document.querySelectorAll('button').forEach(button => {
+        if (!button.textContent.trim() && !button.getAttribute('aria-label')) {
+            issues.push('Button without accessible name');
+        }
+    });
+    
+    // Check heading hierarchy
+    const headings = document.querySelectorAll('h1, h2, h3, h4, h5, h6');
+    let lastLevel = 0;
+    headings.forEach(heading => {
+        const level = parseInt(heading.tagName[1]);
+        if (level - lastLevel > 1) {
+            issues.push(`Heading hierarchy skipped from h${lastLevel} to h${level}`);
+        }
+        lastLevel = level;
+    });
+    
+    // Report results
+    if (issues.length) {
+        console.error('Accessibility Issues Found:', issues);
+    } else {
+        console.log('No obvious accessibility issues found!');
+    }
+    
+    return issues;
+}
+
+// Run on page load
+window.addEventListener('load', checkAccessibility);
+</script>
+```
+
+**5. WCAG Compliance Checklist:**
+
+```html
+<!-- Level A (Minimum) -->
+<!--
+✓ Non-text content has text alternative
+✓ Captions for audio/video
+✓ Color not used as only visual means
+✓ Audio control available
+✓ Keyboard accessible
+✓ Enough time to read content
+✓ No seizure-inducing flashing
+✓ Skip navigation links
+✓ Page titled properly
+✓ Logical focus order
+✓ Link purpose clear from text
+✓ Language of page specified
+✓ On focus doesn't change context
+✓ Consistent navigation
+✓ Error identification
+✓ Labels or instructions for inputs
+✓ Valid HTML (parse without errors)
+-->
+
+<!-- Level AA (Mid-range) - Most Common -->
+<!--
+✓ Captions for live audio
+✓ Audio descriptions for video
+✓ Color contrast ratio 4.5:1 (3:1 for large text)
+✓ Text can be resized 200%
+✓ Images of text avoided (when possible)
+✓ Multiple ways to find pages
+✓ Headings and labels descriptive
+✓ Visible keyboard focus
+✓ On input doesn't change context
+✓ Consistent identification
+✓ Error suggestions provided
+✓ Error prevention for legal/financial
+-->
+
+<!-- Level AAA (Enhanced) -->
+<!--
+✓ Sign language for audio
+✓ Extended audio descriptions
+✓ Audio-only alternative
+✓ Color contrast ratio 7:1 (4.5:1 for large)
+✓ No background audio
+✓ Text spacing customizable
+✓ Content on hover/focus controllable
+✓ Section headings used
+✓ Unusual words explained
+✓ Abbreviations explained
+✓ Reading level (lower secondary education)
+✓ Context-sensitive help available
+-->
+</html>
+```
+
+---
+
+### Q15.4: Common Accessibility Patterns and Solutions
+
+**Answer:**
+
+**1. Accessible Data Tables:**
+
+```html
+<!-- Complex table with proper structure -->
+<table>
+    <caption>
+        Quarterly Sales Report 2026
+        <details>
+            <summary>Table description</summary>
+            <p>This table shows sales figures for each region across quarters...</p>
+        </details>
+    </caption>
+    
+    <thead>
+        <tr>
+            <th scope="col">Region</th>
+            <th scope="col">Q1</th>
+            <th scope="col">Q2</th>
+            <th scope="col">Q3</th>
+            <th scope="col">Q4</th>
+            <th scope="col">Total</th>
+        </tr>
+    </thead>
+    
+    <tbody>
+        <tr>
+            <th scope="row">North</th>
+            <td>$10,000</td>
+            <td>$12,000</td>
+            <td>$15,000</td>
+            <td>$18,000</td>
+            <th scope="row">$55,000</th>
+        </tr>
+        <tr>
+            <th scope="row">South</th>
+            <td>$8,000</td>
+            <td>$9,000</td>
+            <td>$11,000</td>
+            <td>$13,000</td>
+            <th scope="row">$41,000</th>
+        </tr>
+    </tbody>
+    
+    <tfoot>
+        <tr>
+            <th scope="row">Grand Total</th>
+            <td>$18,000</td>
+            <td>$21,000</td>
+            <td>$26,000</td>
+            <td>$31,000</td>
+            <th scope="row">$96,000</th>
+        </tr>
+    </tfoot>
+</table>
+
+<!-- Sortable table with accessibility -->
+<table>
+    <thead>
+        <tr>
+            <th scope="col">
+                <button aria-sort="ascending" onclick="sort('name')">
+                    Name
+                    <span aria-hidden="true">↑</span>
+                </button>
+            </th>
+            <th scope="col">
+                <button aria-sort="none" onclick="sort('age')">
+                    Age
+                    <span aria-hidden="true"></span>
+                </button>
+            </th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>Alice</td>
+            <td>30</td>
+        </tr>
+    </tbody>
+</table>
+```
+
+**2. Accessible Forms with Error Handling:**
+
+```html
+<form novalidate>
+    <div class="form-group">
+        <label for="email">
+            Email Address
+            <span aria-label="required">*</span>
+        </label>
+        <input type="email" 
+               id="email" 
+               name="email"
+               required
+               aria-required="true"
+               aria-invalid="false"
+               aria-describedby="email-desc email-error">
+        <small id="email-desc">We'll never share your email</small>
+        <span id="email-error" 
+              role="alert" 
+              class="error-message" 
+              aria-live="polite"></span>
+    </div>
+    
+    <fieldset>
+        <legend>
+            Subscription Plan
+            <span aria-label="required">*</span>
+        </legend>
+        <div role="radiogroup" aria-required="true">
+            <label>
+                <input type="radio" 
+                       name="plan" 
+                       value="free" 
+                       checked
+                       aria-describedby="plan-desc">
+                Free Plan
+            </label>
+            <label>
+                <input type="radio" 
+                       name="plan" 
+                       value="pro"
+                       aria-describedby="plan-desc">
+                Pro Plan ($9.99/month)
+            </label>
+        </div>
+        <small id="plan-desc">Choose the plan that works for you</small>
+    </fieldset>
+    
+    <div class="form-group">
+        <label for="password">
+            Password
+            <span aria-label="required">*</span>
+        </label>
+        <input type="password" 
+               id="password" 
+               name="password"
+               required
+               minlength="8"
+               aria-required="true"
+               aria-invalid="false"
+               aria-describedby="password-requirements password-error">
+        <ul id="password-requirements">
+            <li>At least 8 characters</li>
+            <li>One uppercase letter</li>
+            <li>One number</li>
+        </ul>
+        <span id="password-error" 
+              role="alert" 
+              class="error-message" 
+              aria-live="polite"></span>
+    </div>
+    
+    <button type="submit">Register</button>
+</form>
+
+<script>
+const form = document.querySelector('form');
+form.addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    let isValid = true;
+    
+    // Validate email
+    const emailInput = document.getElementById('email');
+    const emailError = document.getElementById('email-error');
+    
+    if (!emailInput.value) {
+        emailInput.setAttribute('aria-invalid', 'true');
+        emailError.textContent = 'Email is required';
+        isValid = false;
+    } else if (!emailInput.validity.valid) {
+        emailInput.setAttribute('aria-invalid', 'true');
+        emailError.textContent = 'Please enter a valid email address';
+        isValid = false;
+    } else {
+        emailInput.setAttribute('aria-invalid', 'false');
+        emailError.textContent = '';
+    }
+    
+    // Validate password
+    const passwordInput = document.getElementById('password');
+    const passwordError = document.getElementById('password-error');
+    
+    if (!passwordInput.value) {
+        passwordInput.setAttribute('aria-invalid', 'true');
+        passwordError.textContent = 'Password is required';
+        isValid = false;
+    } else if (passwordInput.value.length < 8) {
+        passwordInput.setAttribute('aria-invalid', 'true');
+        passwordError.textContent = 'Password must be at least 8 characters';
+        isValid = false;
+    } else {
+        passwordInput.setAttribute('aria-invalid', 'false');
+        passwordError.textContent = '';
+    }
+    
+    if (isValid) {
+        // Submit form
+        console.log('Form is valid!');
+    } else {
+        // Focus first invalid field
+        const firstInvalid = form.querySelector('[aria-invalid="true"]');
+        if (firstInvalid) {
+            firstInvalid.focus();
+        }
+    }
+});
+
+// Real-time validation feedback
+form.querySelectorAll('input').forEach(input => {
+    input.addEventListener('blur', function() {
+        // Trigger validation on blur
+        form.dispatchEvent(new Event('submit'));
+    });
+});
+</script>
+```
+
+**3. Accessible Carousel/Slider:**
+
+```html
+<section aria-roledescription="carousel" aria-label="Featured Products">
+    <div class="carousel-controls">
+        <button aria-label="Previous slide" onclick="prevSlide()">
+            ← Previous
+        </button>
+        <button aria-label="Pause auto-play" 
+                aria-pressed="false" 
+                id="pause-btn"
+                onclick="toggleAutoPlay()">
+            Pause
+        </button>
+        <button aria-label="Next slide" onclick="nextSlide()">
+            Next →
+        </button>
+    </div>
+    
+    <div class="carousel-slides">
+        <article class="slide" 
+                 role="group" 
+                 aria-roledescription="slide"
+                 aria-label="Slide 1 of 3">
+            <img src="product1.jpg" alt="Product 1 description">
+            <h3>Product 1</h3>
+            <p>Description...</p>
+        </article>
+        
+        <article class="slide" 
+                 role="group" 
+                 aria-roledescription="slide"
+                 aria-label="Slide 2 of 3"
+                 hidden>
+            <img src="product2.jpg" alt="Product 2 description">
+            <h3>Product 2</h3>
+            <p>Description...</p>
+        </article>
+        
+        <article class="slide" 
+                 role="group" 
+                 aria-roledescription="slide"
+                 aria-label="Slide 3 of 3"
+                 hidden>
+            <img src="product3.jpg" alt="Product 3 description">
+            <h3>Product 3</h3>
+            <p>Description...</p>
+        </article>
+    </div>
+    
+    <div class="carousel-indicators" role="group" aria-label="Slide navigation">
+        <button aria-label="Go to slide 1" 
+                aria-current="true"
+                onclick="goToSlide(0)"></button>
+        <button aria-label="Go to slide 2" 
+                onclick="goToSlide(1)"></button>
+        <button aria-label="Go to slide 3" 
+                onclick="goToSlide(2)"></button>
+    </div>
+</section>
+
+<script>
+let currentSlide = 0;
+let autoPlayInterval;
+let isAutoPlaying = true;
+
+function showSlide(index) {
+    const slides = document.querySelectorAll('.slide');
+    const indicators = document.querySelectorAll('.carousel-indicators button');
+    
+    slides.forEach((slide, i) => {
+        slide.hidden = i !== index;
+    });
+    
+    indicators.forEach((indicator, i) => {
+        indicator.setAttribute('aria-current', i === index);
+    });
+    
+    currentSlide = index;
+    
+    // Announce slide change to screen readers
+    const liveRegion = document.getElementById('carousel-live-region');
+    if (liveRegion) {
+        liveRegion.textContent = `Slide ${index + 1} of ${slides.length}`;
+    }
+}
+
+function nextSlide() {
+    const slides = document.querySelectorAll('.slide');
+    showSlide((currentSlide + 1) % slides.length);
+}
+
+function prevSlide() {
+    const slides = document.querySelectorAll('.slide');
+    showSlide((currentSlide - 1 + slides.length) % slides.length);
+}
+
+function goToSlide(index) {
+    showSlide(index);
+    stopAutoPlay();
+}
+
+function toggleAutoPlay() {
+    const btn = document.getElementById('pause-btn');
+    if (isAutoPlaying) {
+        stopAutoPlay();
+        btn.setAttribute('aria-pressed', 'true');
+        btn.textContent = 'Play';
+        btn.setAttribute('aria-label', 'Resume auto-play');
+    } else {
+        startAutoPlay();
+        btn.setAttribute('aria-pressed', 'false');
+        btn.textContent = 'Pause';
+        btn.setAttribute('aria-label', 'Pause auto-play');
+    }
+}
+
+function startAutoPlay() {
+    autoPlayInterval = setInterval(nextSlide, 5000);
+    isAutoPlaying = true;
+}
+
+function stopAutoPlay() {
+    clearInterval(autoPlayInterval);
+    isAutoPlaying = false;
+}
+
+// Pause on hover/focus
+document.querySelector('[aria-roledescription="carousel"]')
+    .addEventListener('mouseenter', stopAutoPlay);
+
+document.querySelector('[aria-roledescription="carousel"]')
+    .addEventListener('mouseleave', function() {
+        if (document.getElementById('pause-btn').getAttribute('aria-pressed') === 'false') {
+            startAutoPlay();
+        }
+    });
+
+// Add live region for announcements
+const liveRegion = document.createElement('div');
+liveRegion.id = 'carousel-live-region';
+liveRegion.setAttribute('aria-live', 'polite');
+liveRegion.setAttribute('aria-atomic', 'true');
+liveRegion.style.position = 'absolute';
+liveRegion.style.left = '-10000px';
+document.body.appendChild(liveRegion);
+
+// Start auto-play
+startAutoPlay();
+</script>
+```
+
+---
+
+
+
 ## SEO & Meta Tags
 
 ### Q16: What are the essential meta tags for SEO?

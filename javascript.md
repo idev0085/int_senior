@@ -2796,3 +2796,1153 @@ function encrypt(text, key) {
 ```
 
 This comprehensive JavaScript guide covers 50 essential questions from basics to architect-level concepts. Each answer includes detailed explanations and practical code examples to help you master JavaScript interviews!
+
+---
+
+## Design Principles
+
+### Q51: What are SOLID Principles in JavaScript?
+
+**Answer:**
+
+SOLID is a set of five design principles that make software more maintainable, flexible, and scalable. While originally for OOP, they apply to JavaScript too.
+
+**The Five Principles:**
+1. **S**ingle Responsibility Principle
+2. **O**pen/Closed Principle
+3. **L**iskov Substitution Principle
+4. **I**nterface Segregation Principle
+5. **D**ependency Inversion Principle
+
+---
+
+### Q51.1: Single Responsibility Principle (SRP)
+
+**Definition:** A class/module should have only one reason to change. Each class should have a single responsibility.
+
+**❌ Bad Example - Multiple Responsibilities:**
+
+```javascript
+class User {
+  constructor(name, email) {
+    this.name = name;
+    this.email = email;
+  }
+  
+  // User data management
+  getUserInfo() {
+    return `${this.name} (${this.email})`;
+  }
+  
+  // Database operations (different responsibility!)
+  save() {
+    const db = new Database();
+    db.insert('users', {
+      name: this.name,
+      email: this.email
+    });
+  }
+  
+  // Email operations (another different responsibility!)
+  sendEmail(subject, message) {
+    const emailService = new EmailService();
+    emailService.send(this.email, subject, message);
+  }
+  
+  // Logging (yet another responsibility!)
+  log() {
+    console.log(`User action: ${this.name}`);
+  }
+}
+
+// Problems:
+// - If DB changes, User class must change
+// - If email service changes, User class must change
+// - If logging format changes, User class must change
+// - Hard to test individual responsibilities
+```
+
+**✅ Good Example - Single Responsibility:**
+
+```javascript
+// 1. User class - Only manages user data
+class User {
+  constructor(name, email) {
+    this.name = name;
+    this.email = email;
+  }
+  
+  getUserInfo() {
+    return `${this.name} (${this.email})`;
+  }
+  
+  validate() {
+    if (!this.name || !this.email) {
+      throw new Error('Invalid user data');
+    }
+    return true;
+  }
+}
+
+// 2. UserRepository - Only handles database operations
+class UserRepository {
+  constructor(database) {
+    this.db = database;
+  }
+  
+  save(user) {
+    return this.db.insert('users', {
+      name: user.name,
+      email: user.email
+    });
+  }
+  
+  findById(id) {
+    return this.db.findOne('users', { id });
+  }
+  
+  delete(id) {
+    return this.db.remove('users', { id });
+  }
+}
+
+// 3. EmailService - Only handles email sending
+class EmailService {
+  constructor(emailProvider) {
+    this.provider = emailProvider;
+  }
+  
+  sendWelcomeEmail(user) {
+    return this.provider.send({
+      to: user.email,
+      subject: 'Welcome!',
+      body: `Hello ${user.name}, welcome to our platform!`
+    });
+  }
+  
+  sendPasswordReset(user, resetLink) {
+    return this.provider.send({
+      to: user.email,
+      subject: 'Password Reset',
+      body: `Click here to reset: ${resetLink}`
+    });
+  }
+}
+
+// 4. Logger - Only handles logging
+class Logger {
+  log(level, message, metadata = {}) {
+    const timestamp = new Date().toISOString();
+    console.log(`[${timestamp}] [${level}] ${message}`, metadata);
+  }
+  
+  info(message, metadata) {
+    this.log('INFO', message, metadata);
+  }
+  
+  error(message, metadata) {
+    this.log('ERROR', message, metadata);
+  }
+}
+
+// Usage - Each class has a single, well-defined responsibility
+const user = new User('John Doe', 'john@example.com');
+const userRepo = new UserRepository(database);
+const emailService = new EmailService(emailProvider);
+const logger = new Logger();
+
+user.validate();
+userRepo.save(user);
+emailService.sendWelcomeEmail(user);
+logger.info('User registered', { userId: user.id });
+```
+
+**Benefits:**
+- ✅ Easier to understand and maintain
+- ✅ Each class can be tested independently
+- ✅ Changes in one area don't affect others
+- ✅ Easier to reuse components
+
+---
+
+### Q51.2: Open/Closed Principle (OCP)
+
+**Definition:** Software entities should be open for extension but closed for modification. Add new functionality without changing existing code.
+
+**❌ Bad Example - Modification Required:**
+
+```javascript
+class PaymentProcessor {
+  processPayment(amount, type) {
+    if (type === 'credit-card') {
+      console.log(`Processing credit card payment: $${amount}`);
+      // Credit card logic
+    } else if (type === 'paypal') {
+      console.log(`Processing PayPal payment: $${amount}`);
+      // PayPal logic
+    } else if (type === 'bitcoin') {
+      console.log(`Processing Bitcoin payment: $${amount}`);
+      // Bitcoin logic
+    }
+    // Adding new payment method requires modifying this class!
+  }
+}
+
+// Problem: To add a new payment method (e.g., Stripe),
+// we must modify the PaymentProcessor class
+```
+
+**✅ Good Example - Extension Without Modification:**
+
+```javascript
+// Base interface/class
+class PaymentMethod {
+  process(amount) {
+    throw new Error('process() must be implemented');
+  }
+}
+
+// Concrete implementations
+class CreditCardPayment extends PaymentMethod {
+  constructor(cardNumber, cvv) {
+    super();
+    this.cardNumber = cardNumber;
+    this.cvv = cvv;
+  }
+  
+  process(amount) {
+    console.log(`Processing credit card payment: $${amount}`);
+    // Credit card specific logic
+    return {
+      success: true,
+      transactionId: 'CC-' + Date.now(),
+      method: 'Credit Card'
+    };
+  }
+}
+
+class PayPalPayment extends PaymentMethod {
+  constructor(email) {
+    super();
+    this.email = email;
+  }
+  
+  process(amount) {
+    console.log(`Processing PayPal payment: $${amount}`);
+    // PayPal specific logic
+    return {
+      success: true,
+      transactionId: 'PP-' + Date.now(),
+      method: 'PayPal'
+    };
+  }
+}
+
+class BitcoinPayment extends PaymentMethod {
+  constructor(walletAddress) {
+    super();
+    this.walletAddress = walletAddress;
+  }
+  
+  process(amount) {
+    console.log(`Processing Bitcoin payment: $${amount}`);
+    // Bitcoin specific logic
+    return {
+      success: true,
+      transactionId: 'BTC-' + Date.now(),
+      method: 'Bitcoin'
+    };
+  }
+}
+
+// Adding new payment method WITHOUT modifying existing code
+class StripePayment extends PaymentMethod {
+  constructor(token) {
+    super();
+    this.token = token;
+  }
+  
+  process(amount) {
+    console.log(`Processing Stripe payment: $${amount}`);
+    // Stripe specific logic
+    return {
+      success: true,
+      transactionId: 'STRIPE-' + Date.now(),
+      method: 'Stripe'
+    };
+  }
+}
+
+// Payment processor - never needs modification
+class PaymentProcessor {
+  processPayment(paymentMethod, amount) {
+    return paymentMethod.process(amount);
+  }
+}
+
+// Usage
+const processor = new PaymentProcessor();
+
+const creditCard = new CreditCardPayment('1234-5678', '123');
+processor.processPayment(creditCard, 100);
+
+const paypal = new PayPalPayment('user@example.com');
+processor.processPayment(paypal, 200);
+
+const stripe = new StripePayment('tok_123456');
+processor.processPayment(stripe, 300);
+```
+
+**Another Example - Discount System:**
+
+```javascript
+// ❌ Bad - Requires modification
+class PriceCalculator {
+  calculateDiscount(price, customerType) {
+    if (customerType === 'regular') {
+      return price * 0.05; // 5% discount
+    } else if (customerType === 'premium') {
+      return price * 0.10; // 10% discount
+    } else if (customerType === 'vip') {
+      return price * 0.20; // 20% discount
+    }
+  }
+}
+
+// ✅ Good - Open for extension
+class DiscountStrategy {
+  calculate(price) {
+    throw new Error('calculate() must be implemented');
+  }
+}
+
+class RegularDiscount extends DiscountStrategy {
+  calculate(price) {
+    return price * 0.05; // 5% discount
+  }
+}
+
+class PremiumDiscount extends DiscountStrategy {
+  calculate(price) {
+    return price * 0.10; // 10% discount
+  }
+}
+
+class VIPDiscount extends DiscountStrategy {
+  calculate(price) {
+    return price * 0.20; // 20% discount
+  }
+}
+
+// Add new discount type without modifying existing code
+class BlackFridayDiscount extends DiscountStrategy {
+  calculate(price) {
+    return price * 0.50; // 50% discount
+  }
+}
+
+class PriceCalculator {
+  constructor(discountStrategy) {
+    this.discountStrategy = discountStrategy;
+  }
+  
+  setDiscountStrategy(strategy) {
+    this.discountStrategy = strategy;
+  }
+  
+  calculateFinalPrice(price) {
+    const discount = this.discountStrategy.calculate(price);
+    return price - discount;
+  }
+}
+
+// Usage
+const calculator = new PriceCalculator(new RegularDiscount());
+console.log(calculator.calculateFinalPrice(100)); // 95
+
+calculator.setDiscountStrategy(new VIPDiscount());
+console.log(calculator.calculateFinalPrice(100)); // 80
+
+calculator.setDiscountStrategy(new BlackFridayDiscount());
+console.log(calculator.calculateFinalPrice(100)); // 50
+```
+
+---
+
+### Q51.3: Liskov Substitution Principle (LSP)
+
+**Definition:** Objects of a superclass should be replaceable with objects of a subclass without breaking the application. Derived classes must be substitutable for their base classes.
+
+**❌ Bad Example - Violates LSP:**
+
+```javascript
+class Bird {
+  fly() {
+    console.log('Flying...');
+  }
+}
+
+class Sparrow extends Bird {
+  fly() {
+    console.log('Sparrow flying...');
+  }
+}
+
+class Penguin extends Bird {
+  fly() {
+    // Penguins can't fly!
+    throw new Error('Penguins cannot fly!');
+  }
+}
+
+function makeBirdFly(bird) {
+  bird.fly(); // Expects all birds to fly
+}
+
+const sparrow = new Sparrow();
+makeBirdFly(sparrow); // ✅ Works
+
+const penguin = new Penguin();
+makeBirdFly(penguin); // ❌ Throws error! Violates LSP
+```
+
+**✅ Good Example - Follows LSP:**
+
+```javascript
+// Base class with common behavior
+class Bird {
+  constructor(name) {
+    this.name = name;
+  }
+  
+  eat() {
+    console.log(`${this.name} is eating`);
+  }
+  
+  makeSound() {
+    console.log(`${this.name} makes a sound`);
+  }
+}
+
+// Separate interface for flying birds
+class FlyingBird extends Bird {
+  fly() {
+    console.log(`${this.name} is flying`);
+  }
+}
+
+// Separate interface for swimming birds
+class SwimmingBird extends Bird {
+  swim() {
+    console.log(`${this.name} is swimming`);
+  }
+}
+
+class Sparrow extends FlyingBird {
+  makeSound() {
+    console.log('Sparrow: Chirp chirp!');
+  }
+}
+
+class Eagle extends FlyingBird {
+  makeSound() {
+    console.log('Eagle: Screech!');
+  }
+}
+
+class Penguin extends SwimmingBird {
+  makeSound() {
+    console.log('Penguin: Honk honk!');
+  }
+}
+
+// Functions that work with appropriate types
+function makeFlyingBirdFly(bird) {
+  if (bird instanceof FlyingBird) {
+    bird.fly();
+  }
+}
+
+function makeBirdEat(bird) {
+  bird.eat(); // All birds can eat
+}
+
+// Usage
+const sparrow = new Sparrow('Sparrow');
+const penguin = new Penguin('Penguin');
+
+makeBirdEat(sparrow);  // ✅ Works
+makeBirdEat(penguin);  // ✅ Works
+
+makeFlyingBirdFly(sparrow);  // ✅ Works
+// makeFlyingBirdFly(penguin); // Won't compile/will be caught by TypeScript
+```
+
+**Another Example - Rectangle/Square Problem:**
+
+```javascript
+// ❌ Bad - Square violates LSP
+class Rectangle {
+  constructor(width, height) {
+    this.width = width;
+    this.height = height;
+  }
+  
+  setWidth(width) {
+    this.width = width;
+  }
+  
+  setHeight(height) {
+    this.height = height;
+  }
+  
+  getArea() {
+    return this.width * this.height;
+  }
+}
+
+class Square extends Rectangle {
+  setWidth(width) {
+    this.width = width;
+    this.height = width; // Square must have equal sides
+  }
+  
+  setHeight(height) {
+    this.width = height; // Square must have equal sides
+    this.height = height;
+  }
+}
+
+function testRectangle(rectangle) {
+  rectangle.setWidth(5);
+  rectangle.setHeight(4);
+  console.log(`Expected: 20, Got: ${rectangle.getArea()}`);
+  // Works for Rectangle (20), fails for Square (16)
+}
+
+// ✅ Good - Separate classes
+class Shape {
+  getArea() {
+    throw new Error('getArea() must be implemented');
+  }
+}
+
+class Rectangle extends Shape {
+  constructor(width, height) {
+    super();
+    this.width = width;
+    this.height = height;
+  }
+  
+  setWidth(width) {
+    this.width = width;
+  }
+  
+  setHeight(height) {
+    this.height = height;
+  }
+  
+  getArea() {
+    return this.width * this.height;
+  }
+}
+
+class Square extends Shape {
+  constructor(side) {
+    super();
+    this.side = side;
+  }
+  
+  setSide(side) {
+    this.side = side;
+  }
+  
+  getArea() {
+    return this.side * this.side;
+  }
+}
+
+// Now each can be used correctly
+const rect = new Rectangle(5, 4);
+console.log(rect.getArea()); // 20
+
+const square = new Square(5);
+console.log(square.getArea()); // 25
+```
+
+---
+
+### Q51.4: Interface Segregation Principle (ISP)
+
+**Definition:** Clients should not be forced to depend on interfaces they don't use. Create specific interfaces instead of one general-purpose interface.
+
+**❌ Bad Example - Fat Interface:**
+
+```javascript
+class Worker {
+  work() {
+    throw new Error('Must implement work()');
+  }
+  
+  eat() {
+    throw new Error('Must implement eat()');
+  }
+  
+  sleep() {
+    throw new Error('Must implement sleep()');
+  }
+}
+
+class HumanWorker extends Worker {
+  work() {
+    console.log('Human working...');
+  }
+  
+  eat() {
+    console.log('Human eating...');
+  }
+  
+  sleep() {
+    console.log('Human sleeping...');
+  }
+}
+
+class RobotWorker extends Worker {
+  work() {
+    console.log('Robot working...');
+  }
+  
+  eat() {
+    // Robots don't eat!
+    throw new Error('Robots do not eat');
+  }
+  
+  sleep() {
+    // Robots don't sleep!
+    throw new Error('Robots do not sleep');
+  }
+}
+
+// Problem: Robot is forced to implement methods it doesn't need
+```
+
+**✅ Good Example - Segregated Interfaces:**
+
+```javascript
+// Separate interfaces for different capabilities
+class Workable {
+  work() {
+    throw new Error('Must implement work()');
+  }
+}
+
+class Eatable {
+  eat() {
+    throw new Error('Must implement eat()');
+  }
+}
+
+class Sleepable {
+  sleep() {
+    throw new Error('Must implement sleep()');
+  }
+}
+
+// Human implements all three
+class HumanWorker extends Workable {
+  work() {
+    console.log('Human working...');
+  }
+}
+
+class HumanEater extends Eatable {
+  eat() {
+    console.log('Human eating...');
+  }
+}
+
+class HumanSleeper extends Sleepable {
+  sleep() {
+    console.log('Human sleeping...');
+  }
+}
+
+// Composition for Human
+class Human {
+  constructor() {
+    this.worker = new HumanWorker();
+    this.eater = new HumanEater();
+    this.sleeper = new HumanSleeper();
+  }
+  
+  work() {
+    this.worker.work();
+  }
+  
+  eat() {
+    this.eater.eat();
+  }
+  
+  sleep() {
+    this.sleeper.sleep();
+  }
+}
+
+// Robot only implements what it needs
+class RobotWorker extends Workable {
+  work() {
+    console.log('Robot working...');
+  }
+}
+
+class Robot {
+  constructor() {
+    this.worker = new RobotWorker();
+  }
+  
+  work() {
+    this.worker.work();
+  }
+  
+  // No eat() or sleep() methods - robots don't need them!
+}
+
+// Usage
+const human = new Human();
+human.work();
+human.eat();
+human.sleep();
+
+const robot = new Robot();
+robot.work();
+// robot.eat();  // Not available - robots don't eat!
+// robot.sleep(); // Not available - robots don't sleep!
+```
+
+**Another Example - Multi-Function Printer:**
+
+```javascript
+// ❌ Bad - One large interface
+class Machine {
+  print() {}
+  scan() {}
+  fax() {}
+  staple() {}
+}
+
+class OldPrinter extends Machine {
+  print() {
+    console.log('Printing...');
+  }
+  
+  scan() {
+    throw new Error('This printer cannot scan');
+  }
+  
+  fax() {
+    throw new Error('This printer cannot fax');
+  }
+  
+  staple() {
+    throw new Error('This printer cannot staple');
+  }
+}
+
+// ✅ Good - Segregated interfaces
+class Printer {
+  print(document) {
+    throw new Error('Must implement print()');
+  }
+}
+
+class Scanner {
+  scan(document) {
+    throw new Error('Must implement scan()');
+  }
+}
+
+class FaxMachine {
+  fax(document) {
+    throw new Error('Must implement fax()');
+  }
+}
+
+// Simple printer only implements what it needs
+class SimplePrinter extends Printer {
+  print(document) {
+    console.log(`Printing: ${document}`);
+  }
+}
+
+// Modern multi-function printer implements multiple interfaces
+class MultiFunctionPrinter {
+  constructor() {
+    this.printer = new PrinterImpl();
+    this.scanner = new ScannerImpl();
+    this.fax = new FaxImpl();
+  }
+  
+  print(document) {
+    this.printer.print(document);
+  }
+  
+  scan(document) {
+    this.scanner.scan(document);
+  }
+  
+  fax(document) {
+    this.fax.fax(document);
+  }
+}
+
+class PrinterImpl extends Printer {
+  print(document) {
+    console.log(`Printing: ${document}`);
+  }
+}
+
+class ScannerImpl extends Scanner {
+  scan(document) {
+    console.log(`Scanning: ${document}`);
+  }
+}
+
+class FaxImpl extends FaxMachine {
+  fax(document) {
+    console.log(`Faxing: ${document}`);
+  }
+}
+```
+
+---
+
+### Q51.5: Dependency Inversion Principle (DIP)
+
+**Definition:** 
+- High-level modules should not depend on low-level modules. Both should depend on abstractions.
+- Abstractions should not depend on details. Details should depend on abstractions.
+
+**❌ Bad Example - Direct Dependency:**
+
+```javascript
+// Low-level module
+class MySQLDatabase {
+  connect() {
+    console.log('Connecting to MySQL...');
+  }
+  
+  query(sql) {
+    console.log(`Executing MySQL query: ${sql}`);
+    return [];
+  }
+}
+
+// High-level module directly depends on low-level module
+class UserRepository {
+  constructor() {
+    this.database = new MySQLDatabase(); // Tight coupling!
+  }
+  
+  getUsers() {
+    this.database.connect();
+    return this.database.query('SELECT * FROM users');
+  }
+}
+
+// Problems:
+// - Cannot switch to PostgreSQL without modifying UserRepository
+// - Hard to test (cannot mock the database)
+// - Tight coupling between layers
+```
+
+**✅ Good Example - Dependency Injection:**
+
+```javascript
+// Abstraction (Interface)
+class Database {
+  connect() {
+    throw new Error('connect() must be implemented');
+  }
+  
+  query(sql) {
+    throw new Error('query() must be implemented');
+  }
+}
+
+// Low-level modules (Details)
+class MySQLDatabase extends Database {
+  connect() {
+    console.log('Connecting to MySQL...');
+  }
+  
+  query(sql) {
+    console.log(`Executing MySQL query: ${sql}`);
+    return [{ id: 1, name: 'John' }];
+  }
+}
+
+class PostgreSQLDatabase extends Database {
+  connect() {
+    console.log('Connecting to PostgreSQL...');
+  }
+  
+  query(sql) {
+    console.log(`Executing PostgreSQL query: ${sql}`);
+    return [{ id: 1, name: 'Jane' }];
+  }
+}
+
+class MongoDatabase extends Database {
+  connect() {
+    console.log('Connecting to MongoDB...');
+  }
+  
+  query(filter) {
+    console.log(`Executing MongoDB query:`, filter);
+    return [{ _id: '123', name: 'Bob' }];
+  }
+}
+
+// High-level module depends on abstraction
+class UserRepository {
+  constructor(database) {
+    this.database = database; // Dependency injection!
+  }
+  
+  getUsers() {
+    this.database.connect();
+    return this.database.query('SELECT * FROM users');
+  }
+  
+  getUserById(id) {
+    this.database.connect();
+    return this.database.query(`SELECT * FROM users WHERE id = ${id}`);
+  }
+}
+
+// Usage - Easy to switch implementations
+const mysqlDb = new MySQLDatabase();
+const postgresDb = new PostgreSQLDatabase();
+const mongoDb = new MongoDatabase();
+
+// Can use any database implementation
+const userRepo1 = new UserRepository(mysqlDb);
+userRepo1.getUsers();
+
+const userRepo2 = new UserRepository(postgresDb);
+userRepo2.getUsers();
+
+const userRepo3 = new UserRepository(mongoDb);
+userRepo3.getUsers();
+
+// Easy to mock for testing
+class MockDatabase extends Database {
+  connect() {
+    console.log('Mock database connected');
+  }
+  
+  query(sql) {
+    return [{ id: 999, name: 'Test User' }];
+  }
+}
+
+const testRepo = new UserRepository(new MockDatabase());
+console.log(testRepo.getUsers());
+```
+
+**Another Example - Notification System:**
+
+```javascript
+// ❌ Bad - Direct dependency
+class EmailNotification {
+  send(message) {
+    console.log(`Sending email: ${message}`);
+  }
+}
+
+class OrderService {
+  constructor() {
+    this.notification = new EmailNotification(); // Tight coupling
+  }
+  
+  placeOrder(order) {
+    console.log('Order placed');
+    this.notification.send('Order confirmation');
+  }
+}
+
+// ✅ Good - Depends on abstraction
+class NotificationService {
+  send(message) {
+    throw new Error('send() must be implemented');
+  }
+}
+
+class EmailNotification extends NotificationService {
+  send(message) {
+    console.log(`📧 Email: ${message}`);
+  }
+}
+
+class SMSNotification extends NotificationService {
+  send(message) {
+    console.log(`📱 SMS: ${message}`);
+  }
+}
+
+class PushNotification extends NotificationService {
+  send(message) {
+    console.log(`🔔 Push: ${message}`);
+  }
+}
+
+class SlackNotification extends NotificationService {
+  send(message) {
+    console.log(`💬 Slack: ${message}`);
+  }
+}
+
+// High-level module depends on abstraction
+class OrderService {
+  constructor(notificationService) {
+    this.notification = notificationService; // Dependency injection
+  }
+  
+  placeOrder(order) {
+    console.log(`Processing order: ${order.id}`);
+    this.notification.send(`Order ${order.id} confirmed!`);
+  }
+}
+
+// Usage - Easy to switch notification methods
+const order = { id: '12345', total: 99.99 };
+
+const emailService = new OrderService(new EmailNotification());
+emailService.placeOrder(order);
+
+const smsService = new OrderService(new SMSNotification());
+smsService.placeOrder(order);
+
+const pushService = new OrderService(new PushNotification());
+pushService.placeOrder(order);
+
+// Multiple notifications
+class MultiNotificationService extends NotificationService {
+  constructor(...services) {
+    super();
+    this.services = services;
+  }
+  
+  send(message) {
+    this.services.forEach(service => service.send(message));
+  }
+}
+
+const multiNotification = new MultiNotificationService(
+  new EmailNotification(),
+  new SMSNotification(),
+  new PushNotification()
+);
+
+const multiService = new OrderService(multiNotification);
+multiService.placeOrder(order);
+// Sends via email, SMS, and push notification!
+```
+
+---
+
+### Q51.6: SOLID Principles Summary
+
+**Quick Reference:**
+
+| Principle | Definition | Key Benefit |
+|-----------|------------|-------------|
+| **Single Responsibility** | One class, one job | Easier to maintain and test |
+| **Open/Closed** | Open for extension, closed for modification | Add features without breaking existing code |
+| **Liskov Substitution** | Subtypes must be substitutable | Reliable inheritance hierarchies |
+| **Interface Segregation** | Many specific interfaces > one general | No forced unused methods |
+| **Dependency Inversion** | Depend on abstractions, not concrete classes | Flexible, testable, loosely coupled |
+
+**When to Apply SOLID:**
+
+```javascript
+// ✅ Apply SOLID when:
+// - Building large applications
+// - Code will be maintained long-term
+// - Multiple developers on the team
+// - Need testability
+// - Requirements change frequently
+
+// ⚠️ Consider trade-offs for:
+// - Small scripts
+// - Prototypes
+// - One-time use code
+// - Very simple applications
+```
+
+**Real-World Example - E-commerce System:**
+
+```javascript
+// Single Responsibility
+class Product {
+  constructor(id, name, price) {
+    this.id = id;
+    this.name = name;
+    this.price = price;
+  }
+}
+
+class ProductRepository {
+  save(product) { /* DB logic */ }
+  findById(id) { /* DB logic */ }
+}
+
+// Open/Closed
+class PaymentProcessor {
+  process(paymentMethod, amount) {
+    return paymentMethod.charge(amount);
+  }
+}
+
+// Liskov Substitution
+class PaymentMethod {
+  charge(amount) { throw new Error('Must implement'); }
+}
+
+class CreditCard extends PaymentMethod {
+  charge(amount) { /* CC logic */ }
+}
+
+// Interface Segregation
+class Shippable {
+  ship() { throw new Error('Must implement'); }
+}
+
+class Trackable {
+  track() { throw new Error('Must implement'); }
+}
+
+// Dependency Inversion
+class OrderService {
+  constructor(repo, payment, logger) {
+    this.repo = repo;        // Injected
+    this.payment = payment;  // Injected
+    this.logger = logger;    // Injected
+  }
+  
+  createOrder(order) {
+    this.logger.log('Creating order');
+    this.repo.save(order);
+    this.payment.process(order.paymentMethod, order.total);
+  }
+}
+```
+
+**Benefits of Following SOLID:**
+- ✅ Maintainable code
+- ✅ Testable components
+- ✅ Flexible architecture
+- ✅ Reusable code
+- ✅ Easier refactoring
+- ✅ Better team collaboration
+- ✅ Reduced technical debt
