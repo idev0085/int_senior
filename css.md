@@ -1253,6 +1253,519 @@ h1 {
 
 ---
 
+### Q11: What are CSS units for fluid/responsive design (vw, vh, rem, em, etc.)?
+
+**Answer:**
+
+CSS units are essential for creating fluid, responsive designs. Understanding the difference between absolute and relative units is crucial.
+
+---
+
+#### **Absolute Units**
+
+**px (Pixels):**
+- Fixed size, doesn't scale
+- 1px = 1/96th of an inch
+- Good for: borders, small fixed elements
+
+```css
+.box {
+    width: 300px;        /* Fixed width */
+    border: 2px solid;   /* Fixed border */
+}
+```
+
+**Problems with px:**
+```css
+/* Not responsive - breaks on small screens */
+.container {
+    width: 1200px;  /* ❌ Too wide for mobile */
+    font-size: 16px; /* ❌ Doesn't respect user font size preferences */
+}
+```
+
+---
+
+#### **Relative Units - Font-Based**
+
+**em:**
+- Relative to **parent element's font-size**
+- Compounds when nested
+- 1em = current font size
+
+```css
+/* em Example */
+body {
+    font-size: 16px;
+}
+
+.parent {
+    font-size: 20px;  /* 20px */
+}
+
+.child {
+    font-size: 1.5em; /* 1.5 × 20px = 30px */
+    padding: 1em;     /* 1 × 30px = 30px (uses own font-size) */
+}
+
+.grandchild {
+    font-size: 1.2em; /* 1.2 × 30px = 36px (compounds!) */
+}
+```
+
+**em Use Cases:**
+```css
+/* Good for component-level spacing */
+.button {
+    font-size: 1em;
+    padding: 0.5em 1em;    /* Scales with font-size */
+    border-radius: 0.25em;
+}
+
+/* Component scales together */
+.button.large {
+    font-size: 1.25em;  /* Everything scales proportionally */
+}
+```
+
+**rem (Root em):**
+- Relative to **root element's (`<html>`) font-size**
+- Does NOT compound
+- More predictable than em
+
+```css
+/* rem Example */
+html {
+    font-size: 16px; /* Base size (browser default) */
+}
+
+.parent {
+    font-size: 2rem;    /* 2 × 16px = 32px */
+}
+
+.child {
+    font-size: 1.5rem;  /* 1.5 × 16px = 24px (NOT 1.5 × 32px) */
+    padding: 1rem;      /* 1 × 16px = 16px */
+}
+
+.grandchild {
+    font-size: 1.2rem;  /* 1.2 × 16px = 19.2px (consistent!) */
+}
+```
+
+**rem Best Practices:**
+```css
+/* Set base size on html */
+html {
+    font-size: 16px;  /* 1rem = 16px */
+}
+
+/* Or use percentage for user preferences */
+html {
+    font-size: 100%; /* Respects user's browser settings */
+}
+
+/* Use rem for most spacing and sizing */
+.container {
+    padding: 2rem;           /* 32px */
+    margin-bottom: 3rem;     /* 48px */
+}
+
+h1 {
+    font-size: 2.5rem;       /* 40px */
+    margin-bottom: 1.5rem;   /* 24px */
+}
+
+.button {
+    padding: 0.75rem 1.5rem; /* 12px 24px */
+    font-size: 1rem;         /* 16px */
+}
+```
+
+**em vs rem Comparison:**
+```css
+/* em - Compounds (can be unpredictable) */
+.nested {
+    font-size: 1.2em;
+}
+.nested .nested {
+    font-size: 1.2em; /* 1.2 × 1.2 = 1.44× parent */
+}
+.nested .nested .nested {
+    font-size: 1.2em; /* 1.2 × 1.44 = 1.728× parent */
+}
+
+/* rem - Consistent (always relative to root) */
+.nested {
+    font-size: 1.2rem; /* Always 1.2 × root font-size */
+}
+.nested .nested {
+    font-size: 1.2rem; /* Still 1.2 × root font-size */
+}
+```
+
+---
+
+#### **Viewport Units**
+
+**vw (Viewport Width):**
+- 1vw = 1% of viewport width
+- Responsive to browser width
+
+```css
+/* vw Examples */
+.full-width {
+    width: 100vw;  /* Full viewport width */
+}
+
+.half-width {
+    width: 50vw;   /* Half viewport width */
+}
+
+/* Fluid typography */
+h1 {
+    font-size: 5vw; /* Scales with viewport */
+    /* On 1200px screen: 5% × 1200 = 60px */
+    /* On 320px screen: 5% × 320 = 16px */
+}
+```
+
+**vh (Viewport Height):**
+- 1vh = 1% of viewport height
+- Great for full-screen sections
+
+```css
+/* vh Examples */
+.hero {
+    height: 100vh;  /* Full viewport height */
+    min-height: 500px; /* Minimum height fallback */
+}
+
+.section {
+    min-height: 50vh; /* At least half screen */
+}
+
+/* Center content vertically */
+.centered {
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+```
+
+**vmin & vmax:**
+- **vmin**: 1% of smaller viewport dimension (width or height)
+- **vmax**: 1% of larger viewport dimension
+
+```css
+/* vmin - useful for responsive sizing */
+.square {
+    width: 50vmin;   /* 50% of smaller dimension */
+    height: 50vmin;  /* Always a square */
+}
+
+/* Portrait (360×800): 50vmin = 50% × 360 = 180px */
+/* Landscape (800×360): 50vmin = 50% × 360 = 180px */
+
+/* vmax - responsive to larger dimension */
+.responsive-text {
+    font-size: 3vmax;
+}
+```
+
+**Viewport Unit Caveats:**
+```css
+/* ⚠️ Problem: Can create very small/large text */
+h1 {
+    font-size: 5vw;  /* Too small on mobile, too large on desktop */
+}
+
+/* ✅ Solution: Use clamp() */
+h1 {
+    font-size: clamp(1.5rem, 5vw, 3rem);
+    /* min: 1.5rem (24px) */
+    /* preferred: 5vw (responsive) */
+    /* max: 3rem (48px) */
+}
+
+/* ⚠️ Problem: 100vw includes scrollbar width */
+.full-width {
+    width: 100vw; /* Can cause horizontal scroll */
+}
+
+/* ✅ Solution: Use width: 100% instead */
+.full-width {
+    width: 100%;
+}
+```
+
+---
+
+#### **Percentage (%)**
+
+- Relative to **parent element**
+- Different behavior for different properties
+
+```css
+/* Width/Height - relative to parent's width/height */
+.parent {
+    width: 1000px;
+}
+
+.child {
+    width: 50%;      /* 50% × 1000px = 500px */
+    padding: 5%;     /* 5% of parent's WIDTH (50px) */
+    margin-top: 10%; /* 10% of parent's WIDTH (100px) */
+}
+
+/* Font-size - relative to parent's font-size */
+.parent {
+    font-size: 20px;
+}
+
+.child {
+    font-size: 150%; /* 150% × 20px = 30px */
+}
+
+/* Transform - relative to element's own size */
+.box {
+    transform: translateX(50%); /* 50% of element's width */
+}
+```
+
+---
+
+#### **Fluid Typography & Spacing**
+
+**Using calc():**
+```css
+/* Fluid spacing that scales between breakpoints */
+.container {
+    padding: calc(1rem + 2vw);
+    /* Small screen (320px): 16px + 6.4px = 22.4px */
+    /* Large screen (1920px): 16px + 38.4px = 54.4px */
+}
+
+/* Fluid typography */
+h1 {
+    font-size: calc(1.5rem + 2vw);
+}
+```
+
+**Using clamp():**
+```css
+/* Modern approach - best practice */
+h1 {
+    font-size: clamp(2rem, 4vw + 1rem, 4rem);
+    /* min: 2rem (32px) */
+    /* preferred: 4vw + 1rem (grows with viewport) */
+    /* max: 4rem (64px) */
+}
+
+.container {
+    padding: clamp(1rem, 3vw, 3rem);
+    width: clamp(300px, 90vw, 1200px);
+}
+
+/* Fluid spacing scale */
+:root {
+    --space-xs: clamp(0.5rem, 1vw, 0.75rem);    /* 8-12px */
+    --space-sm: clamp(0.75rem, 1.5vw, 1rem);    /* 12-16px */
+    --space-md: clamp(1rem, 2vw, 1.5rem);       /* 16-24px */
+    --space-lg: clamp(1.5rem, 3vw, 2.5rem);     /* 24-40px */
+    --space-xl: clamp(2rem, 5vw, 4rem);         /* 32-64px */
+}
+
+.card {
+    padding: var(--space-md);
+    margin-bottom: var(--space-lg);
+}
+```
+
+---
+
+#### **Comparison Table**
+
+| Unit | Relative To | Use Case | Example |
+|------|-------------|----------|---------|
+| **px** | Fixed | Borders, shadows, small details | `border: 1px solid` |
+| **em** | Parent font-size | Component-level spacing | `padding: 0.5em` |
+| **rem** | Root font-size | Global spacing, typography | `font-size: 1.5rem` |
+| **%** | Parent element | Responsive widths, layouts | `width: 50%` |
+| **vw** | Viewport width | Full-width elements, fluid type | `width: 100vw` |
+| **vh** | Viewport height | Full-height sections | `height: 100vh` |
+| **vmin** | Smaller dimension | Responsive squares, text | `width: 50vmin` |
+| **vmax** | Larger dimension | Responsive backgrounds | `font-size: 3vmax` |
+
+---
+
+#### **Complete Fluid Design Example**
+
+```css
+/* Base setup */
+:root {
+    /* Fluid font sizes */
+    --fs-sm: clamp(0.875rem, 0.8rem + 0.375vw, 1rem);
+    --fs-base: clamp(1rem, 0.9rem + 0.5vw, 1.25rem);
+    --fs-lg: clamp(1.25rem, 1rem + 1vw, 2rem);
+    --fs-xl: clamp(1.5rem, 1.2rem + 1.5vw, 3rem);
+    --fs-xxl: clamp(2rem, 1.5rem + 2.5vw, 4rem);
+    
+    /* Fluid spacing */
+    --space-xs: clamp(0.5rem, 0.4rem + 0.5vw, 0.75rem);
+    --space-sm: clamp(0.75rem, 0.6rem + 0.75vw, 1.25rem);
+    --space-md: clamp(1rem, 0.8rem + 1vw, 2rem);
+    --space-lg: clamp(1.5rem, 1rem + 2vw, 3rem);
+    --space-xl: clamp(2rem, 1.5rem + 2.5vw, 4rem);
+    
+    /* Container width */
+    --container-width: min(100% - 2rem, 1200px);
+}
+
+html {
+    font-size: 100%; /* Respects user preferences */
+}
+
+body {
+    font-size: var(--fs-base);
+    line-height: 1.6;
+    padding: var(--space-md);
+}
+
+/* Container with fluid max-width */
+.container {
+    width: var(--container-width);
+    margin-inline: auto;
+    padding-inline: var(--space-md);
+}
+
+/* Typography scale */
+h1 { font-size: var(--fs-xxl); margin-bottom: var(--space-md); }
+h2 { font-size: var(--fs-xl); margin-bottom: var(--space-sm); }
+h3 { font-size: var(--fs-lg); margin-bottom: var(--space-sm); }
+p  { font-size: var(--fs-base); margin-bottom: var(--space-sm); }
+
+/* Hero section - full viewport */
+.hero {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-xl) var(--space-md);
+}
+
+/* Card with fluid spacing */
+.card {
+    padding: var(--space-md);
+    border-radius: clamp(0.5rem, 0.5vw, 1rem);
+    margin-bottom: var(--space-lg);
+}
+
+/* Responsive grid */
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
+    gap: var(--space-md);
+}
+
+/* Button with proportional sizing */
+.button {
+    font-size: var(--fs-base);
+    padding: 0.75em 1.5em; /* Uses em for proportional scaling */
+    border-radius: 0.25em;
+}
+```
+
+---
+
+#### **Best Practices**
+
+```css
+/* ✅ DO: Use rem for most spacing and sizing */
+.element {
+    padding: 2rem;
+    margin: 1.5rem;
+    font-size: 1.25rem;
+}
+
+/* ✅ DO: Use em for component-level proportions */
+.button {
+    padding: 0.5em 1em;  /* Scales with button font-size */
+}
+
+/* ✅ DO: Use % for layout widths */
+.column {
+    width: 50%;
+}
+
+/* ✅ DO: Use clamp() for fluid sizing */
+h1 {
+    font-size: clamp(2rem, 5vw, 4rem);
+}
+
+/* ✅ DO: Use vh for full-height sections */
+.hero {
+    min-height: 100vh;
+}
+
+/* ❌ DON'T: Use px for everything */
+.bad {
+    font-size: 16px;
+    padding: 20px;
+    margin: 30px;
+}
+
+/* ❌ DON'T: Use viewport units without constraints */
+.bad {
+    font-size: 10vw; /* Way too large on big screens */
+}
+
+/* ❌ DON'T: Mix too many unit types randomly */
+.confusing {
+    padding: 10px 1em 2rem 5%;  /* Hard to maintain */
+}
+```
+
+---
+
+#### **Responsive Typography System**
+
+```css
+/* Modern fluid typography system */
+:root {
+    /* Type scale using clamp() */
+    --text-xs: clamp(0.75rem, 0.7rem + 0.25vw, 0.875rem);
+    --text-sm: clamp(0.875rem, 0.8rem + 0.375vw, 1rem);
+    --text-base: clamp(1rem, 0.9rem + 0.5vw, 1.25rem);
+    --text-lg: clamp(1.125rem, 1rem + 0.625vw, 1.5rem);
+    --text-xl: clamp(1.25rem, 1.1rem + 0.75vw, 1.875rem);
+    --text-2xl: clamp(1.5rem, 1.3rem + 1vw, 2.25rem);
+    --text-3xl: clamp(1.875rem, 1.5rem + 1.875vw, 3rem);
+    --text-4xl: clamp(2.25rem, 1.75rem + 2.5vw, 3.75rem);
+    --text-5xl: clamp(3rem, 2rem + 5vw, 6rem);
+}
+
+/* Usage */
+.hero-title {
+    font-size: var(--text-5xl);
+}
+
+.section-title {
+    font-size: var(--text-3xl);
+}
+
+.body-text {
+    font-size: var(--text-base);
+}
+
+.caption {
+    font-size: var(--text-sm);
+}
+```
+
+---
+
 ## Animations & Transitions
 
 ### Q11: What is the difference between transitions and animations?

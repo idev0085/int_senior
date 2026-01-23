@@ -322,6 +322,721 @@ function UserProfile() {
 
 ## Architecture & Design Patterns
 
+### Q6: What are Design Patterns and why are they important?
+
+**Answer:**
+
+Design patterns are **proven solutions to common problems** in software design. They're like blueprints or templates that you can adapt to solve recurring design challenges in your code.
+
+**Think of it like this:**
+- You're building a house and need to solve common problems (doors, windows, plumbing)
+- Instead of inventing solutions from scratch, you use proven architectural patterns
+- Design patterns = Proven solutions that architects have refined over years
+
+---
+
+#### **Why Use Design Patterns?**
+
+```javascript
+// ❌ Without patterns: Messy, hard to maintain
+function App() {
+  const [user, setUser] = useState(null);
+  const [theme, setTheme] = useState('light');
+  const [settings, setSettings] = useState({});
+  
+  // Everything passed as props to every component
+  return (
+    <Header user={user} theme={theme} settings={settings} />
+    <Sidebar user={user} theme={theme} />
+    <Content user={user} theme={theme} settings={settings} />
+  );
+}
+
+// ✅ With patterns: Clean, scalable, maintainable
+function App() {
+  // Context Pattern - shared state without prop drilling
+  return (
+    <ThemeProvider>
+      <UserProvider>
+        <SettingsProvider>
+          <Layout />
+        </SettingsProvider>
+      </UserProvider>
+    </ThemeProvider>
+  );
+}
+```
+
+**Benefits:**
+1. **Reusability**: Same solution works in different contexts
+2. **Communication**: Team speaks same language ("Let's use Observer pattern")
+3. **Maintainability**: Easier to understand and modify
+4. **Performance**: Proven patterns are optimized
+5. **Best Practices**: Learn from collective experience
+
+---
+
+#### **Categories of Design Patterns**
+
+**1. Creational Patterns** - How objects are created
+**2. Structural Patterns** - How objects are composed
+**3. Behavioral Patterns** - How objects communicate
+
+---
+
+### **React-Specific Design Patterns**
+
+#### **1. Container/Presentational Pattern**
+
+**Concept**: Separate logic from presentation
+
+```javascript
+// ❌ Without pattern: Mixed concerns
+function UserProfile() {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  
+  useEffect(() => {
+    fetch('/api/user')
+      .then(res => res.json())
+      .then(data => {
+        setUser(data);
+        setLoading(false);
+      });
+  }, []);
+  
+  if (loading) return <Spinner />;
+  
+  return (
+    <div>
+      <img src={user.avatar} />
+      <h1>{user.name}</h1>
+      <p>{user.bio}</p>
+    </div>
+  );
+}
+
+// ✅ With pattern: Separated concerns
+
+// Container (Logic)
+function UserProfileContainer() {
+  const { user, loading } = useUser();
+  
+  if (loading) return <Spinner />;
+  return <UserProfile user={user} />;
+}
+
+// Presentational (UI)
+function UserProfile({ user }) {
+  return (
+    <div>
+      <img src={user.avatar} alt={user.name} />
+      <h1>{user.name}</h1>
+      <p>{user.bio}</p>
+    </div>
+  );
+}
+```
+
+**When to use:**
+- Reusable UI components
+- Testing UI separately from logic
+- Different data sources for same UI
+
+---
+
+#### **2. Higher-Order Components (HOC) Pattern**
+
+**Concept**: Function that takes a component and returns a new enhanced component
+
+```javascript
+// HOC that adds authentication check
+function withAuth(Component) {
+  return function AuthComponent(props) {
+    const { isAuthenticated, user } = useAuth();
+    
+    if (!isAuthenticated) {
+      return <Navigate to="/login" />;
+    }
+    
+    return <Component {...props} user={user} />;
+  };
+}
+
+// Usage
+const ProtectedDashboard = withAuth(Dashboard);
+const ProtectedSettings = withAuth(Settings);
+
+// Multiple HOCs
+function withLogging(Component) {
+  return function LoggingComponent(props) {
+    useEffect(() => {
+      console.log('Component mounted:', Component.name);
+    }, []);
+    
+    return <Component {...props} />;
+  };
+}
+
+// Compose multiple HOCs
+const EnhancedDashboard = withAuth(withLogging(Dashboard));
+```
+
+**When to use:**
+- Cross-cutting concerns (auth, logging, analytics)
+- Code reuse across multiple components
+- Props manipulation
+
+**Modern Alternative: Custom Hooks**
+```javascript
+// ✅ Modern approach with hooks
+function Dashboard() {
+  useAuth(); // Handles auth logic
+  useLogging('Dashboard'); // Handles logging
+  
+  return <div>Dashboard Content</div>;
+}
+```
+
+---
+
+#### **3. Render Props Pattern**
+
+**Concept**: Component receives a function as prop that returns React elements
+
+```javascript
+// Render props pattern
+function MouseTracker({ render }) {
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  
+  const handleMouseMove = (e) => {
+    setPosition({ x: e.clientX, y: e.clientY });
+  };
+  
+  return (
+    <div onMouseMove={handleMouseMove} style={{ height: '100vh' }}>
+      {render(position)}
+    </div>
+  );
+}
+
+// Usage
+function App() {
+  return (
+    <MouseTracker 
+      render={({ x, y }) => (
+        <h1>Mouse position: {x}, {y}</h1>
+      )}
+    />
+  );
+}
+
+// Alternative: Children as function
+function MouseTracker({ children }) {
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  
+  return (
+    <div onMouseMove={handleMouseMove}>
+      {children(position)}
+    </div>
+  );
+}
+
+// Usage
+<MouseTracker>
+  {({ x, y }) => <p>Position: {x}, {y}</p>}
+</MouseTracker>
+```
+
+**When to use:**
+- Sharing behavior between components
+- Flexible rendering logic
+- Component composition
+
+**Modern Alternative: Custom Hooks**
+```javascript
+// ✅ Cleaner with hooks
+function useMouse() {
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  
+  useEffect(() => {
+    const handleMove = (e) => setPosition({ x: e.clientX, y: e.clientY });
+    window.addEventListener('mousemove', handleMove);
+    return () => window.removeEventListener('mousemove', handleMove);
+  }, []);
+  
+  return position;
+}
+
+function App() {
+  const { x, y } = useMouse();
+  return <h1>Position: {x}, {y}</h1>;
+}
+```
+
+---
+
+#### **4. Compound Components Pattern**
+
+**Concept**: Components that work together, sharing implicit state
+
+```javascript
+// Example: Accordion component
+const AccordionContext = createContext();
+
+function Accordion({ children }) {
+  const [openItem, setOpenItem] = useState(null);
+  
+  return (
+    <AccordionContext.Provider value={{ openItem, setOpenItem }}>
+      <div className="accordion">{children}</div>
+    </AccordionContext.Provider>
+  );
+}
+
+Accordion.Item = function Item({ id, children }) {
+  const { openItem, setOpenItem } = useContext(AccordionContext);
+  const isOpen = openItem === id;
+  
+  return (
+    <div className="accordion-item">
+      <button onClick={() => setOpenItem(isOpen ? null : id)}>
+        {isOpen ? '−' : '+'}
+      </button>
+      {isOpen && <div>{children}</div>}
+    </div>
+  );
+};
+
+// Usage - Very flexible!
+function App() {
+  return (
+    <Accordion>
+      <Accordion.Item id="1">
+        <h3>Section 1</h3>
+        <p>Content 1</p>
+      </Accordion.Item>
+      <Accordion.Item id="2">
+        <h3>Section 2</h3>
+        <p>Content 2</p>
+      </Accordion.Item>
+    </Accordion>
+  );
+}
+```
+
+**Real-world examples:**
+- React Router: `<Router>`, `<Route>`, `<Link>`
+- Reach UI: `<Tabs>`, `<TabList>`, `<Tab>`, `<TabPanels>`
+- Headless UI components
+
+---
+
+#### **5. Provider Pattern**
+
+**Concept**: Make data available to multiple components via Context API
+
+```javascript
+// Create theme context
+const ThemeContext = createContext();
+
+// Provider component
+function ThemeProvider({ children }) {
+  const [theme, setTheme] = useState('light');
+  
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'light' ? 'dark' : 'light');
+  };
+  
+  return (
+    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+      {children}
+    </ThemeContext.Provider>
+  );
+}
+
+// Custom hook for consuming
+function useTheme() {
+  const context = useContext(ThemeContext);
+  if (!context) {
+    throw new Error('useTheme must be used within ThemeProvider');
+  }
+  return context;
+}
+
+// Usage
+function App() {
+  return (
+    <ThemeProvider>
+      <Navbar />
+      <Main />
+      <Footer />
+    </ThemeProvider>
+  );
+}
+
+function Navbar() {
+  const { theme, toggleTheme } = useTheme();
+  return (
+    <nav className={theme}>
+      <button onClick={toggleTheme}>Toggle Theme</button>
+    </nav>
+  );
+}
+```
+
+**When to use:**
+- Global state (theme, auth, language)
+- Avoiding prop drilling
+- Dependency injection
+
+---
+
+#### **6. Custom Hooks Pattern**
+
+**Concept**: Extract component logic into reusable functions
+
+```javascript
+// Example: Form handling hook
+function useForm(initialValues) {
+  const [values, setValues] = useState(initialValues);
+  const [errors, setErrors] = useState({});
+  
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setValues(prev => ({ ...prev, [name]: value }));
+  };
+  
+  const handleSubmit = (callback) => (e) => {
+    e.preventDefault();
+    callback(values);
+  };
+  
+  const reset = () => setValues(initialValues);
+  
+  return { values, errors, handleChange, handleSubmit, reset };
+}
+
+// Usage
+function LoginForm() {
+  const { values, handleChange, handleSubmit } = useForm({
+    email: '',
+    password: ''
+  });
+  
+  const onSubmit = (data) => {
+    console.log('Submitting:', data);
+  };
+  
+  return (
+    <form onSubmit={handleSubmit(onSubmit)}>
+      <input name="email" value={values.email} onChange={handleChange} />
+      <input name="password" value={values.password} onChange={handleChange} />
+      <button type="submit">Login</button>
+    </form>
+  );
+}
+```
+
+**Common Custom Hooks:**
+```javascript
+// Fetch data
+function useFetch(url) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  
+  useEffect(() => {
+    fetch(url)
+      .then(res => res.json())
+      .then(setData)
+      .catch(setError)
+      .finally(() => setLoading(false));
+  }, [url]);
+  
+  return { data, loading, error };
+}
+
+// Local storage
+function useLocalStorage(key, initialValue) {
+  const [value, setValue] = useState(() => {
+    const saved = localStorage.getItem(key);
+    return saved ? JSON.parse(saved) : initialValue;
+  });
+  
+  useEffect(() => {
+    localStorage.setItem(key, JSON.stringify(value));
+  }, [key, value]);
+  
+  return [value, setValue];
+}
+
+// Debounce
+function useDebounce(value, delay) {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+  
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+  
+  return debouncedValue;
+}
+```
+
+---
+
+#### **7. Observer Pattern (Pub/Sub)**
+
+**Concept**: Objects subscribe to events and get notified when events occur
+
+```javascript
+// Event emitter
+class EventEmitter {
+  constructor() {
+    this.events = {};
+  }
+  
+  on(event, callback) {
+    if (!this.events[event]) {
+      this.events[event] = [];
+    }
+    this.events[event].push(callback);
+  }
+  
+  off(event, callback) {
+    if (this.events[event]) {
+      this.events[event] = this.events[event].filter(cb => cb !== callback);
+    }
+  }
+  
+  emit(event, data) {
+    if (this.events[event]) {
+      this.events[event].forEach(callback => callback(data));
+    }
+  }
+}
+
+// Usage in React
+const eventBus = new EventEmitter();
+
+function ComponentA() {
+  const handleClick = () => {
+    eventBus.emit('userAction', { action: 'clicked', timestamp: Date.now() });
+  };
+  
+  return <button onClick={handleClick}>Trigger Event</button>;
+}
+
+function ComponentB() {
+  const [events, setEvents] = useState([]);
+  
+  useEffect(() => {
+    const handler = (data) => {
+      setEvents(prev => [...prev, data]);
+    };
+    
+    eventBus.on('userAction', handler);
+    return () => eventBus.off('userAction', handler);
+  }, []);
+  
+  return <div>Events: {events.length}</div>;
+}
+```
+
+**Modern approach with Context:**
+```javascript
+// Better approach using Context + useReducer
+const AppContext = createContext();
+
+function AppProvider({ children }) {
+  const [state, dispatch] = useReducer(reducer, initialState);
+  
+  return (
+    <AppContext.Provider value={{ state, dispatch }}>
+      {children}
+    </AppContext.Provider>
+  );
+}
+```
+
+---
+
+#### **8. Singleton Pattern**
+
+**Concept**: Ensure a class has only one instance
+
+```javascript
+// API Client singleton
+class APIClient {
+  static instance = null;
+  
+  constructor() {
+    if (APIClient.instance) {
+      return APIClient.instance;
+    }
+    
+    this.baseURL = process.env.API_URL;
+    this.token = null;
+    APIClient.instance = this;
+  }
+  
+  setToken(token) {
+    this.token = token;
+  }
+  
+  async get(endpoint) {
+    const response = await fetch(`${this.baseURL}${endpoint}`, {
+      headers: { Authorization: `Bearer ${this.token}` }
+    });
+    return response.json();
+  }
+}
+
+// Usage - always returns same instance
+const api1 = new APIClient();
+const api2 = new APIClient();
+console.log(api1 === api2); // true
+
+// In React
+function useAPI() {
+  const apiClient = useMemo(() => new APIClient(), []);
+  return apiClient;
+}
+```
+
+---
+
+#### **9. Factory Pattern**
+
+**Concept**: Create objects without specifying exact class
+
+```javascript
+// Component factory
+function createButton(type) {
+  const buttons = {
+    primary: ({ children, onClick }) => (
+      <button className="btn-primary" onClick={onClick}>
+        {children}
+      </button>
+    ),
+    secondary: ({ children, onClick }) => (
+      <button className="btn-secondary" onClick={onClick}>
+        {children}
+      </button>
+    ),
+    danger: ({ children, onClick }) => (
+      <button className="btn-danger" onClick={onClick}>
+        {children}
+      </button>
+    )
+  };
+  
+  return buttons[type] || buttons.primary;
+}
+
+// Usage
+function App() {
+  const PrimaryButton = createButton('primary');
+  const DangerButton = createButton('danger');
+  
+  return (
+    <div>
+      <PrimaryButton onClick={() => console.log('Primary')}>
+        Save
+      </PrimaryButton>
+      <DangerButton onClick={() => console.log('Danger')}>
+        Delete
+      </DangerButton>
+    </div>
+  );
+}
+```
+
+---
+
+#### **10. Strategy Pattern**
+
+**Concept**: Define family of algorithms, make them interchangeable
+
+```javascript
+// Sorting strategies
+const sortStrategies = {
+  byName: (items) => [...items].sort((a, b) => a.name.localeCompare(b.name)),
+  byPrice: (items) => [...items].sort((a, b) => a.price - b.price),
+  byDate: (items) => [...items].sort((a, b) => new Date(b.date) - new Date(a.date))
+};
+
+function ProductList() {
+  const [products, setProducts] = useState([]);
+  const [sortBy, setSortBy] = useState('byName');
+  
+  const sortedProducts = sortStrategies[sortBy](products);
+  
+  return (
+    <div>
+      <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+        <option value="byName">Name</option>
+        <option value="byPrice">Price</option>
+        <option value="byDate">Date</option>
+      </select>
+      
+      {sortedProducts.map(product => (
+        <ProductCard key={product.id} product={product} />
+      ))}
+    </div>
+  );
+}
+```
+
+---
+
+### **Pattern Comparison**
+
+| Pattern | Use Case | Modern Alternative |
+|---------|----------|-------------------|
+| HOC | Cross-cutting concerns | Custom Hooks |
+| Render Props | Sharing behavior | Custom Hooks |
+| Container/Presentational | Separate logic/UI | Still relevant |
+| Compound Components | Flexible component APIs | Still relevant |
+| Provider | Global state | Context + useReducer |
+| Observer | Event handling | Context or State Management |
+
+---
+
+### **When to Use Which Pattern?**
+
+```javascript
+// ✅ Custom Hooks - Most common, use for logic reuse
+function useAuth() { /* ... */ }
+
+// ✅ Compound Components - For flexible component libraries
+<Tabs>
+  <TabList>...</TabList>
+  <TabPanels>...</TabPanels>
+</Tabs>
+
+// ✅ Provider Pattern - For global state
+<ThemeProvider>
+  <App />
+</ThemeProvider>
+
+// ✅ Container/Presentational - For complex UI with separate logic
+function UserDashboardContainer() {
+  const data = useUserData();
+  return <UserDashboard data={data} />;
+}
+
+// ⚠️ HOC - Legacy pattern, use hooks instead
+const Enhanced = withAuth(Component); // Old way
+function Component() {
+  useAuth(); // New way
+  return <div>...</div>;
+}
+```
+
+---
+
 ### Q7: How would you architect a large-scale React application?
 
 **Answer:**
