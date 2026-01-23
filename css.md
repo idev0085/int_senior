@@ -1,4 +1,4 @@
-# CSS - Beginner to Advanced Level Q&A
+# CSS - Top 50 Questions & Answers (Beginner to Advanced)
 
 ## Table of Contents
 1. [CSS Basics](#css-basics)
@@ -12,6 +12,7 @@
 9. [CSS Architecture & Best Practices](#css-architecture--best-practices)
 10. [Modern CSS Features](#modern-css-features)
 11. [Sass/SCSS](#sassscss)
+12. [Most Useful CSS Styles & Utilities](#most-useful-css-styles--utilities)
 
 ---
 
@@ -4395,5 +4396,2970 @@ $breakpoints: (
     .dot-#{$i} {
         animation-delay: #{$i * 0.15}s;
     }
+}
+```
+
+---
+
+### Q20: What is CSS pseudo-classes and pseudo-elements?
+
+**Answer:**
+
+**Pseudo-classes** - Select elements based on their state (`:hover`, `:focus`, `:active`)
+
+**Pseudo-elements** - Style specific parts of an element (`::before`, `::after`, `::first-letter`)
+
+**Key Difference:**
+- Pseudo-classes: single colon `:hover`
+- Pseudo-elements: double colon `::before`
+
+```css
+/* Pseudo-classes */
+a:hover {
+    color: blue;
+}
+
+input:focus {
+    outline: 2px solid blue;
+}
+
+button:active {
+    transform: scale(0.95);
+}
+
+li:nth-child(odd) {
+    background: #f0f0f0;
+}
+
+p:first-child {
+    font-weight: bold;
+}
+
+input:disabled {
+    opacity: 0.5;
+}
+
+/* Pseudo-elements */
+p::first-letter {
+    font-size: 2em;
+    float: left;
+}
+
+p::first-line {
+    font-weight: bold;
+}
+
+.quote::before {
+    content: '"';
+    font-size: 2em;
+}
+
+.quote::after {
+    content: '"';
+}
+
+/* Create decorative elements */
+.card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    background: linear-gradient(to bottom, #667eea, #764ba2);
+}
+
+/* Selection styling */
+::selection {
+    background: #667eea;
+    color: white;
+}
+```
+
+**Advanced Pseudo-classes:**
+
+```css
+/* :is() - Simplify selectors */
+:is(h1, h2, h3):hover {
+    color: blue;
+}
+
+/* :where() - Zero specificity */
+:where(ul, ol) li {
+    padding: 0.5rem;
+}
+
+/* :not() - Exclude elements */
+li:not(:last-child) {
+    border-bottom: 1px solid #ddd;
+}
+
+/* :has() - Parent selector (modern) */
+.card:has(img) {
+    display: grid;
+}
+```
+
+---
+
+### Q21: What is CSS `z-index` and stacking context?
+
+**Answer:**
+
+`z-index` controls the stack order of positioned elements. Higher values appear on top.
+
+**Important Rules:**
+1. Only works on **positioned elements** (`position: relative/absolute/fixed/sticky`)
+2. Creates a **stacking context**
+3. `z-index` is relative to parent stacking context
+
+```css
+/* Basic z-index */
+.modal-overlay {
+    position: fixed;
+    z-index: 100;
+}
+
+.modal {
+    position: fixed;
+    z-index: 101;
+}
+
+.dropdown {
+    position: absolute;
+    z-index: 50;
+}
+```
+
+**Stacking Context Created By:**
+```css
+/* 1. Positioned with z-index */
+.element {
+    position: relative;
+    z-index: 1;
+}
+
+/* 2. Opacity less than 1 */
+.element {
+    opacity: 0.9;
+}
+
+/* 3. Transform */
+.element {
+    transform: translateZ(0);
+}
+
+/* 4. Fixed/Sticky position */
+.element {
+    position: fixed;
+}
+
+/* 5. Filter */
+.element {
+    filter: blur(5px);
+}
+```
+
+**Common z-index Scale:**
+```css
+:root {
+    --z-dropdown: 1000;
+    --z-sticky: 1020;
+    --z-fixed: 1030;
+    --z-modal-backdrop: 1040;
+    --z-modal: 1050;
+    --z-popover: 1060;
+    --z-tooltip: 1070;
+}
+```
+
+---
+
+### Q22: What is CSS `overflow` property?
+
+**Answer:**
+
+Controls what happens when content exceeds an element's dimensions.
+
+```css
+/* Values */
+.container {
+    overflow: visible;  /* Default - content shows outside */
+    overflow: hidden;   /* Clip content */
+    overflow: scroll;   /* Always show scrollbar */
+    overflow: auto;     /* Show scrollbar only when needed */
+}
+
+/* Individual axes */
+.element {
+    overflow-x: auto;
+    overflow-y: hidden;
+}
+
+/* Clip content smoothly */
+.text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+/* Result: "This is a very long tex..." */
+
+/* Scrollable container */
+.chat-messages {
+    max-height: 500px;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+/* Hide scrollbar but keep functionality */
+.custom-scroll {
+    overflow: auto;
+    scrollbar-width: none; /* Firefox */
+}
+
+.custom-scroll::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Edge */
+}
+```
+
+**Custom Scrollbar Styling:**
+```css
+.custom-scroll::-webkit-scrollbar {
+    width: 10px;
+}
+
+.custom-scroll::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.custom-scroll::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 5px;
+}
+
+.custom-scroll::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+```
+
+---
+
+### Q23: What are CSS combinators?
+
+**Answer:**
+
+Combinators select elements based on their relationship to other elements.
+
+```css
+/* Descendant Combinator (space) */
+div p {
+    color: blue; /* All <p> inside <div> */
+}
+
+/* Child Combinator (>) */
+ul > li {
+    list-style: disc; /* Direct children only */
+}
+
+/* Adjacent Sibling (+) */
+h2 + p {
+    font-weight: bold; /* <p> immediately after <h2> */
+}
+
+/* General Sibling (~) */
+h2 ~ p {
+    color: gray; /* All <p> siblings after <h2> */
+}
+```
+
+**Practical Examples:**
+
+```css
+/* Style first paragraph after heading */
+h1 + p {
+    font-size: 1.2em;
+    margin-top: 0;
+}
+
+/* Style list items but not nested lists */
+.menu > li > a {
+    padding: 1rem;
+}
+
+/* Alternate row colors in table */
+tr:nth-child(even) {
+    background: #f0f0f0;
+}
+
+/* Style siblings after checked checkbox */
+input[type="checkbox"]:checked ~ label {
+    text-decoration: line-through;
+    opacity: 0.5;
+}
+```
+
+---
+
+### Q24: What is the difference between `visibility: hidden` and `display: none`?
+
+**Answer:**
+
+| Property | Space Taken | Accessibility | Events | Animation |
+|----------|-------------|---------------|--------|-----------|
+| `display: none` | No | Not read by screen readers | No | Can't animate |
+| `visibility: hidden` | Yes | Not read by screen readers | No | Can animate |
+| `opacity: 0` | Yes | Read by screen readers | Yes | Can animate |
+
+```css
+/* display: none - Completely removes from layout */
+.hidden {
+    display: none;
+}
+
+/* visibility: hidden - Invisible but takes space */
+.invisible {
+    visibility: hidden;
+}
+
+/* opacity: 0 - Transparent but interactive */
+.transparent {
+    opacity: 0;
+}
+
+/* Comparison */
+.container {
+    display: flex;
+    gap: 1rem;
+}
+
+.box {
+    width: 100px;
+    height: 100px;
+}
+
+/* Box 1: removed from flow */
+.box1 {
+    display: none; /* Other boxes shift left */
+}
+
+/* Box 2: invisible but space remains */
+.box2 {
+    visibility: hidden; /* Gap remains */
+}
+
+/* Box 3: transparent but clickable */
+.box3 {
+    opacity: 0; /* Can still click */
+}
+```
+
+**Use Cases:**
+```css
+/* Toggle visibility with animation */
+.modal {
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s, visibility 0.3s;
+}
+
+.modal.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Collapse with animation */
+.accordion-content {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s;
+}
+
+.accordion-content.open {
+    max-height: 500px;
+}
+```
+
+---
+
+### Q25: What is CSS `clip-path` property?
+
+**Answer:**
+
+Creates clipping regions to show only parts of an element.
+
+```css
+/* Basic shapes */
+.circle {
+    clip-path: circle(50%);
+}
+
+.ellipse {
+    clip-path: ellipse(40% 30%);
+}
+
+.triangle {
+    clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+}
+
+.hexagon {
+    clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+}
+
+/* Inset rectangle */
+.card {
+    clip-path: inset(10px 20px 30px 40px round 10px);
+}
+
+/* Animated shapes */
+.shape {
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+    transition: clip-path 0.5s;
+}
+
+.shape:hover {
+    clip-path: polygon(20% 0, 80% 0, 100% 100%, 0 100%);
+}
+```
+
+**Practical Examples:**
+
+```css
+/* Diagonal hero section */
+.hero {
+    clip-path: polygon(0 0, 100% 0, 100% 85%, 0 100%);
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+/* Notched corner card */
+.card {
+    clip-path: polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 0 100%);
+}
+
+/* Reveal animation */
+@keyframes reveal {
+    from {
+        clip-path: inset(0 100% 0 0);
+    }
+    to {
+        clip-path: inset(0 0 0 0);
+    }
+}
+
+.reveal-text {
+    animation: reveal 1s ease-out;
+}
+```
+
+---
+
+### Q26: What is CSS `object-fit` and `object-position`?
+
+**Answer:**
+
+Controls how images/videos fit within their container.
+
+```css
+/* object-fit values */
+img {
+    width: 300px;
+    height: 200px;
+}
+
+.fill {
+    object-fit: fill; /* Default - stretch to fit */
+}
+
+.contain {
+    object-fit: contain; /* Fit inside, maintain aspect ratio */
+}
+
+.cover {
+    object-fit: cover; /* Fill container, crop if needed */
+}
+
+.none {
+    object-fit: none; /* Original size */
+}
+
+.scale-down {
+    object-fit: scale-down; /* Smaller of 'none' or 'contain' */
+}
+
+/* object-position */
+.hero-image {
+    object-fit: cover;
+    object-position: center top; /* Position within container */
+}
+
+.profile-pic {
+    object-fit: cover;
+    object-position: 50% 20%; /* Focus on face */
+}
+```
+
+**Practical Example:**
+
+```css
+/* Responsive image grid */
+.gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+}
+
+.gallery img {
+    width: 100%;
+    height: 250px;
+    object-fit: cover;
+    object-position: center;
+    border-radius: 8px;
+}
+
+/* Video background */
+.video-bg {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: -1;
+}
+
+/* Avatar */
+.avatar {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+```
+
+---
+
+### Q27: What is CSS `aspect-ratio` property?
+
+**Answer:**
+
+Maintains a specific width-to-height ratio for elements.
+
+```css
+/* Basic usage */
+.video-container {
+    aspect-ratio: 16 / 9; /* 16:9 video */
+}
+
+.square {
+    aspect-ratio: 1 / 1; /* Square */
+}
+
+.portrait {
+    aspect-ratio: 3 / 4; /* Portrait photo */
+}
+
+/* Old method (before aspect-ratio) */
+.video-wrapper {
+    position: relative;
+    padding-bottom: 56.25%; /* 16:9 = 9/16 * 100 */
+    height: 0;
+}
+
+.video-wrapper iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+/* Modern method */
+.video-wrapper {
+    aspect-ratio: 16 / 9;
+}
+
+.video-wrapper iframe {
+    width: 100%;
+    height: 100%;
+}
+```
+
+**Responsive Cards:**
+
+```css
+.card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 2rem;
+}
+
+.card {
+    aspect-ratio: 1 / 1;
+    background: #f0f0f0;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.card img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+```
+
+---
+
+### Q28: What is CSS `contain` property?
+
+**Answer:**
+
+Tells the browser that an element's contents are independent from the rest of the page, allowing for performance optimizations.
+
+```css
+/* Values */
+.card {
+    contain: none;        /* No containment */
+    contain: layout;      /* Layout containment */
+    contain: paint;       /* Paint containment */
+    contain: size;        /* Size containment */
+    contain: style;       /* Style containment */
+    contain: content;     /* layout + paint + style */
+    contain: strict;      /* layout + paint + size + style */
+}
+
+/* Practical usage */
+.infinite-scroll-item {
+    contain: content; /* Optimize rendering */
+}
+
+.widget {
+    contain: layout style paint;
+}
+```
+
+**Performance Optimization:**
+
+```css
+/* Long list of items */
+.list-item {
+    contain: layout paint style;
+    /* Browser can optimize repainting */
+}
+
+/* Independent widgets */
+.dashboard-widget {
+    contain: content;
+    /* Changes inside don't affect outside */
+}
+```
+
+---
+
+### Q29: What are CSS logical properties?
+
+**Answer:**
+
+Writing-mode independent properties that adapt to text direction (LTR/RTL).
+
+```css
+/* Old way - Physical properties */
+.element {
+    margin-left: 1rem;
+    padding-right: 2rem;
+    border-top: 1px solid;
+}
+
+/* New way - Logical properties */
+.element {
+    margin-inline-start: 1rem;   /* Left in LTR, Right in RTL */
+    padding-inline-end: 2rem;    /* Right in LTR, Left in RTL */
+    border-block-start: 1px solid; /* Top in horizontal text */
+}
+
+/* Mapping */
+/* Physical → Logical */
+/* left/right → inline-start/inline-end */
+/* top/bottom → block-start/block-end */
+/* width → inline-size */
+/* height → block-size */
+```
+
+**Complete Example:**
+
+```css
+.card {
+    /* Size */
+    inline-size: 300px;        /* width */
+    block-size: 200px;         /* height */
+    max-inline-size: 100%;     /* max-width */
+    
+    /* Spacing */
+    margin-block: 1rem;        /* margin-top + margin-bottom */
+    margin-inline: 2rem;       /* margin-left + margin-right */
+    padding-block-start: 1rem; /* padding-top */
+    padding-inline-end: 2rem;  /* padding-right */
+    
+    /* Borders */
+    border-inline-start: 3px solid blue;
+    border-block-end: 1px solid gray;
+    
+    /* Border radius */
+    border-start-start-radius: 8px; /* top-left */
+    border-start-end-radius: 8px;   /* top-right */
+}
+
+/* Shorthand */
+.element {
+    margin-block: 1rem 2rem;     /* top bottom */
+    margin-inline: 1rem 2rem;    /* left right */
+    padding-block: 1rem;         /* top & bottom */
+    padding-inline: 2rem;        /* left & right */
+}
+```
+
+**Benefits:**
+
+```css
+/* Automatically adapts to RTL */
+html[dir="rtl"] .card {
+    /* No need to override - logical properties adapt automatically */
+}
+
+/* Internationalization-friendly */
+.sidebar {
+    margin-inline-end: 2rem;
+    /* In LTR: margin-right: 2rem */
+    /* In RTL: margin-left: 2rem */
+}
+```
+
+---
+
+### Q30: What is CSS `gap` property?
+
+**Answer:**
+
+Creates spacing between flex/grid items without margins.
+
+```css
+/* Flexbox gap */
+.flex-container {
+    display: flex;
+    gap: 1rem; /* Space between all items */
+}
+
+.flex-container-xy {
+    display: flex;
+    row-gap: 1rem;    /* Vertical spacing */
+    column-gap: 2rem; /* Horizontal spacing */
+}
+
+/* Grid gap */
+.grid-container {
+    display: grid;
+    gap: 2rem 1rem; /* row-gap column-gap */
+}
+
+/* Why gap is better than margin */
+/* ❌ Old way - requires margin hack */
+.flex-old {
+    display: flex;
+    margin: -0.5rem; /* Negative margin */
+}
+
+.flex-old > * {
+    margin: 0.5rem; /* Compensate */
+}
+
+/* ✅ New way - clean and simple */
+.flex-new {
+    display: flex;
+    gap: 1rem;
+}
+```
+
+**Practical Examples:**
+
+```css
+/* Navigation */
+.nav {
+    display: flex;
+    gap: 2rem;
+}
+
+/* Card grid */
+.card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 2rem 1rem;
+}
+
+/* Button group */
+.button-group {
+    display: flex;
+    gap: 0.5rem;
+}
+
+/* Form layout */
+.form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+```
+
+---
+
+### Q31: What is CSS `min()`, `max()`, `clamp()` functions?
+
+**Answer:**
+
+Mathematical functions for responsive sizing.
+
+```css
+/* min() - Use the smallest value */
+.container {
+    width: min(100%, 1200px);
+    /* Width is 100% but never exceeds 1200px */
+}
+
+/* max() - Use the largest value */
+.text {
+    font-size: max(16px, 1rem);
+    /* Never smaller than 16px */
+}
+
+/* clamp() - Bound value between min and max */
+.heading {
+    font-size: clamp(1.5rem, 5vw, 3rem);
+    /* Min: 1.5rem, Preferred: 5vw, Max: 3rem */
+}
+```
+
+**Practical Examples:**
+
+```css
+/* Responsive container without media queries */
+.container {
+    width: min(90%, 1200px);
+    margin-inline: auto;
+    /* On small screens: 90% width */
+    /* On large screens: max 1200px */
+}
+
+/* Fluid typography */
+h1 {
+    font-size: clamp(2rem, 5vw + 1rem, 5rem);
+}
+
+p {
+    font-size: clamp(1rem, 0.5vw + 0.8rem, 1.2rem);
+    line-height: clamp(1.5, 1.2vw + 1rem, 2);
+}
+
+/* Responsive padding */
+.section {
+    padding: clamp(2rem, 5vw, 8rem) clamp(1rem, 3vw, 4rem);
+}
+
+/* Flexible grid */
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
+    gap: clamp(1rem, 3vw, 3rem);
+}
+
+/* Maintain readable line length */
+.article {
+    max-width: min(65ch, 90%);
+    /* Ideal: 65 characters, but max 90% on small screens */
+}
+```
+
+---
+
+### Q32: What is CSS scroll-snap?
+
+**Answer:**
+
+Creates smooth scrolling snap points for carousels and galleries.
+
+```css
+/* Container */
+.carousel {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory; /* Snap horizontally */
+    scroll-behavior: smooth;
+    gap: 1rem;
+}
+
+/* Items */
+.carousel-item {
+    flex: 0 0 300px;
+    scroll-snap-align: start; /* Snap to start of container */
+}
+
+/* Values */
+scroll-snap-type: x mandatory;  /* Always snap, horizontal */
+scroll-snap-type: y proximity;  /* Snap when near, vertical */
+scroll-snap-type: both mandatory; /* Both axes */
+
+scroll-snap-align: start;   /* Align to start */
+scroll-snap-align: center;  /* Align to center */
+scroll-snap-align: end;     /* Align to end */
+```
+
+**Complete Carousel Example:**
+
+```css
+.slider-container {
+    overflow: hidden;
+}
+
+.slider {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch; /* Smooth iOS scrolling */
+    scrollbar-width: none; /* Hide scrollbar Firefox */
+}
+
+.slider::-webkit-scrollbar {
+    display: none; /* Hide scrollbar Chrome/Safari */
+}
+
+.slide {
+    flex: 0 0 100%;
+    scroll-snap-align: start;
+    scroll-snap-stop: always; /* Force stop at each slide */
+}
+
+/* Full-page sections */
+.sections {
+    height: 100vh;
+    overflow-y: auto;
+    scroll-snap-type: y mandatory;
+}
+
+.section {
+    height: 100vh;
+    scroll-snap-align: start;
+}
+```
+
+**Image Gallery:**
+
+```css
+.gallery {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: calc(33.333% - 1rem);
+    gap: 1rem;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    padding: 1rem;
+}
+
+.gallery img {
+    scroll-snap-align: center;
+    border-radius: 8px;
+}
+```
+
+---
+
+### Q33: What is CSS `backdrop-filter`?
+
+**Answer:**
+
+Applies filters to the area behind an element (like frosted glass effect).
+
+```css
+/* Glass morphism effect */
+.glass-card {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 12px;
+    padding: 2rem;
+}
+
+/* Available filters */
+.element {
+    backdrop-filter: blur(10px);
+    backdrop-filter: brightness(150%);
+    backdrop-filter: contrast(80%);
+    backdrop-filter: grayscale(50%);
+    backdrop-filter: hue-rotate(90deg);
+    backdrop-filter: invert(75%);
+    backdrop-filter: opacity(25%);
+    backdrop-filter: saturate(200%);
+    backdrop-filter: sepia(60%);
+    
+    /* Multiple filters */
+    backdrop-filter: blur(10px) brightness(110%);
+}
+```
+
+**Complete Glass Morphism Example:**
+
+```css
+.glass-navbar {
+    position: fixed;
+    top: 0;
+    width: 100%;
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(5px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(20px);
+    border-radius: 16px;
+    padding: 2rem;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+/* Dark theme glass */
+.glass-dark {
+    background: rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(15px) brightness(80%);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+```
+
+---
+
+### Q34: What is CSS `mask` property?
+
+**Answer:**
+
+Creates alpha masks to hide portions of elements.
+
+```css
+/* Image mask */
+.masked-image {
+    mask-image: url('mask.png');
+    mask-size: cover;
+}
+
+/* Gradient mask */
+.fade-out {
+    mask-image: linear-gradient(to bottom, black 80%, transparent);
+}
+
+/* Multiple masks */
+.element {
+    mask-image: linear-gradient(to right, transparent, black),
+                linear-gradient(to bottom, black, transparent);
+    mask-composite: intersect;
+}
+
+/* SVG mask */
+.svg-mask {
+    mask-image: url('#wave-mask');
+}
+```
+
+**Practical Examples:**
+
+```css
+/* Fade text at edges */
+.scrollable-text {
+    overflow: hidden;
+    mask-image: linear-gradient(
+        to right,
+        transparent,
+        black 10%,
+        black 90%,
+        transparent
+    );
+}
+
+/* Image reveal on scroll */
+.reveal-image {
+    mask-image: linear-gradient(to top, black var(--scroll), transparent);
+}
+
+/* Circular reveal */
+.circle-reveal {
+    mask-image: radial-gradient(circle at center, black 50%, transparent 50%);
+    mask-size: 0%;
+    transition: mask-size 0.5s;
+}
+
+.circle-reveal:hover {
+    mask-size: 200%;
+}
+
+/* Text gradient mask */
+.gradient-text {
+    background: linear-gradient(45deg, #667eea, #764ba2);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+```
+
+---
+
+### Q35: What is CSS `will-change` property?
+
+**Answer:**
+
+Hints to the browser which properties will change, allowing for performance optimizations.
+
+```css
+/* Tell browser to optimize for transform */
+.animated-element {
+    will-change: transform;
+}
+
+/* Multiple properties */
+.complex-animation {
+    will-change: transform, opacity;
+}
+
+/* Auto (let browser decide) */
+.element {
+    will-change: auto;
+}
+```
+
+**Best Practices:**
+
+```css
+/* ❌ Don't use on too many elements */
+* {
+    will-change: transform; /* BAD - wastes memory */
+}
+
+/* ❌ Don't use permanently */
+.element {
+    will-change: transform; /* BAD - always optimized */
+}
+
+/* ✅ Apply before animation, remove after */
+.element {
+    transition: transform 0.3s;
+}
+
+.element:hover {
+    will-change: transform;
+}
+
+.element:active {
+    transform: scale(1.1);
+}
+
+/* ✅ Use JavaScript for complex scenarios */
+```
+
+```javascript
+// Apply will-change before animation
+element.addEventListener('mouseenter', () => {
+    element.style.willChange = 'transform';
+});
+
+// Remove after animation
+element.addEventListener('animationend', () => {
+    element.style.willChange = 'auto';
+});
+```
+
+**When to Use:**
+
+```css
+/* Smooth scrolling animations */
+.scroll-animated {
+    will-change: transform;
+}
+
+/* Carousel slides */
+.carousel-slide {
+    will-change: transform, opacity;
+}
+
+/* Modal animations */
+.modal {
+    will-change: transform, opacity;
+}
+
+.modal.open {
+    transform: scale(1);
+    opacity: 1;
+}
+```
+
+---
+
+### Q36: What is CSS `content-visibility`?
+
+**Answer:**
+
+Allows the browser to skip rendering work for off-screen content.
+
+```css
+/* Skip rendering until needed */
+.blog-post {
+    content-visibility: auto;
+    contain-intrinsic-size: 500px; /* Estimated height */
+}
+
+/* Values */
+.element {
+    content-visibility: visible;  /* Default */
+    content-visibility: hidden;   /* Skip rendering */
+    content-visibility: auto;     /* Skip if off-screen */
+}
+```
+
+**Performance Optimization:**
+
+```css
+/* Long list of items */
+.list-item {
+    content-visibility: auto;
+    contain-intrinsic-size: 200px;
+}
+
+/* Blog feed */
+.article {
+    content-visibility: auto;
+    contain-intrinsic-size: 1000px;
+}
+
+/* Image gallery */
+.gallery-item {
+    content-visibility: auto;
+    contain-intrinsic-size: 300px 200px; /* width height */
+}
+```
+
+**Impact:**
+- Faster initial page load
+- Reduced rendering time
+- Better scroll performance
+- Lower memory usage
+
+---
+
+### Q37: What are CSS container queries?
+
+**Answer:**
+
+Style elements based on their container's size (not viewport size).
+
+```css
+/* Define container */
+.sidebar {
+    container-type: inline-size;
+    container-name: sidebar;
+}
+
+/* Query container */
+.card {
+    display: block;
+}
+
+@container sidebar (min-width: 400px) {
+    .card {
+        display: grid;
+        grid-template-columns: 150px 1fr;
+    }
+}
+
+/* Container types */
+.element {
+    container-type: size;        /* Query width and height */
+    container-type: inline-size; /* Query inline direction (width) */
+    container-type: normal;      /* Not a container */
+}
+```
+
+**Practical Example:**
+
+```css
+/* Responsive card that adapts to its container */
+.card-container {
+    container-type: inline-size;
+    container-name: card;
+}
+
+.card {
+    padding: 1rem;
+}
+
+.card h2 {
+    font-size: 1rem;
+}
+
+/* When container is 300px or larger */
+@container card (min-width: 300px) {
+    .card {
+        display: grid;
+        grid-template-columns: 100px 1fr;
+        gap: 1rem;
+    }
+    
+    .card h2 {
+        font-size: 1.5rem;
+    }
+}
+
+/* When container is 500px or larger */
+@container card (min-width: 500px) {
+    .card {
+        grid-template-columns: 150px 1fr;
+        padding: 2rem;
+    }
+    
+    .card h2 {
+        font-size: 2rem;
+    }
+}
+```
+
+**Benefits:**
+- Truly reusable components
+- Components adapt to their space, not viewport
+- Better than media queries for component libraries
+
+---
+
+### Q38: What is CSS `scroll-behavior`?
+
+**Answer:**
+
+Controls the scrolling behavior for scroll actions.
+
+```css
+/* Smooth scrolling */
+html {
+    scroll-behavior: smooth;
+}
+
+/* Values */
+element {
+    scroll-behavior: auto;   /* Instant */
+    scroll-behavior: smooth; /* Animated */
+}
+```
+
+**Practical Usage:**
+
+```css
+/* Smooth anchor links */
+html {
+    scroll-behavior: smooth;
+}
+
+/* Link to sections */
+<a href="#section2">Go to Section 2</a>
+
+<section id="section2">
+    <!-- Content -->
+</section>
+
+/* Disable for accessibility */
+@media (prefers-reduced-motion: reduce) {
+    html {
+        scroll-behavior: auto;
+    }
+}
+```
+
+**JavaScript Control:**
+
+```javascript
+// Smooth scroll to element
+element.scrollIntoView({ behavior: 'smooth' });
+
+// Smooth scroll to position
+window.scrollTo({
+    top: 1000,
+    behavior: 'smooth'
+});
+```
+
+---
+
+### Q39: What is CSS `mix-blend-mode`?
+
+**Answer:**
+
+Defines how an element's content blends with its background.
+
+```css
+/* Blend modes */
+.element {
+    mix-blend-mode: normal;
+    mix-blend-mode: multiply;
+    mix-blend-mode: screen;
+    mix-blend-mode: overlay;
+    mix-blend-mode: darken;
+    mix-blend-mode: lighten;
+    mix-blend-mode: color-dodge;
+    mix-blend-mode: color-burn;
+    mix-blend-mode: difference;
+    mix-blend-mode: exclusion;
+    mix-blend-mode: hue;
+    mix-blend-mode: saturation;
+    mix-blend-mode: color;
+    mix-blend-mode: luminosity;
+}
+```
+
+**Practical Examples:**
+
+```css
+/* Text over image */
+.hero h1 {
+    mix-blend-mode: difference;
+    color: white;
+    /* Text color inverts based on background */
+}
+
+/* Overlay effect */
+.image-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(45deg, #667eea, #764ba2);
+    mix-blend-mode: multiply;
+}
+
+/* Duotone effect */
+.duotone {
+    position: relative;
+}
+
+.duotone::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: #667eea;
+    mix-blend-mode: color;
+}
+
+.duotone::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: #764ba2;
+    mix-blend-mode: lighten;
+}
+
+/* Loading animation with blend mode */
+.loader {
+    width: 100px;
+    height: 100px;
+    background: conic-gradient(#667eea, #764ba2, #667eea);
+    mix-blend-mode: difference;
+    animation: rotate 2s linear infinite;
+}
+```
+
+---
+
+### Q40: What are CSS color functions?
+
+**Answer:**
+
+Modern ways to define colors with better control.
+
+```css
+/* RGB/RGBA */
+.element {
+    color: rgb(102, 126, 234);
+    background: rgba(102, 126, 234, 0.5);
+}
+
+/* HSL/HSLA - Hue, Saturation, Lightness */
+.element {
+    color: hsl(230, 75%, 65%);
+    background: hsla(230, 75%, 65%, 0.5);
+}
+
+/* Modern syntax (space-separated) */
+.element {
+    color: rgb(102 126 234);
+    color: rgb(102 126 234 / 0.5);
+    color: hsl(230 75% 65%);
+    color: hsl(230 75% 65% / 50%);
+}
+
+/* HWB - Hue, Whiteness, Blackness */
+.element {
+    color: hwb(230 20% 8%);
+}
+
+/* LAB - Lightness, A, B (perceptually uniform) */
+.element {
+    color: lab(65% 10 -40);
+}
+
+/* LCH - Lightness, Chroma, Hue (perceptually uniform) */
+.element {
+    color: lch(65% 50 230);
+}
+```
+
+**Practical Usage:**
+
+```css
+/* Generate color palette with HSL */
+:root {
+    --primary-h: 230;
+    --primary-s: 75%;
+    --primary-l: 65%;
+    
+    --primary: hsl(var(--primary-h) var(--primary-s) var(--primary-l));
+    --primary-light: hsl(var(--primary-h) var(--primary-s) 75%);
+    --primary-dark: hsl(var(--primary-h) var(--primary-s) 45%);
+    --primary-alpha: hsl(var(--primary-h) var(--primary-s) var(--primary-l) / 0.5);
+}
+
+/* Dynamic colors */
+.button {
+    --hue: 230;
+    background: hsl(var(--hue) 75% 65%);
+}
+
+.button:hover {
+    --hue: 250;
+}
+
+/* Accessible color contrasts with LAB */
+.text {
+    color: lab(20% 0 0); /* Dark text */
+    background: lab(98% 0 0); /* Light background */
+}
+```
+
+---
+
+### Q41: What is CSS `isolation` property?
+
+**Answer:**
+
+Creates a new stacking context to isolate blend modes.
+
+```css
+/* Values */
+.element {
+    isolation: auto;    /* Default */
+    isolation: isolate; /* Create stacking context */
+}
+
+/* Use case */
+.card {
+    isolation: isolate;
+}
+
+.card-overlay {
+    mix-blend-mode: multiply;
+    /* Only blends within .card, not with elements outside */
+}
+```
+
+**Practical Example:**
+
+```css
+/* Without isolation - blend mode affects siblings */
+.container {
+    background: white;
+}
+
+.box1 {
+    background: red;
+}
+
+.box2 {
+    background: blue;
+    mix-blend-mode: multiply;
+    /* Blends with .box1 and .container background */
+}
+
+/* With isolation - contain blend mode */
+.container {
+    background: white;
+}
+
+.box1 {
+    isolation: isolate;
+    background: red;
+}
+
+.box2 {
+    background: blue;
+    mix-blend-mode: multiply;
+    /* Only blends with .box1, not .container */
+}
+```
+
+---
+
+### Q42: What is CSS `all` property?
+
+**Answer:**
+
+Resets all CSS properties to initial, inherit, or unset values.
+
+```css
+/* Values */
+.element {
+    all: initial;  /* Reset to initial browser values */
+    all: inherit;  /* Inherit all from parent */
+    all: unset;    /* Combination of initial/inherit */
+    all: revert;   /* Revert to user-agent stylesheet */
+}
+
+/* Use case - Reset widget styles */
+.widget {
+    all: initial; /* Remove all inherited styles */
+    font-family: Arial, sans-serif;
+    color: black;
+    /* Now style from scratch */
+}
+
+/* Iframe content */
+.iframe-container * {
+    all: revert;
+}
+```
+
+**Practical Example:**
+
+```css
+/* Third-party widget that shouldn't inherit styles */
+.external-widget {
+    all: initial;
+    display: block;
+    font-family: system-ui;
+}
+
+/* Reset button styles */
+.custom-button {
+    all: unset;
+    /* Start fresh, then add custom styles */
+    display: inline-block;
+    padding: 0.5rem 1rem;
+    background: #667eea;
+    color: white;
+    border-radius: 4px;
+    cursor: pointer;
+}
+```
+
+---
+
+### Q43: What are CSS math functions (`calc()`, `min()`, `max()`, `clamp()`)?
+
+**Answer:**
+
+Perform calculations and comparisons in CSS.
+
+```css
+/* calc() - Mathematical calculations */
+.element {
+    width: calc(100% - 50px);
+    padding: calc(1rem + 5px);
+    height: calc(100vh - 60px); /* Full height minus navbar */
+}
+
+/* Nested calc */
+.element {
+    width: calc(100% / 3 - 1rem * 2);
+}
+
+/* min() - Smallest value */
+.container {
+    width: min(90%, 1200px);
+    /* Use 90% or 1200px, whichever is smaller */
+}
+
+/* max() - Largest value */
+.text {
+    font-size: max(1rem, 16px);
+    /* Never smaller than 16px */
+}
+
+/* clamp() - Bounded value */
+.heading {
+    font-size: clamp(1.5rem, 5vw, 3rem);
+    /* Min: 1.5rem, Preferred: 5vw, Max: 3rem */
+}
+```
+
+**Complex Examples:**
+
+```css
+/* Responsive grid without media queries */
+.grid {
+    display: grid;
+    grid-template-columns: repeat(
+        auto-fit,
+        minmax(min(300px, 100%), 1fr)
+    );
+    gap: clamp(1rem, 3vw, 3rem);
+}
+
+/* Fluid spacing */
+.section {
+    padding-block: clamp(2rem, 5vh, 8rem);
+    padding-inline: clamp(1rem, 5vw, 4rem);
+}
+
+/* Maintain aspect ratio with padding */
+.video-container {
+    padding-bottom: calc(9 / 16 * 100%); /* 16:9 aspect ratio */
+}
+
+/* Responsive font sizing */
+:root {
+    --font-size-sm: clamp(0.875rem, 0.5vw + 0.75rem, 1rem);
+    --font-size-base: clamp(1rem, 0.5vw + 0.85rem, 1.125rem);
+    --font-size-lg: clamp(1.25rem, 1vw + 1rem, 1.5rem);
+    --font-size-xl: clamp(1.5rem, 2vw + 1rem, 2.5rem);
+}
+```
+
+---
+
+### Q44: What is CSS `counter` for automatic numbering?
+
+**Answer:**
+
+Create automatic counters for lists, headings, etc.
+
+```css
+/* Basic counter */
+.list {
+    counter-reset: item;
+}
+
+.list li::before {
+    counter-increment: item;
+    content: counter(item) ". ";
+}
+
+/* Nested counters */
+.outline {
+    counter-reset: section;
+}
+
+.outline h2 {
+    counter-reset: subsection;
+}
+
+.outline h2::before {
+    counter-increment: section;
+    content: counter(section) ". ";
+}
+
+.outline h3::before {
+    counter-increment: subsection;
+    content: counter(section) "." counter(subsection) " ";
+}
+```
+
+**Practical Examples:**
+
+```css
+/* Numbered headings */
+article {
+    counter-reset: heading;
+}
+
+article h2::before {
+    counter-increment: heading;
+    content: counter(heading) ". ";
+    color: #667eea;
+    font-weight: bold;
+}
+
+/* Custom list styling */
+.custom-list {
+    list-style: none;
+    counter-reset: item;
+}
+
+.custom-list li {
+    counter-increment: item;
+    position: relative;
+    padding-left: 3rem;
+}
+
+.custom-list li::before {
+    content: counter(item);
+    position: absolute;
+    left: 0;
+    width: 2rem;
+    height: 2rem;
+    background: #667eea;
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+}
+
+/* Different counter styles */
+.roman {
+    list-style: none;
+    counter-reset: item;
+}
+
+.roman li::before {
+    counter-increment: item;
+    content: counter(item, upper-roman) ") ";
+}
+/* Generates: I) II) III) */
+
+/* counter styles: decimal, upper-roman, lower-roman, 
+   upper-alpha, lower-alpha, upper-greek, lower-greek */
+```
+
+---
+
+### Q45: What is CSS `@supports` (feature queries)?
+
+**Answer:**
+
+Test if the browser supports specific CSS features.
+
+```css
+/* Basic usage */
+@supports (display: grid) {
+    .container {
+        display: grid;
+    }
+}
+
+/* Fallback for older browsers */
+.container {
+    display: flex; /* Fallback */
+}
+
+@supports (display: grid) {
+    .container {
+        display: grid; /* Modern browsers */
+    }
+}
+
+/* Logical operators */
+/* AND */
+@supports (display: grid) and (gap: 1rem) {
+    .grid {
+        display: grid;
+        gap: 1rem;
+    }
+}
+
+/* OR */
+@supports (display: flex) or (display: grid) {
+    .container {
+        /* Code for flex or grid support */
+    }
+}
+
+/* NOT */
+@supports not (display: grid) {
+    .container {
+        display: flex; /* Fallback for no grid support */
+    }
+}
+```
+
+**Practical Examples:**
+
+```css
+/* Test for backdrop-filter support */
+.glass {
+    background: rgba(255, 255, 255, 0.7);
+}
+
+@supports (backdrop-filter: blur(10px)) {
+    .glass {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+    }
+}
+
+/* Test for CSS Grid support */
+.layout {
+    display: flex;
+    flex-wrap: wrap;
+}
+
+@supports (display: grid) {
+    .layout {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 2rem;
+    }
+}
+
+/* Test for sticky positioning */
+.navbar {
+    position: relative;
+    top: 0;
+}
+
+@supports (position: sticky) {
+    .navbar {
+        position: sticky;
+        top: 0;
+    }
+}
+
+/* Test for CSS custom properties */
+@supports (--css: variables) {
+    :root {
+        --primary: #667eea;
+    }
+    
+    .button {
+        background: var(--primary);
+    }
+}
+```
+
+---
+
+### Q46: What is CSS `@layer` (cascade layers)?
+
+**Answer:**
+
+Control the cascade order of CSS rules.
+
+```css
+/* Define layers (order matters) */
+@layer reset, base, components, utilities;
+
+/* Add rules to layers */
+@layer reset {
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+}
+
+@layer base {
+    body {
+        font-family: system-ui;
+        line-height: 1.5;
+    }
+}
+
+@layer components {
+    .button {
+        padding: 0.5rem 1rem;
+        border-radius: 4px;
+    }
+}
+
+@layer utilities {
+    .text-center {
+        text-align: center;
+    }
+}
+```
+
+**Benefits:**
+
+```css
+/* Utilities always override components */
+@layer components, utilities;
+
+@layer components {
+    .button {
+        color: blue; /* Lower priority */
+    }
+}
+
+@layer utilities {
+    .text-red {
+        color: red; /* Higher priority */
+    }
+}
+
+/* <button class="button text-red"> will be red */
+
+/* Import into layers */
+@import url('reset.css') layer(reset);
+@import url('components.css') layer(components);
+
+/* Anonymous layers */
+@layer {
+    .special {
+        color: purple;
+    }
+}
+```
+
+---
+
+### Q47: What is CSS `:has()` selector (parent selector)?
+
+**Answer:**
+
+Select parent elements based on their children (revolutionary!).
+
+```css
+/* Select .card that has an image */
+.card:has(img) {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+}
+
+/* Select .card without an image */
+.card:not(:has(img)) {
+    display: block;
+}
+
+/* Select form that has invalid input */
+form:has(input:invalid) {
+    border: 2px solid red;
+}
+
+/* Select label that has checked checkbox */
+label:has(input[type="checkbox"]:checked) {
+    font-weight: bold;
+    color: green;
+}
+```
+
+**Powerful Examples:**
+
+```css
+/* Style parent based on child state */
+.article:has(h2) {
+    padding-top: 2rem;
+}
+
+/* Different layouts based on content */
+.container:has(> .sidebar) {
+    display: grid;
+    grid-template-columns: 250px 1fr;
+}
+
+.container:not(:has(> .sidebar)) {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+/* Interactive UI without JavaScript */
+.accordion:has(.panel:hover) {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Form validation styling */
+.form-group:has(input:focus) label {
+    color: #667eea;
+    transform: translateY(-1.5rem);
+}
+
+.form-group:has(input:invalid:not(:placeholder-shown)) {
+    border-color: red;
+}
+
+.form-group:has(input:valid:not(:placeholder-shown)) {
+    border-color: green;
+}
+
+/* Select previous sibling (kind of) */
+.item:has(+ .item:hover) {
+    opacity: 0.5;
+}
+```
+
+---
+
+### Q48: What are CSS `@property` custom properties?
+
+**Answer:**
+
+Define custom properties with type checking and default values.
+
+```css
+/* Register custom property */
+@property --gradient-angle {
+    syntax: '<angle>';
+    initial-value: 0deg;
+    inherits: false;
+}
+
+/* Now can animate it! */
+.gradient-bg {
+    background: linear-gradient(var(--gradient-angle), #667eea, #764ba2);
+    animation: rotate 3s linear infinite;
+}
+
+@keyframes rotate {
+    to {
+        --gradient-angle: 360deg;
+    }
+}
+
+/* Different syntax types */
+@property --color {
+    syntax: '<color>';
+    initial-value: blue;
+    inherits: true;
+}
+
+@property --spacing {
+    syntax: '<length>';
+    initial-value: 0px;
+    inherits: false;
+}
+
+@property --scale {
+    syntax: '<number>';
+    initial-value: 1;
+    inherits: false;
+}
+```
+
+**Practical Examples:**
+
+```css
+/* Animate gradient */
+@property --gradient-position {
+    syntax: '<percentage>';
+    initial-value: 0%;
+    inherits: false;
+}
+
+.animated-gradient {
+    background: linear-gradient(
+        90deg,
+        #667eea 0%,
+        #764ba2 var(--gradient-position),
+        #667eea 100%
+    );
+    animation: gradient-move 3s ease infinite;
+}
+
+@keyframes gradient-move {
+    0%, 100% { --gradient-position: 0%; }
+    50% { --gradient-position: 100%; }
+}
+
+/* Animated blur */
+@property --blur-amount {
+    syntax: '<length>';
+    initial-value: 0px;
+    inherits: false;
+}
+
+.hover-blur {
+    filter: blur(var(--blur-amount));
+    transition: --blur-amount 0.3s;
+}
+
+.hover-blur:hover {
+    --blur-amount: 5px;
+}
+```
+
+---
+
+### Q49: What is CSS `color-scheme` property?
+
+**Answer:**
+
+Indicates which color schemes (light/dark) an element can be rendered with.
+
+```css
+/* Support dark mode */
+:root {
+    color-scheme: light dark;
+}
+
+/* Force light mode */
+.light-only {
+    color-scheme: light;
+}
+
+/* Force dark mode */
+.dark-only {
+    color-scheme: dark;
+}
+
+/* Affects form controls, scrollbars, system colors */
+html {
+    color-scheme: light dark;
+}
+
+/* Now <input>, <select> adapt to system theme */
+```
+
+**Complete Dark Mode Setup:**
+
+```css
+/* Define color schemes */
+:root {
+    color-scheme: light dark;
+    
+    /* Light mode colors */
+    --bg: white;
+    --text: #333;
+    --border: #ddd;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg: #1a1a1a;
+        --text: #e0e0e0;
+        --border: #444;
+    }
+}
+
+/* Use colors */
+body {
+    background: var(--bg);
+    color: var(--text);
+}
+
+/* Manual toggle */
+[data-theme="light"] {
+    color-scheme: light;
+    --bg: white;
+    --text: #333;
+}
+
+[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #1a1a1a;
+    --text: #e0e0e0;
+}
+```
+
+---
+
+### Q50: What are CSS subgrid and nested grids?
+
+**Answer:**
+
+Allow grid items to inherit parent's grid tracks.
+
+```css
+/* Parent grid */
+.grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+}
+
+/* Child inherits parent's columns */
+.card {
+    display: grid;
+    grid-column: span 2;
+    grid-template-columns: subgrid; /* Inherit parent columns */
+    gap: 0.5rem;
+}
+
+/* Subgrid for rows */
+.item {
+    display: grid;
+    grid-row: span 3;
+    grid-template-rows: subgrid;
+}
+```
+
+**Practical Example:**
+
+```css
+/* Product grid with aligned prices */
+.products {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2rem;
+}
+
+.product {
+    display: grid;
+    grid-template-rows: subgrid;
+    grid-row: span 4; /* Image, title, description, price */
+    gap: 1rem;
+}
+
+/* All prices align across cards */
+.product-image { /* Row 1 */ }
+.product-title { /* Row 2 */ }
+.product-desc { /* Row 3 */ }
+.product-price { /* Row 4 - aligned! */ }
+
+/* Complex layout with subgrid */
+.page {
+    display: grid;
+    grid-template-columns: 200px 1fr 200px;
+    grid-template-rows: auto 1fr auto;
+    gap: 1rem;
+}
+
+.content {
+    display: grid;
+    grid-column: 2;
+    grid-template-columns: subgrid;
+    grid-template-rows: subgrid;
+}
+```
+
+---
+
+## Most Useful CSS Styles & Utilities
+
+### Reset & Base Styles
+
+```css
+/* Modern CSS Reset */
+*, *::before, *::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html {
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 
+                 Roboto, 'Helvetica Neue', Arial, sans-serif;
+    line-height: 1.6;
+    color: #333;
+    background: #fff;
+}
+
+img, picture, video, canvas, svg {
+    display: block;
+    max-width: 100%;
+    height: auto;
+}
+
+input, button, textarea, select {
+    font: inherit;
+}
+
+button {
+    cursor: pointer;
+}
+
+a {
+    color: inherit;
+    text-decoration: none;
+}
+
+ul, ol {
+    list-style: none;
+}
+
+/* Remove all animations for people who prefer reduced motion */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+```
+
+---
+
+### Flexbox Utilities
+
+```css
+/* Flex containers */
+.flex { display: flex; }
+.inline-flex { display: inline-flex; }
+
+/* Direction */
+.flex-row { flex-direction: row; }
+.flex-col { flex-direction: column; }
+.flex-row-reverse { flex-direction: row-reverse; }
+.flex-col-reverse { flex-direction: column-reverse; }
+
+/* Wrap */
+.flex-wrap { flex-wrap: wrap; }
+.flex-nowrap { flex-wrap: nowrap; }
+
+/* Justify (main axis) */
+.justify-start { justify-content: flex-start; }
+.justify-end { justify-content: flex-end; }
+.justify-center { justify-content: center; }
+.justify-between { justify-content: space-between; }
+.justify-around { justify-content: space-around; }
+.justify-evenly { justify-content: space-evenly; }
+
+/* Align items (cross axis) */
+.items-start { align-items: flex-start; }
+.items-end { align-items: flex-end; }
+.items-center { align-items: center; }
+.items-baseline { align-items: baseline; }
+.items-stretch { align-items: stretch; }
+
+/* Align content (multiple lines) */
+.content-start { align-content: flex-start; }
+.content-end { align-content: flex-end; }
+.content-center { align-content: center; }
+.content-between { align-content: space-between; }
+.content-around { align-content: space-around; }
+
+/* Gap */
+.gap-0 { gap: 0; }
+.gap-1 { gap: 0.25rem; }
+.gap-2 { gap: 0.5rem; }
+.gap-3 { gap: 0.75rem; }
+.gap-4 { gap: 1rem; }
+.gap-6 { gap: 1.5rem; }
+.gap-8 { gap: 2rem; }
+
+/* Flex grow/shrink */
+.flex-1 { flex: 1 1 0%; }
+.flex-auto { flex: 1 1 auto; }
+.flex-none { flex: none; }
+.grow { flex-grow: 1; }
+.grow-0 { flex-grow: 0; }
+.shrink { flex-shrink: 1; }
+.shrink-0 { flex-shrink: 0; }
+```
+
+---
+
+### Grid Utilities
+
+```css
+/* Grid display */
+.grid { display: grid; }
+.inline-grid { display: inline-grid; }
+
+/* Columns */
+.grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+.grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.grid-cols-6 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.grid-cols-12 { grid-template-columns: repeat(12, minmax(0, 1fr)); }
+
+/* Rows */
+.grid-rows-1 { grid-template-rows: repeat(1, minmax(0, 1fr)); }
+.grid-rows-2 { grid-template-rows: repeat(2, minmax(0, 1fr)); }
+.grid-rows-3 { grid-template-rows: repeat(3, minmax(0, 1fr)); }
+.grid-rows-4 { grid-template-rows: repeat(4, minmax(0, 1fr)); }
+
+/* Column span */
+.col-span-1 { grid-column: span 1 / span 1; }
+.col-span-2 { grid-column: span 2 / span 2; }
+.col-span-3 { grid-column: span 3 / span 3; }
+.col-span-4 { grid-column: span 4 / span 4; }
+.col-span-full { grid-column: 1 / -1; }
+
+/* Row span */
+.row-span-1 { grid-row: span 1 / span 1; }
+.row-span-2 { grid-row: span 2 / span 2; }
+.row-span-3 { grid-row: span 3 / span 3; }
+.row-span-full { grid-row: 1 / -1; }
+
+/* Auto-fit responsive grid */
+.grid-auto-fit {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+}
+
+/* Auto-fill responsive grid */
+.grid-auto-fill {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1rem;
+}
+```
+
+---
+
+### Spacing Utilities
+
+```css
+/* Margin */
+.m-0 { margin: 0; }
+.m-1 { margin: 0.25rem; }
+.m-2 { margin: 0.5rem; }
+.m-3 { margin: 0.75rem; }
+.m-4 { margin: 1rem; }
+.m-6 { margin: 1.5rem; }
+.m-8 { margin: 2rem; }
+.m-auto { margin: auto; }
+
+/* Margin directional */
+.mt-4 { margin-top: 1rem; }
+.mr-4 { margin-right: 1rem; }
+.mb-4 { margin-bottom: 1rem; }
+.ml-4 { margin-left: 1rem; }
+.mx-4 { margin-left: 1rem; margin-right: 1rem; }
+.my-4 { margin-top: 1rem; margin-bottom: 1rem; }
+
+/* Padding */
+.p-0 { padding: 0; }
+.p-1 { padding: 0.25rem; }
+.p-2 { padding: 0.5rem; }
+.p-3 { padding: 0.75rem; }
+.p-4 { padding: 1rem; }
+.p-6 { padding: 1.5rem; }
+.p-8 { padding: 2rem; }
+
+/* Padding directional */
+.pt-4 { padding-top: 1rem; }
+.pr-4 { padding-right: 1rem; }
+.pb-4 { padding-bottom: 1rem; }
+.pl-4 { padding-left: 1rem; }
+.px-4 { padding-left: 1rem; padding-right: 1rem; }
+.py-4 { padding-top: 1rem; padding-bottom: 1rem; }
+```
+
+---
+
+### Typography Utilities
+
+```css
+/* Font size */
+.text-xs { font-size: 0.75rem; line-height: 1rem; }
+.text-sm { font-size: 0.875rem; line-height: 1.25rem; }
+.text-base { font-size: 1rem; line-height: 1.5rem; }
+.text-lg { font-size: 1.125rem; line-height: 1.75rem; }
+.text-xl { font-size: 1.25rem; line-height: 1.75rem; }
+.text-2xl { font-size: 1.5rem; line-height: 2rem; }
+.text-3xl { font-size: 1.875rem; line-height: 2.25rem; }
+.text-4xl { font-size: 2.25rem; line-height: 2.5rem; }
+
+/* Font weight */
+.font-thin { font-weight: 100; }
+.font-light { font-weight: 300; }
+.font-normal { font-weight: 400; }
+.font-medium { font-weight: 500; }
+.font-semibold { font-weight: 600; }
+.font-bold { font-weight: 700; }
+.font-black { font-weight: 900; }
+
+/* Text align */
+.text-left { text-align: left; }
+.text-center { text-align: center; }
+.text-right { text-align: right; }
+.text-justify { text-align: justify; }
+
+/* Text transform */
+.uppercase { text-transform: uppercase; }
+.lowercase { text-transform: lowercase; }
+.capitalize { text-transform: capitalize; }
+.normal-case { text-transform: none; }
+
+/* Text decoration */
+.underline { text-decoration: underline; }
+.line-through { text-decoration: line-through; }
+.no-underline { text-decoration: none; }
+
+/* Text ellipsis */
+.truncate {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Line clamp */
+.line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.line-clamp-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+```
+
+---
+
+### Color Utilities
+
+```css
+/* Text colors */
+.text-white { color: #fff; }
+.text-black { color: #000; }
+.text-gray-400 { color: #9ca3af; }
+.text-gray-600 { color: #4b5563; }
+.text-gray-800 { color: #1f2937; }
+.text-blue-500 { color: #3b82f6; }
+.text-red-500 { color: #ef4444; }
+.text-green-500 { color: #10b981; }
+
+/* Background colors */
+.bg-white { background-color: #fff; }
+.bg-black { background-color: #000; }
+.bg-gray-100 { background-color: #f3f4f6; }
+.bg-gray-200 { background-color: #e5e7eb; }
+.bg-blue-500 { background-color: #3b82f6; }
+.bg-red-500 { background-color: #ef4444; }
+.bg-green-500 { background-color: #10b981; }
+
+/* Opacity */
+.opacity-0 { opacity: 0; }
+.opacity-25 { opacity: 0.25; }
+.opacity-50 { opacity: 0.5; }
+.opacity-75 { opacity: 0.75; }
+.opacity-100 { opacity: 1; }
+```
+
+---
+
+### Border Utilities
+
+```css
+/* Border width */
+.border { border-width: 1px; }
+.border-2 { border-width: 2px; }
+.border-4 { border-width: 4px; }
+.border-0 { border-width: 0; }
+
+.border-t { border-top-width: 1px; }
+.border-r { border-right-width: 1px; }
+.border-b { border-bottom-width: 1px; }
+.border-l { border-left-width: 1px; }
+
+/* Border radius */
+.rounded-none { border-radius: 0; }
+.rounded-sm { border-radius: 0.125rem; }
+.rounded { border-radius: 0.25rem; }
+.rounded-md { border-radius: 0.375rem; }
+.rounded-lg { border-radius: 0.5rem; }
+.rounded-xl { border-radius: 0.75rem; }
+.rounded-2xl { border-radius: 1rem; }
+.rounded-full { border-radius: 9999px; }
+
+/* Border style */
+.border-solid { border-style: solid; }
+.border-dashed { border-style: dashed; }
+.border-dotted { border-style: dotted; }
+.border-none { border-style: none; }
+
+/* Border color */
+.border-gray-200 { border-color: #e5e7eb; }
+.border-gray-300 { border-color: #d1d5db; }
+.border-blue-500 { border-color: #3b82f6; }
+```
+
+---
+
+### Shadow Utilities
+
+```css
+/* Box shadow */
+.shadow-sm {
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+.shadow {
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1),
+                0 1px 2px 0 rgba(0, 0, 0, 0.06);
+}
+
+.shadow-md {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
+                0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.shadow-lg {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1),
+                0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+.shadow-xl {
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1),
+                0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+.shadow-2xl {
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+.shadow-none {
+    box-shadow: none;
+}
+
+/* Inner shadow */
+.shadow-inner {
+    box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.06);
+}
+```
+
+---
+
+### Position & Display Utilities
+
+```css
+/* Display */
+.block { display: block; }
+.inline-block { display: inline-block; }
+.inline { display: inline; }
+.hidden { display: none; }
+
+/* Position */
+.static { position: static; }
+.relative { position: relative; }
+.absolute { position: absolute; }
+.fixed { position: fixed; }
+.sticky { position: sticky; }
+
+/* Position values */
+.top-0 { top: 0; }
+.right-0 { right: 0; }
+.bottom-0 { bottom: 0; }
+.left-0 { left: 0; }
+.inset-0 { top: 0; right: 0; bottom: 0; left: 0; }
+
+/* Z-index */
+.z-0 { z-index: 0; }
+.z-10 { z-index: 10; }
+.z-20 { z-index: 20; }
+.z-30 { z-index: 30; }
+.z-40 { z-index: 40; }
+.z-50 { z-index: 50; }
+```
+
+---
+
+### Width & Height Utilities
+
+```css
+/* Width */
+.w-auto { width: auto; }
+.w-full { width: 100%; }
+.w-screen { width: 100vw; }
+.w-1\/2 { width: 50%; }
+.w-1\/3 { width: 33.333333%; }
+.w-2\/3 { width: 66.666667%; }
+.w-1\/4 { width: 25%; }
+.w-3\/4 { width: 75%; }
+
+/* Max width */
+.max-w-xs { max-width: 20rem; }
+.max-w-sm { max-width: 24rem; }
+.max-w-md { max-width: 28rem; }
+.max-w-lg { max-width: 32rem; }
+.max-w-xl { max-width: 36rem; }
+.max-w-2xl { max-width: 42rem; }
+.max-w-full { max-width: 100%; }
+.max-w-screen { max-width: 100vw; }
+
+/* Height */
+.h-auto { height: auto; }
+.h-full { height: 100%; }
+.h-screen { height: 100vh; }
+
+/* Min/Max height */
+.min-h-screen { min-height: 100vh; }
+.min-h-full { min-height: 100%; }
+.max-h-full { max-height: 100%; }
+.max-h-screen { max-height: 100vh; }
+```
+
+---
+
+### Common Component Styles
+
+```css
+/* Button */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem 1rem;
+    font-weight: 500;
+    border-radius: 0.375rem;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-primary {
+    background: #3b82f6;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #2563eb;
+}
+
+/* Card */
+.card {
+    background: white;
+    border-radius: 0.5rem;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+    padding: 1.5rem;
+    transition: box-shadow 0.2s;
+}
+
+.card:hover {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+/* Container */
+.container {
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 1rem;
+}
+
+/* Badge */
+.badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    border-radius: 9999px;
+    background: #e5e7eb;
+    color: #374151;
+}
+
+/* Input */
+.input {
+    display: block;
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    font-size: 1rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.375rem;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.input:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+```
+
+---
+
+### Animation Utilities
+
+```css
+/* Transitions */
+.transition {
+    transition-property: all;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 150ms;
+}
+
+.transition-colors {
+    transition-property: color, background-color, border-color;
+}
+
+.transition-transform {
+    transition-property: transform;
+}
+
+.transition-opacity {
+    transition-property: opacity;
+}
+
+/* Duration */
+.duration-150 { transition-duration: 150ms; }
+.duration-200 { transition-duration: 200ms; }
+.duration-300 { transition-duration: 300ms; }
+.duration-500 { transition-duration: 500ms; }
+
+/* Transforms */
+.scale-0 { transform: scale(0); }
+.scale-50 { transform: scale(0.5); }
+.scale-75 { transform: scale(0.75); }
+.scale-100 { transform: scale(1); }
+.scale-110 { transform: scale(1.1); }
+.scale-125 { transform: scale(1.25); }
+
+.rotate-45 { transform: rotate(45deg); }
+.rotate-90 { transform: rotate(90deg); }
+.rotate-180 { transform: rotate(180deg); }
+
+.translate-x-full { transform: translateX(100%); }
+.translate-y-full { transform: translateY(100%); }
+
+/* Hover effects */
+.hover\:scale-110:hover { transform: scale(1.1); }
+.hover\:shadow-lg:hover {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+```
+
+---
+
+### Accessibility Utilities
+
+```css
+/* Screen reader only */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+}
+
+/* Focus visible */
+.focus-visible {
+    outline: 2px solid transparent;
+    outline-offset: 2px;
+}
+
+.focus-visible:focus-visible {
+    outline: 2px solid #3b82f6;
+}
+
+/* Skip to content */
+.skip-to-content {
+    position: absolute;
+    top: -40px;
+    left: 0;
+    background: #000;
+    color: #fff;
+    padding: 8px;
+    text-decoration: none;
+    z-index: 100;
+}
+
+.skip-to-content:focus {
+    top: 0;
 }
 ```

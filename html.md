@@ -888,20 +888,25 @@ The `<canvas>` element is used to draw graphics using JavaScript.
 
 ---
 
-### Q13: What is the difference between LocalStorage and SessionStorage?
+### Q13: What is the difference between LocalStorage, SessionStorage, and Cookies?
 
 **Answer:**
 
-Both are HTML5 Web Storage APIs for storing data in the browser.
+All three are mechanisms for storing data in the browser, but they have different purposes and characteristics.
 
-**Comparison:**
+**Detailed Comparison:**
 
-| Feature | LocalStorage | SessionStorage |
-|---------|-------------|----------------|
-| Lifetime | Until manually cleared | Until tab/window closes |
-| Scope | Same origin (all tabs) | Single tab/window |
-| Capacity | ~5-10MB | ~5-10MB |
-| Expiration | Never | On tab close |
+| Feature | LocalStorage | SessionStorage | Cookies |
+|---------|-------------|----------------|---------|
+| **Capacity** | ~5-10MB | ~5-10MB | ~4KB per cookie |
+| **Lifetime** | Until manually cleared | Until tab/window closes | Set expiration or session |
+| **Scope** | Same origin (all tabs) | Single tab/window | Same origin (all tabs) |
+| **Sent to Server** | No | No | Yes (with every HTTP request) |
+| **Accessible from** | Client-side only | Client-side only | Client & Server |
+| **API** | Simple (setItem/getItem) | Simple (setItem/getItem) | Complex (document.cookie) |
+| **Security** | Vulnerable to XSS | Vulnerable to XSS | Can use HttpOnly & Secure flags |
+| **Best For** | User preferences, cart | Temporary session data | Authentication, tracking |
+| **Browser Support** | IE8+ | IE8+ | All browsers |
 
 **LocalStorage:**
 ```html
@@ -950,7 +955,106 @@ Both are HTML5 Web Storage APIs for storing data in the browser.
     const data = sessionStorage.getItem('tempData');
     sessionStorage.removeItem('tempData');
     sessionStorage.clear();
+    
+    // Example: Multi-step form
+    sessionStorage.setItem('step1Data', JSON.stringify({ name: 'John', email: 'john@example.com' }));
+    sessionStorage.setItem('step2Data', JSON.stringify({ address: '123 Main St' }));
+    
+    // Data persists during page refresh but clears when tab closes
 </script>
+```
+
+**Cookies:**
+```html
+<script>
+    // Set cookie
+    document.cookie = "username=Alice; max-age=3600; path=/";
+    // max-age in seconds (3600 = 1 hour)
+    
+    // Set cookie with expiration date
+    const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toUTCString();
+    document.cookie = `token=abc123; expires=${expires}; path=/`;
+    
+    // Set secure cookie (HTTPS only)
+    document.cookie = "sessionId=xyz789; secure; path=/";
+    
+    // Set HttpOnly cookie (server-side only, safer)
+    // Can only be set from server, not JavaScript
+    // Set-Cookie: sessionId=xyz789; HttpOnly; Secure; SameSite=Strict
+    
+    // Get all cookies
+    console.log(document.cookie);
+    // "username=Alice; token=abc123; sessionId=xyz789"
+    
+    // Get specific cookie (helper function)
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+    }
+    
+    const username = getCookie('username');
+    console.log(username);  // "Alice"
+    
+    // Delete cookie (set expiration to past)
+    document.cookie = "username=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/";
+    
+    // Cookie utility functions
+    const CookieManager = {
+        set: function(name, value, days) {
+            let expires = "";
+            if (days) {
+                const date = new Date();
+                date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+                expires = `; expires=${date.toUTCString()}`;
+            }
+            document.cookie = `${name}=${value}${expires}; path=/`;
+        },
+        
+        get: function(name) {
+            const nameEQ = `${name}=`;
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                let cookie = cookies[i].trim();
+                if (cookie.indexOf(nameEQ) === 0) {
+                    return cookie.substring(nameEQ.length);
+                }
+            }
+            return null;
+        },
+        
+        delete: function(name) {
+            this.set(name, "", -1);
+        }
+    };
+    
+    // Usage
+    CookieManager.set('theme', 'dark', 30);  // 30 days
+    const theme = CookieManager.get('theme');
+    CookieManager.delete('theme');
+</script>
+```
+
+**Cookie Flags Explained:**
+```javascript
+// Secure - Only sent over HTTPS
+document.cookie = "token=abc; Secure";
+
+// HttpOnly - Not accessible via JavaScript (prevents XSS attacks)
+// Must be set from server:
+// Set-Cookie: sessionId=xyz; HttpOnly
+
+// SameSite - Prevents CSRF attacks
+// Strict: Cookie only sent for same-site requests
+// Lax: Cookie sent for top-level navigations
+// None: Cookie sent for all requests (requires Secure)
+// Set-Cookie: sessionId=xyz; SameSite=Strict
+
+// Domain - Specifies which domain can access the cookie
+document.cookie = "data=value; domain=example.com";
+
+// Path - Specifies URL path that must exist
+document.cookie = "data=value; path=/admin";
 ```
 
 **Real-World Examples:**
@@ -1019,6 +1123,149 @@ Both are HTML5 Web Storage APIs for storing data in the browser.
             document.getElementById('message').value);
     }
 </script>
+```
+
+**4. Authentication Token (Cookies):**
+```html
+<script>
+    // Login - store auth token
+    function login(username, password) {
+        fetch('/api/login', {
+            method: 'POST',
+            body: JSON.stringify({ username, password })
+        })
+        .then(res => res.json())
+        .then(data => {
+            // Store token in cookie (7 days)
+            CookieManager.set('authToken', data.token, 7);
+            window.location.href = '/dashboard';
+        });
+    }
+    
+    // Check if user is logged in
+    function isLoggedIn() {
+        return CookieManager.get('authToken') !== null;
+    }
+    
+    // Logout - clear cookie
+    function logout() {
+        CookieManager.delete('authToken');
+        window.location.href = '/login';
+    }
+</script>
+```
+
+**5. User Tracking & Analytics (Cookies):**
+```html
+<script>
+    // Track returning visitors
+    function trackVisitor() {
+        let visitorId = CookieManager.get('visitorId');
+        
+        if (!visitorId) {
+            // New visitor - generate ID
+            visitorId = 'visitor_' + Date.now() + Math.random();
+            CookieManager.set('visitorId', visitorId, 365);  // 1 year
+        }
+        
+        // Track page view
+        fetch('/api/analytics', {
+            method: 'POST',
+            body: JSON.stringify({
+                visitorId: visitorId,
+                page: window.location.pathname,
+                timestamp: Date.now()
+            })
+        });
+    }
+    
+    trackVisitor();
+</script>
+```
+
+**When to Use Each:**
+
+| Use Case | Storage Type | Reason |
+|----------|-------------|---------|
+| User theme preference | LocalStorage | Persist across sessions, client-only |
+| Shopping cart | LocalStorage | Persist across sessions, client-only |
+| Form auto-save | SessionStorage | Temporary, clear when done |
+| Multi-step form data | SessionStorage | Temporary workflow data |
+| Authentication token | Cookie | Needs to be sent to server |
+| User tracking | Cookie | Server needs the data |
+| Language preference | Cookie or LocalStorage | Either works, depends on server needs |
+| Remember me checkbox | Cookie | Needs long-term persistence |
+| Temporary session data | SessionStorage | Auto-clears on tab close |
+
+**Security Best Practices:**
+
+```javascript
+// ✅ Good: Sanitize data before storing
+function safeStore(key, value) {
+    const sanitized = value.replace(/<script>/gi, '');
+    localStorage.setItem(key, sanitized);
+}
+
+// ✅ Good: Encrypt sensitive data
+function encryptAndStore(key, value) {
+    const encrypted = btoa(value);  // Basic encoding (use real encryption in production)
+    localStorage.setItem(key, encrypted);
+}
+
+// ✅ Good: Use HttpOnly cookies for sensitive data (server-side)
+// Set-Cookie: sessionId=abc123; HttpOnly; Secure; SameSite=Strict
+
+// ❌ Bad: Storing sensitive data in localStorage
+localStorage.setItem('password', userPassword);  // DON'T DO THIS!
+localStorage.setItem('creditCard', cardNumber);   // NEVER DO THIS!
+
+// ✅ Good: Use cookies with proper flags
+document.cookie = "sessionId=xyz; Secure; SameSite=Strict; path=/";
+
+// ✅ Good: Validate data when retrieving
+function safeRetrieve(key) {
+    try {
+        const value = localStorage.getItem(key);
+        return value ? JSON.parse(value) : null;
+    } catch (e) {
+        console.error('Invalid data in storage');
+        return null;
+    }
+}
+```
+
+**Storage Size Check:**
+```javascript
+// Check storage usage
+function getStorageSize(storage) {
+    let total = 0;
+    for (let key in storage) {
+        if (storage.hasOwnProperty(key)) {
+            total += storage[key].length + key.length;
+        }
+    }
+    return (total / 1024).toFixed(2) + ' KB';
+}
+
+console.log('LocalStorage:', getStorageSize(localStorage));
+console.log('SessionStorage:', getStorageSize(sessionStorage));
+
+// Test storage limits
+function testStorageLimit() {
+    try {
+        let i = 0;
+        while (true) {
+            localStorage.setItem('test' + i, '0'.repeat(100000));
+            i++;
+        }
+    } catch (e) {
+        console.log('Storage limit reached at:', i * 100000 / 1024 / 1024, 'MB');
+        // Clean up
+        for (let j = 0; j < i; j++) {
+            localStorage.removeItem('test' + j);
+        }
+    }
+}
 ```
 
 ---

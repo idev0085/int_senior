@@ -418,7 +418,7 @@ console.log(module.getValue()); // 1
 ### Q13: What is the this keyword?
 
 **Answer:**
-`this` refers to the object that is executing the current function. Its value depends on how the function is called.
+`this` is a special keyword that points to the **owner** of the function you're running. Think of it as "who is calling this function?" The answer changes based on **how** you call it.
 
 ```javascript
 // 1. Global context
