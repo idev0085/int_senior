@@ -7,6 +7,7 @@
 4. [Architecture & Design Patterns](#architecture--design-patterns)
 5. [Advanced Hooks](#advanced-hooks)
 6. [Testing & Quality](#testing--quality)
+7. [Debugging in React](#debugging-in-react)
 
 ---
 
@@ -96,69 +97,765 @@ function UncontrolledForm() {
 
 **Answer:**
 
-**1. Code Splitting (Lazy Loading):**
+React performance optimization is about making your app faster and more responsive by reducing unnecessary work. Here's a comprehensive guide:
+
+---
+
+#### **1. Code Splitting & Lazy Loading**
+
 Load only what users need, when they need it.
 
+**Route-Based Splitting:**
 ```javascript
-// Instead of importing everything at once
-import HeavyComponent from './HeavyComponent';
+import { lazy, Suspense } from 'react';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 
-// Load it only when needed
-const HeavyComponent = lazy(() => import('./HeavyComponent'));
+// Lazy load entire routes
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Analytics = lazy(() => import('./pages/Analytics'));
+const Settings = lazy(() => import('./pages/Settings'));
 
 function App() {
   return (
-    <Suspense fallback={<Loading />}>
-      <HeavyComponent />
-    </Suspense>
+    <BrowserRouter>
+      <Suspense fallback={<LoadingScreen />}>
+        <Routes>
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/analytics" element={<Analytics />} />
+          <Route path="/settings" element={<Settings />} />
+        </Routes>
+      </Suspense>
+    </BrowserRouter>
   );
 }
 ```
 
-**2. Memoization:**
-Remember expensive calculations or components to avoid repeating work.
-
+**Component-Based Splitting:**
 ```javascript
-// Memoize expensive calculations
-const expensiveValue = useMemo(() => {
-  return calculateSomethingExpensive(data);
-}, [data]); // Only recalculate when data changes
-
-// Memoize callbacks
-const handleClick = useCallback(() => {
-  doSomething(id);
-}, [id]); // Function stays the same unless id changes
-
-// Memoize entire components
-const MemoizedComponent = memo(MyComponent);
+// Heavy component loaded only when user clicks
+function Dashboard() {
+  const [showChart, setShowChart] = useState(false);
+  
+  const HeavyChart = lazy(() => import('./HeavyChart'));
+  
+  return (
+    <div>
+      <button onClick={() => setShowChart(true)}>
+        Show Analytics Chart
+      </button>
+      
+      {showChart && (
+        <Suspense fallback={<Spinner />}>
+          <HeavyChart />
+        </Suspense>
+      )}
+    </div>
+  );
+}
 ```
 
-**3. Virtualization:**
-For large lists, only render what's visible on screen.
+**Library Splitting:**
+```javascript
+// Import heavy libraries only when needed
+const loadMarkdownParser = () => import('markdown-it');
 
+function MarkdownPreview({ content }) {
+  const [html, setHtml] = useState('');
+  
+  useEffect(() => {
+    loadMarkdownParser().then(({ default: MarkdownIt }) => {
+      const md = new MarkdownIt();
+      setHtml(md.render(content));
+    });
+  }, [content]);
+  
+  return <div dangerouslySetInnerHTML={{ __html: html }} />;
+}
+```
+
+---
+
+#### **2. Memoization - Avoid Unnecessary Re-renders**
+
+**React.memo() - Memoize Components:**
+```javascript
+// Without memo: Re-renders on every parent render
+function ProductCard({ product }) {
+  console.log('Rendering ProductCard');
+  return <div>{product.name}</div>;
+}
+
+// With memo: Only re-renders when props change
+const ProductCard = memo(function ProductCard({ product }) {
+  console.log('Rendering ProductCard');
+  return <div>{product.name}</div>;
+});
+
+// Custom comparison function
+const ProductCard = memo(
+  function ProductCard({ product }) {
+    return <div>{product.name}</div>;
+  },
+  (prevProps, nextProps) => {
+    // Return true if props are equal (skip re-render)
+    return prevProps.product.id === nextProps.product.id;
+  }
+);
+```
+
+**useMemo() - Memoize Expensive Calculations:**
+```javascript
+function ProductList({ products, filters }) {
+  // ❌ Bad: Recalculates on every render
+  const filteredProducts = products.filter(p => 
+    p.category === filters.category && 
+    p.price >= filters.minPrice
+  );
+  
+  // ✅ Good: Only recalculates when dependencies change
+  const filteredProducts = useMemo(() => {
+    console.log('Filtering products...');
+    return products.filter(p => 
+      p.category === filters.category && 
+      p.price >= filters.minPrice
+    );
+  }, [products, filters]);
+  
+  // Expensive computation
+  const statistics = useMemo(() => {
+    return {
+      total: filteredProducts.length,
+      avgPrice: filteredProducts.reduce((sum, p) => sum + p.price, 0) / filteredProducts.length,
+      categories: [...new Set(filteredProducts.map(p => p.category))],
+    };
+  }, [filteredProducts]);
+  
+  return (
+    <div>
+      <Stats data={statistics} />
+      {filteredProducts.map(p => <ProductCard key={p.id} product={p} />)}
+    </div>
+  );
+}
+```
+
+**useCallback() - Memoize Functions:**
+```javascript
+function ProductManager() {
+  const [products, setProducts] = useState([]);
+  
+  // ❌ Bad: New function created on every render
+  // Child components re-render unnecessarily
+  const handleDelete = (id) => {
+    setProducts(prev => prev.filter(p => p.id !== id));
+  };
+  
+  // ✅ Good: Function reference stays the same
+  const handleDelete = useCallback((id) => {
+    setProducts(prev => prev.filter(p => p.id !== id));
+  }, []); // Empty deps = function never changes
+  
+  // With dependencies
+  const handleUpdate = useCallback((id, updates) => {
+    setProducts(prev => 
+      prev.map(p => p.id === id ? { ...p, ...updates } : p)
+    );
+  }, []); // Still stable with functional updates
+  
+  return (
+    <ProductList 
+      products={products} 
+      onDelete={handleDelete} 
+      onUpdate={handleUpdate} 
+    />
+  );
+}
+```
+
+**When NOT to use memoization:**
+```javascript
+// ❌ Don't memoize everything - it has overhead
+const value = useMemo(() => x + y, [x, y]); // Overkill for simple math
+
+// ❌ Don't memoize if deps change on every render
+const value = useMemo(() => expensiveCalc(timestamp), [timestamp]); // timestamp always changes
+
+// ✅ Memoize when:
+// 1. Expensive calculations
+// 2. Referential equality matters (deps of other hooks)
+// 3. Passing to memoized child components
+```
+
+---
+
+#### **3. Virtualization - Handle Large Lists**
+
+**React Window (Recommended):**
 ```javascript
 import { FixedSizeList } from 'react-window';
 
-// Instead of rendering 10,000 items
-// Only render what fits on screen
-<FixedSizeList
-  height={600}
-  itemCount={10000}
-  itemSize={50}
->
-  {({ index, style }) => <Row index={index} style={style} />}
-</FixedSizeList>
+function ProductList({ products }) {
+  // Only renders visible items + buffer
+  const Row = ({ index, style }) => (
+    <div style={style}>
+      <ProductCard product={products[index]} />
+    </div>
+  );
+  
+  return (
+    <FixedSizeList
+      height={600}           // Viewport height
+      itemCount={products.length}  // Total items
+      itemSize={120}         // Height of each item
+      width="100%"
+    >
+      {Row}
+    </FixedSizeList>
+  );
+}
 ```
 
-**4. Debouncing/Throttling:**
-Limit how often expensive operations run.
+**Variable Size Lists:**
+```javascript
+import { VariableSizeList } from 'react-window';
+
+function CommentList({ comments }) {
+  const listRef = useRef();
+  
+  // Calculate height for each item
+  const getItemSize = (index) => {
+    const comment = comments[index];
+    // Base height + extra for long comments
+    return 80 + (comment.text.length > 100 ? 40 : 0);
+  };
+  
+  const Row = ({ index, style }) => (
+    <div style={style}>
+      <Comment data={comments[index]} />
+    </div>
+  );
+  
+  return (
+    <VariableSizeList
+      ref={listRef}
+      height={600}
+      itemCount={comments.length}
+      itemSize={getItemSize}
+      width="100%"
+    >
+      {Row}
+    </VariableSizeList>
+  );
+}
+```
+
+**Infinite Scroll with react-window:**
+```javascript
+import { FixedSizeList } from 'react-window';
+import InfiniteLoader from 'react-window-infinite-loader';
+
+function InfiniteProductList() {
+  const [products, setProducts] = useState([]);
+  const [hasMore, setHasMore] = useState(true);
+  
+  const loadMoreItems = async (startIndex, stopIndex) => {
+    const newProducts = await fetchProducts(startIndex, stopIndex);
+    setProducts(prev => [...prev, ...newProducts]);
+    if (newProducts.length === 0) setHasMore(false);
+  };
+  
+  const isItemLoaded = (index) => index < products.length;
+  
+  return (
+    <InfiniteLoader
+      isItemLoaded={isItemLoaded}
+      itemCount={hasMore ? products.length + 10 : products.length}
+      loadMoreItems={loadMoreItems}
+    >
+      {({ onItemsRendered, ref }) => (
+        <FixedSizeList
+          ref={ref}
+          height={600}
+          itemCount={products.length}
+          itemSize={120}
+          onItemsRendered={onItemsRendered}
+        >
+          {({ index, style }) => (
+            <div style={style}>
+              {isItemLoaded(index) ? (
+                <ProductCard product={products[index]} />
+              ) : (
+                <LoadingPlaceholder />
+              )}
+            </div>
+          )}
+        </FixedSizeList>
+      )}
+    </InfiniteLoader>
+  );
+}
+```
+
+---
+
+#### **4. Debouncing & Throttling**
+
+**Debouncing - Wait for user to stop typing:**
+```javascript
+import { useState, useMemo, useEffect } from 'react';
+import debounce from 'lodash/debounce';
+
+function SearchBar() {
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState([]);
+  
+  // Debounce API call - waits 300ms after last keystroke
+  const debouncedSearch = useMemo(
+    () => debounce(async (searchTerm) => {
+      if (searchTerm) {
+        const data = await searchAPI(searchTerm);
+        setResults(data);
+      }
+    }, 300),
+    []
+  );
+  
+  // Cleanup
+  useEffect(() => {
+    return () => {
+      debouncedSearch.cancel();
+    };
+  }, [debouncedSearch]);
+  
+  const handleChange = (e) => {
+    const value = e.target.value;
+    setQuery(value); // Update input immediately
+    debouncedSearch(value); // Debounced API call
+  };
+  
+  return (
+    <div>
+      <input value={query} onChange={handleChange} />
+      <ResultsList results={results} />
+    </div>
+  );
+}
+```
+
+**Custom Debounce Hook:**
+```javascript
+function useDebounce(value, delay) {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+  
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+    
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+  
+  return debouncedValue;
+}
+
+// Usage
+function SearchBar() {
+  const [query, setQuery] = useState('');
+  const debouncedQuery = useDebounce(query, 300);
+  
+  useEffect(() => {
+    if (debouncedQuery) {
+      searchAPI(debouncedQuery);
+    }
+  }, [debouncedQuery]);
+  
+  return <input value={query} onChange={(e) => setQuery(e.target.value)} />;
+}
+```
+
+**Throttling - Limit execution frequency:**
+```javascript
+import throttle from 'lodash/throttle';
+
+function ScrollTracker() {
+  const [scrollPos, setScrollPos] = useState(0);
+  
+  // Execute at most once every 200ms
+  const handleScroll = useMemo(
+    () => throttle(() => {
+      setScrollPos(window.scrollY);
+    }, 200),
+    []
+  );
+  
+  useEffect(() => {
+    window.addEventListener('scroll', handleScroll);
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      handleScroll.cancel();
+    };
+  }, [handleScroll]);
+  
+  return <div>Scroll Position: {scrollPos}px</div>;
+}
+```
+
+---
+
+#### **5. Image Optimization**
+
+**Lazy Loading Images:**
+```javascript
+function ProductImage({ src, alt }) {
+  return (
+    <img 
+      src={src} 
+      alt={alt}
+      loading="lazy"  // Native lazy loading
+      decoding="async" // Don't block rendering
+    />
+  );
+}
+```
+
+**Progressive Image Loading:**
+```javascript
+function ProgressiveImage({ src, placeholder, alt }) {
+  const [imgSrc, setImgSrc] = useState(placeholder);
+  const [loading, setLoading] = useState(true);
+  
+  useEffect(() => {
+    const img = new Image();
+    img.src = src;
+    img.onload = () => {
+      setImgSrc(src);
+      setLoading(false);
+    };
+  }, [src]);
+  
+  return (
+    <div className={`image-container ${loading ? 'loading' : 'loaded'}`}>
+      <img src={imgSrc} alt={alt} />
+    </div>
+  );
+}
+```
+
+**Responsive Images:**
+```javascript
+function ResponsiveImage({ imageName, alt }) {
+  return (
+    <img
+      src={`/images/${imageName}-800.jpg`}
+      srcSet={`
+        /images/${imageName}-400.jpg 400w,
+        /images/${imageName}-800.jpg 800w,
+        /images/${imageName}-1200.jpg 1200w
+      `}
+      sizes="(max-width: 600px) 400px, (max-width: 1200px) 800px, 1200px"
+      alt={alt}
+      loading="lazy"
+    />
+  );
+}
+```
+
+---
+
+#### **6. Avoid Inline Functions & Objects**
 
 ```javascript
-const debouncedSearch = useMemo(
-  () => debounce((query) => searchAPI(query), 300),
-  []
-);
+// ❌ Bad: New function created on every render
+function ProductList({ products }) {
+  return (
+    <div>
+      {products.map(p => (
+        <ProductCard 
+          key={p.id}
+          product={p}
+          onClick={() => handleClick(p.id)}  // New function each render!
+          style={{ padding: 20 }}  // New object each render!
+        />
+      ))}
+    </div>
+  );
+}
+
+// ✅ Good: Stable references
+function ProductList({ products }) {
+  const handleClick = useCallback((id) => {
+    console.log('Clicked:', id);
+  }, []);
+  
+  const cardStyle = useMemo(() => ({ padding: 20 }), []);
+  
+  return (
+    <div>
+      {products.map(p => (
+        <ProductCard 
+          key={p.id}
+          product={p}
+          onClick={handleClick}
+          style={cardStyle}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ✅ Even better: Extract to separate component
+const ProductCard = memo(({ product, onProductClick }) => (
+  <div onClick={() => onProductClick(product.id)}>
+    {product.name}
+  </div>
+));
+
+function ProductList({ products }) {
+  const handleClick = useCallback((id) => {
+    console.log('Clicked:', id);
+  }, []);
+  
+  return (
+    <div>
+      {products.map(p => (
+        <ProductCard 
+          key={p.id}
+          product={p}
+          onProductClick={handleClick}
+        />
+      ))}
+    </div>
+  );
+}
 ```
+
+---
+
+#### **7. Web Workers for Heavy Computations**
+
+```javascript
+// worker.js
+self.addEventListener('message', (e) => {
+  const { data, operation } = e.data;
+  
+  let result;
+  switch (operation) {
+    case 'sort':
+      result = data.sort((a, b) => a.value - b.value);
+      break;
+    case 'filter':
+      result = data.filter(item => item.value > 50);
+      break;
+    case 'calculate':
+      result = expensiveCalculation(data);
+      break;
+  }
+  
+  self.postMessage(result);
+});
+
+// Component
+function DataProcessor({ data }) {
+  const [result, setResult] = useState(null);
+  const workerRef = useRef();
+  
+  useEffect(() => {
+    workerRef.current = new Worker('/worker.js');
+    
+    workerRef.current.onmessage = (e) => {
+      setResult(e.data);
+    };
+    
+    return () => {
+      workerRef.current?.terminate();
+    };
+  }, []);
+  
+  const processData = () => {
+    workerRef.current.postMessage({
+      data,
+      operation: 'calculate'
+    });
+  };
+  
+  return (
+    <div>
+      <button onClick={processData}>Process Data</button>
+      {result && <Results data={result} />}
+    </div>
+  );
+}
+```
+
+---
+
+#### **8. React DevTools Profiler**
+
+**Profiling Components:**
+```javascript
+import { Profiler } from 'react';
+
+function onRenderCallback(
+  id,        // Component identifier
+  phase,     // "mount" or "update"
+  actualDuration,  // Time spent rendering
+  baseDuration,    // Estimated time without memoization
+  startTime,
+  commitTime,
+  interactions
+) {
+  console.log(`${id} (${phase}) took ${actualDuration}ms`);
+  
+  // Send to analytics
+  if (actualDuration > 100) {
+    analytics.track('slow-render', {
+      component: id,
+      duration: actualDuration,
+      phase
+    });
+  }
+}
+
+function App() {
+  return (
+    <Profiler id="App" onRender={onRenderCallback}>
+      <Dashboard />
+      <Profiler id="ProductList" onRender={onRenderCallback}>
+        <ProductList />
+      </Profiler>
+    </Profiler>
+  );
+}
+```
+
+---
+
+#### **9. Bundle Size Optimization**
+
+**Analyze Bundle:**
+```bash
+# Install analyzer
+npm install --save-dev webpack-bundle-analyzer
+
+# Add to package.json
+"analyze": "webpack-bundle-analyzer build/bundle-stats.json"
+```
+
+**Tree Shaking:**
+```javascript
+// ❌ Bad: Imports entire library
+import _ from 'lodash';
+const result = _.debounce(fn, 300);
+
+// ✅ Good: Import only what you need
+import debounce from 'lodash/debounce';
+const result = debounce(fn, 300);
+
+// ❌ Bad: Imports everything from Material-UI
+import { Button, TextField, Dialog } from '@mui/material';
+
+// ✅ Good: Individual imports
+import Button from '@mui/material/Button';
+import TextField from '@mui/material/TextField';
+import Dialog from '@mui/material/Dialog';
+```
+
+---
+
+#### **10. Performance Monitoring Hooks**
+
+**Custom Performance Hook:**
+```javascript
+function usePerformanceMonitor(componentName) {
+  const renderCount = useRef(0);
+  const startTime = useRef(performance.now());
+  
+  useEffect(() => {
+    renderCount.current += 1;
+    const renderTime = performance.now() - startTime.current;
+    
+    console.log(`${componentName}:`, {
+      renderCount: renderCount.current,
+      renderTime: `${renderTime.toFixed(2)}ms`
+    });
+    
+    startTime.current = performance.now();
+  });
+  
+  return renderCount.current;
+}
+
+// Usage
+function ProductList({ products }) {
+  const renders = usePerformanceMonitor('ProductList');
+  
+  return <div>Rendered {renders} times</div>;
+}
+```
+
+**Why Re-render Hook:**
+```javascript
+function useWhyDidYouUpdate(name, props) {
+  const previousProps = useRef();
+  
+  useEffect(() => {
+    if (previousProps.current) {
+      const allKeys = Object.keys({ ...previousProps.current, ...props });
+      const changes = {};
+      
+      allKeys.forEach(key => {
+        if (previousProps.current[key] !== props[key]) {
+          changes[key] = {
+            from: previousProps.current[key],
+            to: props[key]
+          };
+        }
+      });
+      
+      if (Object.keys(changes).length) {
+        console.log('[why-did-you-update]', name, changes);
+      }
+    }
+    
+    previousProps.current = props;
+  });
+}
+
+// Usage
+function ProductCard({ product, onUpdate, onDelete }) {
+  useWhyDidYouUpdate('ProductCard', { product, onUpdate, onDelete });
+  return <div>{product.name}</div>;
+}
+```
+
+---
+
+### **Performance Optimization Checklist:**
+
+✅ **Code Splitting**: Lazy load routes and heavy components  
+✅ **Memoization**: Use `memo`, `useMemo`, `useCallback` wisely  
+✅ **Virtualization**: Use react-window for large lists  
+✅ **Debouncing**: Delay expensive operations (search, API calls)  
+✅ **Image Optimization**: Lazy load, responsive images, progressive loading  
+✅ **Avoid Inline Objects/Functions**: In render or as props  
+✅ **Web Workers**: Offload heavy computations  
+✅ **Bundle Analysis**: Remove unused code, tree shake properly  
+✅ **Profiling**: Use React DevTools Profiler to identify bottlenecks  
+✅ **Monitoring**: Track render times and performance metrics  
+
+---
+
+### **Common Performance Pitfalls:**
+
+❌ **Over-optimization**: Don't memoize everything  
+❌ **Wrong Dependencies**: Missing or incorrect dependency arrays  
+❌ **State in Context**: Frequent updates to Context cause all consumers to re-render  
+❌ **Large Lists Without Virtualization**: Rendering 1000+ items at once  
+❌ **Inline Functions as Props**: Especially in lists  
+❌ **Heavy computations in render**: Move to `useMemo` or Web Workers  
+❌ **Not using keys properly**: Causes unnecessary re-renders in lists
 
 ---
 
@@ -4597,3 +5294,6361 @@ function MyComponent() {
 **Key differences:**
 - **useEffect**: Asynchronous, runs after paint
 - **useLayoutEffect**: Synchronous, runs before paint (like componentDidMount)
+---
+
+## Scaling React Applications
+
+### Best Practices for Large-Scale React Projects
+
+#### 1. **Project Structure & Organization**
+
+**Feature-Based Structure** (Recommended for large apps):
+```
+src/
+├── features/
+│   ├── authentication/
+│   │   ├── components/
+│   │   ├── hooks/
+│   │   ├── services/
+│   │   ├── store/
+│   │   └── index.ts
+│   ├── dashboard/
+│   │   ├── components/
+│   │   ├── hooks/
+│   │   └── index.ts
+│   └── products/
+├── shared/
+│   ├── components/
+│   ├── hooks/
+│   ├── utils/
+│   ├── types/
+│   └── constants/
+├── core/
+│   ├── api/
+│   ├── auth/
+│   └── routing/
+└── App.tsx
+```
+
+**Benefits:**
+- Easy to locate feature-specific code
+- Better code splitting opportunities
+- Teams can work independently on features
+- Easier to delete or modify features
+
+---
+
+#### 2. **Code Splitting & Lazy Loading**
+
+**Route-Based Splitting:**
+```javascript
+import { lazy, Suspense } from 'react';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+
+// Lazy load routes
+const Dashboard = lazy(() => import('./features/dashboard'));
+const Products = lazy(() => import('./features/products'));
+const Orders = lazy(() => import('./features/orders'));
+
+function App() {
+  return (
+    <BrowserRouter>
+      <Suspense fallback={<LoadingScreen />}>
+        <Routes>
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/products" element={<Products />} />
+          <Route path="/orders" element={<Orders />} />
+        </Routes>
+      </Suspense>
+    </BrowserRouter>
+  );
+}
+```
+
+**Component-Based Splitting:**
+```javascript
+// Heavy chart component loaded only when needed
+const HeavyChart = lazy(() => import('./components/HeavyChart'));
+
+function Dashboard() {
+  const [showChart, setShowChart] = useState(false);
+  
+  return (
+    <div>
+      <button onClick={() => setShowChart(true)}>
+        Show Analytics
+      </button>
+      
+      {showChart && (
+        <Suspense fallback={<Spinner />}>
+          <HeavyChart />
+        </Suspense>
+      )}
+    </div>
+  );
+}
+```
+
+---
+
+#### 3. **State Management Strategy**
+
+**Choosing the Right Tool:**
+
+```javascript
+// Local State: useState, useReducer
+// - Form inputs
+// - UI toggles
+// - Component-specific data
+
+function ProductCard({ product }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  return <Card expanded={isExpanded} />;
+}
+
+// Global State: Context, Redux, Zustand
+// - User authentication
+// - Theme preferences
+// - Shopping cart
+
+// Server State: React Query, SWR
+// - API data
+// - Cached responses
+// - Background updates
+
+import { useQuery } from '@tanstack/react-query';
+
+function Products() {
+  const { data, isLoading } = useQuery({
+    queryKey: ['products'],
+    queryFn: fetchProducts,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+}
+```
+
+**Avoid Prop Drilling:**
+```javascript
+// ❌ Bad: Prop drilling through multiple levels
+<App user={user}>
+  <Layout user={user}>
+    <Sidebar user={user}>
+      <UserMenu user={user} />
+    </Sidebar>
+  </Layout>
+</App>
+
+// ✅ Good: Context or global state
+const UserContext = createContext();
+
+function App() {
+  return (
+    <UserContext.Provider value={user}>
+      <Layout>
+        <Sidebar>
+          <UserMenu /> {/* Accesses user from context */}
+        </Sidebar>
+      </Layout>
+    </UserContext.Provider>
+  );
+}
+```
+
+---
+
+#### 4. **Performance Optimization**
+
+**Memoization Strategies:**
+```javascript
+import { memo, useMemo, useCallback } from 'react';
+
+// Memoize expensive components
+const ProductList = memo(({ products }) => {
+  return products.map(p => <ProductCard key={p.id} product={p} />);
+});
+
+// Memoize expensive calculations
+function ProductAnalytics({ products }) {
+  const stats = useMemo(() => {
+    return calculateComplexStatistics(products);
+  }, [products]);
+  
+  return <Stats data={stats} />;
+}
+
+// Memoize callbacks to prevent re-renders
+function SearchProducts() {
+  const [query, setQuery] = useState('');
+  
+  const handleSearch = useCallback((term) => {
+    // Expensive search logic
+    performSearch(term);
+  }, []); // Stable reference
+  
+  return <SearchBar onSearch={handleSearch} />;
+}
+```
+
+**Virtualization for Large Lists:**
+```javascript
+import { FixedSizeList } from 'react-window';
+
+function ProductList({ products }) {
+  const Row = ({ index, style }) => (
+    <div style={style}>
+      <ProductCard product={products[index]} />
+    </div>
+  );
+  
+  return (
+    <FixedSizeList
+      height={600}
+      itemCount={products.length}
+      itemSize={100}
+      width="100%"
+    >
+      {Row}
+    </FixedSizeList>
+  );
+}
+```
+
+**Debouncing & Throttling:**
+```javascript
+import { useMemo } from 'react';
+import debounce from 'lodash/debounce';
+
+function SearchBar() {
+  const [query, setQuery] = useState('');
+  
+  // Debounce API calls
+  const debouncedSearch = useMemo(
+    () => debounce((value) => {
+      searchAPI(value);
+    }, 300),
+    []
+  );
+  
+  const handleChange = (e) => {
+    const value = e.target.value;
+    setQuery(value);
+    debouncedSearch(value);
+  };
+  
+  return <input value={query} onChange={handleChange} />;
+}
+```
+
+---
+
+#### 5. **API & Data Management**
+
+**Centralized API Layer:**
+```javascript
+// api/client.ts
+import axios from 'axios';
+
+const apiClient = axios.create({
+  baseURL: process.env.REACT_APP_API_URL,
+  timeout: 10000,
+});
+
+// Request interceptor
+apiClient.interceptors.request.use(
+  (config) => {
+    const token = getAuthToken();
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// Response interceptor
+apiClient.interceptors.response.use(
+  (response) => response.data,
+  (error) => {
+    if (error.response?.status === 401) {
+      handleUnauthorized();
+    }
+    return Promise.reject(error);
+  }
+);
+
+export default apiClient;
+
+// api/products.ts
+export const productAPI = {
+  getAll: () => apiClient.get('/products'),
+  getById: (id) => apiClient.get(`/products/${id}`),
+  create: (data) => apiClient.post('/products', data),
+  update: (id, data) => apiClient.put(`/products/${id}`, data),
+  delete: (id) => apiClient.delete(`/products/${id}`),
+};
+```
+
+**React Query for Server State:**
+```javascript
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+
+function useProducts() {
+  return useQuery({
+    queryKey: ['products'],
+    queryFn: productAPI.getAll,
+    staleTime: 5 * 60 * 1000,
+    cacheTime: 10 * 60 * 1000,
+  });
+}
+
+function useUpdateProduct() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: ({ id, data }) => productAPI.update(id, data),
+    onSuccess: () => {
+      // Invalidate and refetch
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+    },
+  });
+}
+
+// Usage
+function ProductManager() {
+  const { data: products, isLoading } = useProducts();
+  const updateProduct = useUpdateProduct();
+  
+  const handleUpdate = (id, changes) => {
+    updateProduct.mutate({ id, data: changes });
+  };
+}
+```
+
+---
+
+#### 6. **Error Handling & Boundaries**
+
+**Error Boundaries:**
+```javascript
+import { Component } from 'react';
+
+class ErrorBoundary extends Component {
+  state = { hasError: false, error: null };
+  
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  
+  componentDidCatch(error, errorInfo) {
+    // Log to error reporting service
+    logErrorToService(error, errorInfo);
+  }
+  
+  render() {
+    if (this.state.hasError) {
+      return (
+        <ErrorFallback 
+          error={this.state.error}
+          resetError={() => this.setState({ hasError: false })}
+        />
+      );
+    }
+    
+    return this.props.children;
+  }
+}
+
+// Usage with feature boundaries
+function App() {
+  return (
+    <ErrorBoundary>
+      <Header />
+      <ErrorBoundary>
+        <Dashboard />
+      </ErrorBoundary>
+      <ErrorBoundary>
+        <Products />
+      </ErrorBoundary>
+    </ErrorBoundary>
+  );
+}
+```
+
+**Global Error Handling:**
+```javascript
+// hooks/useErrorHandler.ts
+export function useErrorHandler() {
+  const [error, setError] = useState(null);
+  
+  const handleError = useCallback((error) => {
+    // Log to monitoring service
+    console.error('Application Error:', error);
+    
+    // Show user-friendly message
+    toast.error(getUserFriendlyMessage(error));
+    
+    setError(error);
+  }, []);
+  
+  const clearError = useCallback(() => setError(null), []);
+  
+  return { error, handleError, clearError };
+}
+```
+
+---
+
+#### 7. **Type Safety with TypeScript**
+
+```typescript
+// types/product.ts
+export interface Product {
+  id: string;
+  name: string;
+  price: number;
+  category: string;
+  inStock: boolean;
+}
+
+export type ProductFormData = Omit<Product, 'id'>;
+export type ProductUpdateData = Partial<ProductFormData>;
+
+// Strict component props
+interface ProductCardProps {
+  product: Product;
+  onUpdate: (id: string, data: ProductUpdateData) => void;
+  onDelete: (id: string) => Promise<void>;
+}
+
+export const ProductCard: React.FC<ProductCardProps> = ({
+  product,
+  onUpdate,
+  onDelete,
+}) => {
+  // Fully typed component
+};
+
+// Typed API responses
+async function fetchProducts(): Promise<Product[]> {
+  const response = await apiClient.get<Product[]>('/products');
+  return response;
+}
+```
+
+---
+
+#### 8. **Testing Strategy**
+
+**Unit Tests:**
+```javascript
+import { render, screen, fireEvent } from '@testing-library/react';
+import { ProductCard } from './ProductCard';
+
+describe('ProductCard', () => {
+  const mockProduct = {
+    id: '1',
+    name: 'Test Product',
+    price: 99.99,
+  };
+  
+  it('renders product information', () => {
+    render(<ProductCard product={mockProduct} />);
+    
+    expect(screen.getByText('Test Product')).toBeInTheDocument();
+    expect(screen.getByText('$99.99')).toBeInTheDocument();
+  });
+  
+  it('calls onUpdate when edit button clicked', () => {
+    const mockUpdate = jest.fn();
+    render(<ProductCard product={mockProduct} onUpdate={mockUpdate} />);
+    
+    fireEvent.click(screen.getByRole('button', { name: /edit/i }));
+    
+    expect(mockUpdate).toHaveBeenCalledWith(mockProduct.id);
+  });
+});
+```
+
+**Integration Tests:**
+```javascript
+import { render, screen, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ProductList } from './ProductList';
+
+const createTestQueryClient = () => new QueryClient({
+  defaultOptions: { queries: { retry: false } },
+});
+
+describe('ProductList Integration', () => {
+  it('fetches and displays products', async () => {
+    const queryClient = createTestQueryClient();
+    
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ProductList />
+      </QueryClientProvider>
+    );
+    
+    await waitFor(() => {
+      expect(screen.getByText('Product 1')).toBeInTheDocument();
+    });
+  });
+});
+```
+
+---
+
+#### 9. **Monitoring & Analytics**
+
+**Performance Monitoring:**
+```javascript
+import { useEffect } from 'react';
+
+export function usePerformanceMonitoring(componentName: string) {
+  useEffect(() => {
+    const startTime = performance.now();
+    
+    return () => {
+      const endTime = performance.now();
+      const renderTime = endTime - startTime;
+      
+      // Send to analytics
+      if (renderTime > 1000) {
+        console.warn(`${componentName} took ${renderTime}ms to render`);
+        sendToAnalytics({
+          component: componentName,
+          renderTime,
+          type: 'slow-render',
+        });
+      }
+    };
+  }, [componentName]);
+}
+
+// Usage
+function Dashboard() {
+  usePerformanceMonitoring('Dashboard');
+  return <div>Dashboard Content</div>;
+}
+```
+
+**User Analytics:**
+```javascript
+import { useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
+
+export function usePageTracking() {
+  const location = useLocation();
+  
+  useEffect(() => {
+    // Track page views
+    analytics.page(location.pathname);
+  }, [location]);
+}
+
+// Track user interactions
+export function useEventTracking() {
+  const trackEvent = (eventName: string, properties?: object) => {
+    analytics.track(eventName, {
+      timestamp: new Date().toISOString(),
+      ...properties,
+    });
+  };
+  
+  return { trackEvent };
+}
+```
+
+---
+
+#### 10. **Build Optimization**
+
+**Webpack Configuration:**
+```javascript
+// webpack.config.js
+module.exports = {
+  optimization: {
+    splitChunks: {
+      chunks: 'all',
+      cacheGroups: {
+        vendor: {
+          test: /[\\/]node_modules[\\/]/,
+          name: 'vendors',
+          priority: 10,
+        },
+        common: {
+          minChunks: 2,
+          priority: 5,
+          reuseExistingChunk: true,
+        },
+      },
+    },
+    runtimeChunk: 'single',
+  },
+  
+  // Tree shaking
+  mode: 'production',
+  
+  // Source maps for production debugging
+  devtool: 'source-map',
+};
+```
+
+**Bundle Analysis:**
+```json
+{
+  "scripts": {
+    "analyze": "webpack-bundle-analyzer build/stats.json",
+    "build:analyze": "npm run build -- --stats && npm run analyze"
+  }
+}
+```
+
+---
+
+#### 11. **Security Best Practices in React**
+
+Security should be a primary concern when building React applications. Here's a comprehensive guide to securing your React apps:
+
+---
+
+##### **1. Cross-Site Scripting (XSS) Prevention**
+
+**Understanding XSS:**
+XSS attacks occur when malicious scripts are injected into your application. React has built-in protection, but you need to be careful with certain patterns.
+
+**React's Built-in Protection:**
+```javascript
+// ✅ Safe: React automatically escapes values
+function UserProfile({ user }) {
+  return (
+    <div>
+      <h1>{user.name}</h1>  {/* Automatically escaped */}
+      <p>{user.bio}</p>
+    </div>
+  );
+}
+
+// Even if user.name = "<script>alert('XSS')</script>"
+// React renders it as text, not executable code
+```
+
+**Dangerous Patterns to Avoid:**
+```javascript
+// ❌ DANGEROUS: dangerouslySetInnerHTML without sanitization
+function UnsafeContent({ htmlContent }) {
+  return (
+    <div dangerouslySetInnerHTML={{ __html: htmlContent }} />
+  );
+}
+
+// If htmlContent = "<img src=x onerror='alert(\"XSS\")'>"
+// This will execute malicious code!
+
+// ✅ SAFE: Always sanitize HTML content
+import DOMPurify from 'dompurify';
+
+function SafeContent({ htmlContent }) {
+  const sanitizedHTML = DOMPurify.sanitize(htmlContent, {
+    ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'a', 'p', 'br'],
+    ALLOWED_ATTR: ['href', 'target']
+  });
+  
+  return (
+    <div dangerouslySetInnerHTML={{ __html: sanitizedHTML }} />
+  );
+}
+```
+
+**URL Injection Prevention:**
+```javascript
+// ❌ DANGEROUS: User-controlled URLs
+function UnsafeLink({ userUrl }) {
+  return <a href={userUrl}>Click here</a>;
+}
+// If userUrl = "javascript:alert('XSS')" - malicious code runs!
+
+// ✅ SAFE: Validate URLs
+function SafeLink({ userUrl }) {
+  const isSafeUrl = (url) => {
+    try {
+      const parsed = new URL(url);
+      return ['http:', 'https:', 'mailto:'].includes(parsed.protocol);
+    } catch {
+      return false;
+    }
+  };
+  
+  if (!isSafeUrl(userUrl)) {
+    return <span>Invalid link</span>;
+  }
+  
+  return (
+    <a 
+      href={userUrl} 
+      target="_blank" 
+      rel="noopener noreferrer"  // Prevents tabnapping
+    >
+      Click here
+    </a>
+  );
+}
+```
+
+**Markdown/Rich Text Safety:**
+```javascript
+import { marked } from 'marked';
+import DOMPurify from 'dompurify';
+
+function MarkdownRenderer({ content }) {
+  const renderMarkdown = (markdown) => {
+    // First convert markdown to HTML
+    const rawHTML = marked(markdown);
+    // Then sanitize the HTML
+    return DOMPurify.sanitize(rawHTML);
+  };
+  
+  return (
+    <div 
+      className="markdown-content"
+      dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }} 
+    />
+  );
+}
+```
+
+---
+
+##### **2. Authentication & Authorization**
+
+**Secure Token Storage:**
+```javascript
+// ❌ BAD: Storing tokens in localStorage (vulnerable to XSS)
+localStorage.setItem('token', authToken);
+
+// ✅ GOOD: Store in httpOnly cookies (set by backend)
+// Backend sets cookie:
+// Set-Cookie: token=abc123; HttpOnly; Secure; SameSite=Strict
+
+// ✅ ALTERNATIVE: Use memory storage with refresh tokens
+class AuthManager {
+  constructor() {
+    this.accessToken = null;
+    this.refreshToken = null; // Can be in httpOnly cookie
+  }
+  
+  setAccessToken(token) {
+    this.accessToken = token;
+    // Token lost on refresh - use refresh token to get new one
+  }
+  
+  getAccessToken() {
+    return this.accessToken;
+  }
+  
+  async refreshAccessToken() {
+    // Call backend to refresh using httpOnly refresh token
+    const response = await fetch('/api/refresh', {
+      method: 'POST',
+      credentials: 'include' // Send httpOnly cookie
+    });
+    const { accessToken } = await response.json();
+    this.setAccessToken(accessToken);
+    return accessToken;
+  }
+}
+
+const authManager = new AuthManager();
+export default authManager;
+```
+
+**Protected Routes:**
+```javascript
+import { Navigate, useLocation } from 'react-router-dom';
+
+function PrivateRoute({ children }) {
+  const { isAuthenticated, loading } = useAuth();
+  const location = useLocation();
+  
+  if (loading) {
+    return <LoadingSpinner />;
+  }
+  
+  if (!isAuthenticated) {
+    // Redirect to login, but save the location they tried to visit
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+  
+  return children;
+}
+
+// Usage
+function App() {
+  return (
+    <Routes>
+      <Route path="/login" element={<Login />} />
+      <Route path="/public" element={<PublicPage />} />
+      
+      <Route 
+        path="/dashboard" 
+        element={
+          <PrivateRoute>
+            <Dashboard />
+          </PrivateRoute>
+        } 
+      />
+    </Routes>
+  );
+}
+```
+
+**Role-Based Access Control (RBAC):**
+```javascript
+// Custom hook for checking permissions
+function usePermission() {
+  const { user } = useAuth();
+  
+  const hasPermission = (requiredPermission) => {
+    if (!user?.permissions) return false;
+    return user.permissions.includes(requiredPermission);
+  };
+  
+  const hasRole = (requiredRole) => {
+    if (!user?.roles) return false;
+    return user.roles.includes(requiredRole);
+  };
+  
+  return { hasPermission, hasRole };
+}
+
+// Permission-based component
+function PermissionGuard({ permission, fallback = null, children }) {
+  const { hasPermission } = usePermission();
+  
+  if (!hasPermission(permission)) {
+    return fallback;
+  }
+  
+  return children;
+}
+
+// Usage
+function AdminPanel() {
+  return (
+    <PermissionGuard 
+      permission="admin.access" 
+      fallback={<AccessDenied />}
+    >
+      <AdminDashboard />
+    </PermissionGuard>
+  );
+}
+
+// Conditional rendering based on permissions
+function DocumentActions({ document }) {
+  const { hasPermission } = usePermission();
+  
+  return (
+    <div>
+      <button>View</button>
+      {hasPermission('document.edit') && (
+        <button>Edit</button>
+      )}
+      {hasPermission('document.delete') && (
+        <button>Delete</button>
+      )}
+    </div>
+  );
+}
+```
+
+**Secure API Requests:**
+```javascript
+import axios from 'axios';
+import authManager from './authManager';
+
+const apiClient = axios.create({
+  baseURL: process.env.REACT_APP_API_URL,
+  timeout: 10000,
+  withCredentials: true, // Send httpOnly cookies
+});
+
+// Request interceptor - Add auth token
+apiClient.interceptors.request.use(
+  (config) => {
+    const token = authManager.getAccessToken();
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// Response interceptor - Handle token refresh
+apiClient.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+    
+    // If token expired and we haven't retried yet
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+      
+      try {
+        // Refresh the access token
+        const newToken = await authManager.refreshAccessToken();
+        originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        return apiClient(originalRequest);
+      } catch (refreshError) {
+        // Refresh failed - redirect to login
+        authManager.logout();
+        window.location.href = '/login';
+        return Promise.reject(refreshError);
+      }
+    }
+    
+    return Promise.reject(error);
+  }
+);
+
+export default apiClient;
+```
+
+---
+
+##### **3. CSRF (Cross-Site Request Forgery) Protection**
+
+**Understanding CSRF:**
+CSRF attacks trick authenticated users into performing unwanted actions.
+
+**CSRF Token Implementation:**
+```javascript
+// Get CSRF token from cookie or meta tag
+function getCsrfToken() {
+  // From meta tag (set by backend)
+  const metaTag = document.querySelector('meta[name="csrf-token"]');
+  if (metaTag) return metaTag.content;
+  
+  // From cookie
+  const match = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+// Add CSRF token to all requests
+apiClient.interceptors.request.use((config) => {
+  const csrfToken = getCsrfToken();
+  
+  // Add token to header for state-changing requests
+  if (['post', 'put', 'patch', 'delete'].includes(config.method)) {
+    config.headers['X-CSRF-Token'] = csrfToken;
+    // Or: config.headers['X-XSRF-TOKEN'] = csrfToken;
+  }
+  
+  return config;
+});
+
+// Usage in forms
+function ProductForm({ onSubmit }) {
+  const csrfToken = getCsrfToken();
+  
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    
+    await fetch('/api/products', {
+      method: 'POST',
+      headers: {
+        'X-CSRF-Token': csrfToken,
+      },
+      body: formData,
+    });
+  };
+  
+  return (
+    <form onSubmit={handleSubmit}>
+      <input type="hidden" name="_csrf" value={csrfToken} />
+      {/* Form fields */}
+    </form>
+  );
+}
+```
+
+**SameSite Cookie Attribute:**
+```javascript
+// Backend sets cookies with SameSite attribute
+// Set-Cookie: sessionId=abc123; SameSite=Strict; Secure; HttpOnly
+
+// SameSite=Strict: Cookie only sent to same-site requests
+// SameSite=Lax: Cookie sent on top-level navigation
+// SameSite=None: Cookie sent everywhere (requires Secure flag)
+```
+
+---
+
+##### **4. Content Security Policy (CSP)**
+
+**Setting Up CSP:**
+```javascript
+// Option 1: In public/index.html
+<meta 
+  http-equiv="Content-Security-Policy" 
+  content="
+    default-src 'self';
+    script-src 'self' 'unsafe-inline' 'unsafe-eval';
+    style-src 'self' 'unsafe-inline';
+    img-src 'self' data: https:;
+    font-src 'self' data:;
+    connect-src 'self' https://api.example.com;
+    frame-ancestors 'none';
+  "
+/>
+
+// Option 2: Server-side (recommended)
+// Express.js example
+app.use((req, res, next) => {
+  res.setHeader(
+    'Content-Security-Policy',
+    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';"
+  );
+  next();
+});
+
+// Option 3: Using helmet.js
+import helmet from 'helmet';
+
+app.use(helmet.contentSecurityPolicy({
+  directives: {
+    defaultSrc: ["'self'"],
+    scriptSrc: ["'self'", "'unsafe-inline'"],
+    styleSrc: ["'self'", "'unsafe-inline'"],
+    imgSrc: ["'self'", "data:", "https:"],
+    connectSrc: ["'self'", "https://api.example.com"],
+    fontSrc: ["'self'", "data:"],
+    objectSrc: ["'none'"],
+    upgradeInsecureRequests: [],
+  },
+}));
+```
+
+**CSP Nonce for Inline Scripts:**
+```javascript
+// Backend generates nonce
+const nonce = crypto.randomBytes(16).toString('base64');
+
+res.setHeader(
+  'Content-Security-Policy',
+  `script-src 'self' 'nonce-${nonce}'; style-src 'self' 'nonce-${nonce}'`
+);
+
+// In HTML template
+<script nonce="${nonce}">
+  // Inline script here
+</script>
+
+// React with CSP
+function App() {
+  // Get nonce from meta tag or window object
+  const nonce = document.querySelector('meta[name="csp-nonce"]')?.content;
+  
+  return (
+    <div>
+      <script nonce={nonce}>
+        {`console.log('Inline script with nonce');`}
+      </script>
+    </div>
+  );
+}
+```
+
+---
+
+##### **5. Secure Environment Variables**
+
+```javascript
+// ❌ NEVER expose secrets in frontend
+// These are EMBEDDED in your JavaScript bundle!
+const API_SECRET = process.env.REACT_APP_API_SECRET; // ❌ WRONG!
+const PRIVATE_KEY = process.env.REACT_APP_PRIVATE_KEY; // ❌ WRONG!
+
+// ✅ Only use environment variables for:
+// 1. API endpoints
+const API_URL = process.env.REACT_APP_API_URL;
+
+// 2. Public keys (not private keys!)
+const PUBLIC_STRIPE_KEY = process.env.REACT_APP_STRIPE_PUBLIC_KEY;
+
+// 3. Feature flags
+const ENABLE_ANALYTICS = process.env.REACT_APP_ENABLE_ANALYTICS === 'true';
+
+// 4. Public configuration
+const APP_VERSION = process.env.REACT_APP_VERSION;
+
+// ✅ Keep secrets on the backend
+// Backend handles API keys, database credentials, etc.
+async function fetchData() {
+  // Frontend just makes request
+  const response = await apiClient.get('/api/data');
+  // Backend uses its secret API key to fetch from third-party
+  return response.data;
+}
+```
+
+**Environment File Structure:**
+```bash
+# .env (committed - default values)
+REACT_APP_API_URL=http://localhost:3000
+REACT_APP_ENVIRONMENT=development
+
+# .env.local (NOT committed - local overrides)
+REACT_APP_API_URL=http://localhost:4000
+REACT_APP_DEBUG=true
+
+# .env.production (committed - production defaults)
+REACT_APP_API_URL=https://api.production.com
+REACT_APP_ENVIRONMENT=production
+
+# .env.production.local (NOT committed - production secrets)
+REACT_APP_SENTRY_DSN=your_actual_sentry_dsn
+```
+
+```javascript
+// .gitignore
+.env.local
+.env.*.local
+.env.production.local
+```
+
+---
+
+##### **6. Input Validation & Sanitization**
+
+**Client-Side Validation:**
+```javascript
+import { z } from 'zod';
+
+// Define schema
+const userSchema = z.object({
+  email: z.string().email('Invalid email address'),
+  username: z.string()
+    .min(3, 'Username must be at least 3 characters')
+    .max(20, 'Username must be at most 20 characters')
+    .regex(/^[a-zA-Z0-9_]+$/, 'Username can only contain letters, numbers, and underscores'),
+  age: z.number().min(18, 'Must be 18 or older').max(120),
+  website: z.string().url('Invalid URL').optional(),
+});
+
+function UserForm() {
+  const [errors, setErrors] = useState({});
+  
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const formData = Object.fromEntries(new FormData(e.target));
+    
+    try {
+      // Validate on client side
+      const validData = userSchema.parse(formData);
+      
+      // Send to backend (backend MUST validate again!)
+      await apiClient.post('/api/users', validData);
+      
+      setErrors({});
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const fieldErrors = {};
+        error.errors.forEach(err => {
+          fieldErrors[err.path[0]] = err.message;
+        });
+        setErrors(fieldErrors);
+      }
+    }
+  };
+  
+  return (
+    <form onSubmit={handleSubmit}>
+      <input name="email" type="email" required />
+      {errors.email && <span className="error">{errors.email}</span>}
+      
+      <input name="username" type="text" required />
+      {errors.username && <span className="error">{errors.username}</span>}
+      
+      <button type="submit">Submit</button>
+    </form>
+  );
+}
+```
+
+**Sanitize User Input:**
+```javascript
+// Remove potentially dangerous characters
+function sanitizeInput(input) {
+  // Remove HTML tags
+  const withoutHTML = input.replace(/<[^>]*>/g, '');
+  
+  // Remove script tags and event handlers
+  const withoutScripts = withoutHTML
+    .replace(/javascript:/gi, '')
+    .replace(/on\w+\s*=/gi, '');
+  
+  // Trim and limit length
+  return withoutScripts.trim().substring(0, 1000);
+}
+
+// For display names, usernames, etc.
+function DisplayName({ name }) {
+  const safeName = sanitizeInput(name);
+  return <span>{safeName}</span>;
+}
+```
+
+**File Upload Security:**
+```javascript
+function FileUpload({ onUpload }) {
+  const [error, setError] = useState('');
+  
+  const validateFile = (file) => {
+    // 1. Check file size (5MB max)
+    const MAX_SIZE = 5 * 1024 * 1024;
+    if (file.size > MAX_SIZE) {
+      return 'File size must be less than 5MB';
+    }
+    
+    // 2. Check file type
+    const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'];
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      return 'Invalid file type. Only JPEG, PNG, GIF, and PDF allowed';
+    }
+    
+    // 3. Check file extension (don't trust MIME type alone)
+    const ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.pdf'];
+    const extension = file.name.toLowerCase().match(/\.[^.]*$/)?.[0];
+    if (!extension || !ALLOWED_EXTENSIONS.includes(extension)) {
+      return 'Invalid file extension';
+    }
+    
+    return null;
+  };
+  
+  const handleFileChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const validationError = validateFile(file);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    try {
+      // Backend MUST also validate file type, scan for viruses, etc.
+      await apiClient.post('/api/upload', formData);
+      setError('');
+      onUpload(file);
+    } catch (err) {
+      setError('Upload failed');
+    }
+  };
+  
+  return (
+    <div>
+      <input 
+        type="file" 
+        onChange={handleFileChange}
+        accept=".jpg,.jpeg,.png,.gif,.pdf"  // Browser-level filtering
+      />
+      {error && <span className="error">{error}</span>}
+    </div>
+  );
+}
+```
+
+---
+
+##### **7. Preventing Clickjacking**
+
+```javascript
+// Backend sets X-Frame-Options header
+app.use((req, res, next) => {
+  res.setHeader('X-Frame-Options', 'DENY'); // or 'SAMEORIGIN'
+  next();
+});
+
+// Or use CSP frame-ancestors
+res.setHeader(
+  'Content-Security-Policy',
+  "frame-ancestors 'none';"
+);
+
+// React: Detect if running in iframe
+function useIframeDetection() {
+  useEffect(() => {
+    if (window.self !== window.top) {
+      // App is running in an iframe
+      console.warn('Application is running in an iframe');
+      
+      // Optional: Break out of iframe
+      // window.top.location = window.self.location;
+      
+      // Or show warning
+      alert('This application should not be run in an iframe');
+    }
+  }, []);
+}
+
+function App() {
+  useIframeDetection();
+  return <div>App Content</div>;
+}
+```
+
+---
+
+##### **8. Secure Dependencies**
+
+```javascript
+// Regular security audits
+// package.json scripts
+{
+  "scripts": {
+    "audit": "npm audit",
+    "audit:fix": "npm audit fix",
+    "check:updates": "npx npm-check-updates"
+  }
+}
+
+// Use tools to detect vulnerabilities
+// 1. npm audit (built-in)
+// 2. Snyk (npm install -g snyk)
+// 3. OWASP Dependency-Check
+
+// Monitor dependencies with Dependabot (GitHub)
+// or Renovate Bot
+```
+
+**Lock Dependencies:**
+```json
+// package.json - use exact versions for production
+{
+  "dependencies": {
+    "react": "18.2.0",  // Exact version, not "^18.2.0"
+    "axios": "1.6.0"
+  }
+}
+
+// Commit package-lock.json or yarn.lock
+// Ensures consistent installs across environments
+```
+
+---
+
+##### **9. Secure Communication**
+
+**HTTPS Only:**
+```javascript
+// Redirect HTTP to HTTPS (backend)
+app.use((req, res, next) => {
+  if (req.headers['x-forwarded-proto'] !== 'https' && process.env.NODE_ENV === 'production') {
+    return res.redirect('https://' + req.headers.host + req.url);
+  }
+  next();
+});
+
+// Force HTTPS in React
+useEffect(() => {
+  if (window.location.protocol !== 'https:' && process.env.NODE_ENV === 'production') {
+    window.location.href = 'https:' + window.location.href.substring(window.location.protocol.length);
+  }
+}, []);
+```
+
+**Secure Headers:**
+```javascript
+// Use helmet.js for security headers
+import helmet from 'helmet';
+
+app.use(helmet());
+
+// Or set manually:
+app.use((req, res, next) => {
+  // Prevent MIME type sniffing
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  
+  // Enable XSS protection
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  
+  // Prevent clickjacking
+  res.setHeader('X-Frame-Options', 'DENY');
+  
+  // HSTS - Force HTTPS for 1 year
+  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  
+  // Referrer policy
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  
+  // Permissions policy
+  res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+  
+  next();
+});
+```
+
+---
+
+##### **10. Rate Limiting & Abuse Prevention**
+
+**Frontend Rate Limiting:**
+```javascript
+// Debounce/throttle to prevent abuse
+function LoginForm() {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [lastAttempt, setLastAttempt] = useState(0);
+  const [attemptCount, setAttemptCount] = useState(0);
+  
+  const MIN_DELAY = 1000; // 1 second between attempts
+  const MAX_ATTEMPTS = 5;
+  
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    // Check if too soon
+    const now = Date.now();
+    if (now - lastAttempt < MIN_DELAY) {
+      alert('Please wait before trying again');
+      return;
+    }
+    
+    // Check attempt count
+    if (attemptCount >= MAX_ATTEMPTS) {
+      alert('Too many attempts. Please try again later.');
+      return;
+    }
+    
+    setIsSubmitting(true);
+    setLastAttempt(now);
+    setAttemptCount(prev => prev + 1);
+    
+    try {
+      await apiClient.post('/api/login', formData);
+      setAttemptCount(0); // Reset on success
+    } catch (error) {
+      // Keep count on failure
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+  
+  return (
+    <form onSubmit={handleSubmit}>
+      <button type="submit" disabled={isSubmitting}>
+        {isSubmitting ? 'Logging in...' : 'Login'}
+      </button>
+    </form>
+  );
+}
+```
+
+---
+
+### **React Security Checklist:**
+
+✅ **XSS Prevention**
+- Sanitize HTML content with DOMPurify
+- Validate URLs before rendering
+- Avoid dangerouslySetInnerHTML when possible
+
+✅ **Authentication & Authorization**
+- Store tokens in httpOnly cookies or memory
+- Implement token refresh mechanism
+- Use protected routes and RBAC
+- Never store sensitive data in localStorage
+
+✅ **CSRF Protection**
+- Use CSRF tokens for state-changing requests
+- Set SameSite cookie attribute
+- Validate origin and referer headers (backend)
+
+✅ **Content Security Policy**
+- Implement strict CSP headers
+- Use nonces for inline scripts
+- Whitelist trusted domains
+
+✅ **Environment Variables**
+- Never expose secrets in frontend code
+- Use .env files properly
+- Keep .env.local out of version control
+
+✅ **Input Validation**
+- Validate on both client and server
+- Sanitize user input
+- Validate file uploads (type, size, extension)
+
+✅ **Secure Dependencies**
+- Regular security audits (npm audit)
+- Keep dependencies updated
+- Use exact versions in production
+
+✅ **HTTPS & Secure Headers**
+- Always use HTTPS in production
+- Implement security headers (helmet.js)
+- Enable HSTS
+
+✅ **Rate Limiting**
+- Prevent brute force attacks
+- Throttle expensive operations
+- Implement frontend delays
+
+✅ **Clickjacking Protection**
+- Set X-Frame-Options header
+- Use CSP frame-ancestors
+- Detect iframe embedding
+
+---
+
+### **Common Security Mistakes:**
+
+❌ Storing tokens in localStorage (vulnerable to XSS)  
+❌ Trusting client-side validation only  
+❌ Exposing API keys in frontend code  
+❌ Not sanitizing user-generated HTML  
+❌ Using dangerouslySetInnerHTML without sanitization  
+❌ Not validating file uploads properly  
+❌ Missing CSRF protection on forms  
+❌ Not implementing CSP headers  
+❌ Using outdated/vulnerable dependencies  
+❌ Not validating URLs before rendering  
+
+**Remember**: Security is a continuous process. Always validate on the backend, never trust client-side data, and keep your dependencies updated!
+
+---
+
+#### 12. **Documentation & Standards**
+
+**Component Documentation:**
+```typescript
+/**
+ * ProductCard displays product information with edit/delete actions
+ * 
+ * @param product - Product object containing id, name, price, etc.
+ * @param onUpdate - Callback fired when product is updated
+ * @param onDelete - Async callback fired when product is deleted
+ * 
+ * @example
+ * ```tsx
+ * <ProductCard 
+ *   product={product}
+ *   onUpdate={(id, data) => updateProduct(id, data)}
+ *   onDelete={async (id) => await deleteProduct(id)}
+ * />
+ * ```
+ */
+export const ProductCard: React.FC<ProductCardProps> = ({
+  product,
+  onUpdate,
+  onDelete,
+}) => {
+  // Implementation
+};
+```
+
+**Code Standards:**
+```javascript
+// .eslintrc.js
+module.exports = {
+  extends: [
+    'react-app',
+    'plugin:@typescript-eslint/recommended',
+    'plugin:react-hooks/recommended',
+    'prettier',
+  ],
+  rules: {
+    'react-hooks/exhaustive-deps': 'error',
+    '@typescript-eslint/no-unused-vars': 'error',
+    'no-console': ['warn', { allow: ['warn', 'error'] }],
+  },
+};
+
+// .prettierrc
+{
+  "semi": true,
+  "trailingComma": "es5",
+  "singleQuote": true,
+  "printWidth": 80,
+  "tabWidth": 2
+}
+```
+
+---
+
+#### 13. **CI/CD Integration**
+
+```yaml
+# .github/workflows/ci.yml
+name: CI
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v2
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run linter
+        run: npm run lint
+      
+      - name: Run tests
+        run: npm test -- --coverage
+      
+      - name: Build
+        run: npm run build
+      
+      - name: Upload coverage
+        uses: codecov/codecov-action@v2
+```
+
+---
+
+#### 14. **Micro Frontends (MFE) Architecture**
+
+Micro Frontends extend the concept of microservices to frontend development, allowing multiple teams to work on different features independently using potentially different frameworks.
+
+---
+
+##### **What are Micro Frontends?**
+
+**Micro Frontend Architecture:**
+Breaking down a frontend monolith into smaller, independently deployable applications that work together seamlessly.
+
+**Key Concepts:**
+```
+Traditional Monolith:
+┌─────────────────────────────────┐
+│     Single React Application    │
+│  ┌──────┐ ┌──────┐ ┌──────┐   │
+│  │Header│ │ Body │ │Footer│   │
+│  └──────┘ └──────┘ └──────┘   │
+└─────────────────────────────────┘
+
+Micro Frontend:
+┌─────────────────────────────────┐
+│      Shell/Container App         │
+│  ┌──────┐ ┌──────┐ ┌──────┐   │
+│  │MFE 1 │ │MFE 2 │ │MFE 3 │   │
+│  │Team A│ │Team B│ │Team C│   │
+│  └──────┘ └──────┘ └──────┘   │
+└─────────────────────────────────┘
+```
+
+**Benefits:**
+- ✅ Independent deployment
+- ✅ Team autonomy
+- ✅ Technology diversity (React + Vue + Angular)
+- ✅ Scalable development
+- ✅ Isolated failures
+- ✅ Faster builds
+
+**Challenges:**
+- ❌ Increased complexity
+- ❌ Performance overhead
+- ❌ Shared dependencies
+- ❌ Consistent UX
+- ❌ Testing complexity
+
+---
+
+##### **Approach 1: Module Federation (Webpack 5)**
+
+**Most Popular Approach** - Dynamic runtime integration
+
+**How It Works:**
+```
+Host App (Shell)
+  ↓ (loads at runtime)
+Remote App 1 (Header MFE)
+Remote App 2 (Products MFE)
+Remote App 3 (Cart MFE)
+```
+
+**Example: Shell Application (Host)**
+
+```javascript
+// shell-app/webpack.config.js
+const ModuleFederationPlugin = require('webpack/lib/container/ModuleFederationPlugin');
+
+module.exports = {
+  plugins: [
+    new ModuleFederationPlugin({
+      name: 'shell',
+      remotes: {
+        header: 'header@http://localhost:3001/remoteEntry.js',
+        products: 'products@http://localhost:3002/remoteEntry.js',
+        cart: 'cart@http://localhost:3003/remoteEntry.js',
+      },
+      shared: {
+        react: { singleton: true, requiredVersion: '^18.0.0' },
+        'react-dom': { singleton: true, requiredVersion: '^18.0.0' },
+      },
+    }),
+  ],
+};
+```
+
+**Shell App Component:**
+```javascript
+// shell-app/src/App.jsx
+import React, { lazy, Suspense } from 'react';
+
+// Lazy load remote components
+const Header = lazy(() => import('header/Header'));
+const ProductList = lazy(() => import('products/ProductList'));
+const Cart = lazy(() => import('cart/Cart'));
+
+function App() {
+  return (
+    <div className="app">
+      <Suspense fallback={<div>Loading Header...</div>}>
+        <Header />
+      </Suspense>
+      
+      <main>
+        <Suspense fallback={<div>Loading Products...</div>}>
+          <ProductList />
+        </Suspense>
+      </main>
+      
+      <aside>
+        <Suspense fallback={<div>Loading Cart...</div>}>
+          <Cart />
+        </Suspense>
+      </aside>
+    </div>
+  );
+}
+
+export default App;
+```
+
+**Remote App (Header MFE):**
+
+```javascript
+// header-mfe/webpack.config.js
+const ModuleFederationPlugin = require('webpack/lib/container/ModuleFederationPlugin');
+
+module.exports = {
+  plugins: [
+    new ModuleFederationPlugin({
+      name: 'header',
+      filename: 'remoteEntry.js',
+      exposes: {
+        './Header': './src/Header',
+      },
+      shared: {
+        react: { singleton: true },
+        'react-dom': { singleton: true },
+      },
+    }),
+  ],
+};
+```
+
+```javascript
+// header-mfe/src/Header.jsx
+import React, { useState } from 'react';
+
+export default function Header() {
+  const [user, setUser] = useState(null);
+  
+  return (
+    <header style={{ background: '#333', color: 'white', padding: '1rem' }}>
+      <h1>My E-Commerce Store</h1>
+      <nav>
+        <a href="/">Home</a>
+        <a href="/products">Products</a>
+        <a href="/cart">Cart</a>
+      </nav>
+      {user && <span>Welcome, {user.name}</span>}
+    </header>
+  );
+}
+```
+
+**Remote App (Products MFE):**
+
+```javascript
+// products-mfe/webpack.config.js
+const ModuleFederationPlugin = require('webpack/lib/container/ModuleFederationPlugin');
+
+module.exports = {
+  plugins: [
+    new ModuleFederationPlugin({
+      name: 'products',
+      filename: 'remoteEntry.js',
+      exposes: {
+        './ProductList': './src/ProductList',
+        './ProductDetail': './src/ProductDetail',
+      },
+      shared: {
+        react: { singleton: true },
+        'react-dom': { singleton: true },
+        'react-router-dom': { singleton: true },
+      },
+    }),
+  ],
+};
+```
+
+```javascript
+// products-mfe/src/ProductList.jsx
+import React, { useState, useEffect } from 'react';
+
+export default function ProductList() {
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  
+  useEffect(() => {
+    fetch('/api/products')
+      .then(res => res.json())
+      .then(data => {
+        setProducts(data);
+        setLoading(false);
+      });
+  }, []);
+  
+  if (loading) return <div>Loading products...</div>;
+  
+  return (
+    <div className="product-list">
+      <h2>Our Products</h2>
+      <div className="grid">
+        {products.map(product => (
+          <div key={product.id} className="product-card">
+            <img src={product.image} alt={product.name} />
+            <h3>{product.name}</h3>
+            <p>${product.price}</p>
+            <button onClick={() => addToCart(product)}>
+              Add to Cart
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+```
+
+---
+
+##### **Approach 2: Web Components**
+
+**Standard-Based** - Framework-agnostic using custom elements
+
+**How It Works:**
+```javascript
+// products-mfe/src/ProductsWidget.jsx
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import ProductList from './ProductList';
+
+class ProductsWidget extends HTMLElement {
+  connectedCallback() {
+    // Mount React component when custom element is added to DOM
+    const root = ReactDOM.createRoot(this);
+    
+    // Get attributes
+    const apiUrl = this.getAttribute('api-url');
+    const theme = this.getAttribute('theme');
+    
+    root.render(
+      <ProductList apiUrl={apiUrl} theme={theme} />
+    );
+  }
+  
+  disconnectedCallback() {
+    // Cleanup when removed from DOM
+    ReactDOM.unmountComponentAtNode(this);
+  }
+}
+
+// Register custom element
+customElements.define('products-widget', ProductsWidget);
+```
+
+**Usage in Shell App:**
+```html
+<!-- shell-app/public/index.html -->
+<!DOCTYPE html>
+<html>
+<head>
+  <script src="http://localhost:3001/products-widget.js"></script>
+  <script src="http://localhost:3002/cart-widget.js"></script>
+</head>
+<body>
+  <div id="root">
+    <header-widget></header-widget>
+    
+    <products-widget 
+      api-url="https://api.example.com/products"
+      theme="dark">
+    </products-widget>
+    
+    <cart-widget></cart-widget>
+  </div>
+</body>
+</html>
+```
+
+**React Wrapper for Web Component:**
+```javascript
+// shell-app/src/components/ProductsWidget.jsx
+import React, { useEffect, useRef } from 'react';
+
+export default function ProductsWidget({ apiUrl, theme }) {
+  const widgetRef = useRef(null);
+  
+  useEffect(() => {
+    // Update attributes when props change
+    if (widgetRef.current) {
+      widgetRef.current.setAttribute('api-url', apiUrl);
+      widgetRef.current.setAttribute('theme', theme);
+    }
+  }, [apiUrl, theme]);
+  
+  return <products-widget ref={widgetRef} />;
+}
+```
+
+---
+
+##### **Approach 3: IFrame-Based**
+
+**Simplest but with limitations** - Complete isolation
+
+```javascript
+// shell-app/src/App.jsx
+import React from 'react';
+
+function App() {
+  return (
+    <div className="app">
+      {/* Header MFE */}
+      <iframe 
+        src="http://localhost:3001"
+        title="Header"
+        style={{ width: '100%', height: '80px', border: 'none' }}
+        sandbox="allow-scripts allow-same-origin"
+      />
+      
+      {/* Products MFE */}
+      <iframe 
+        src="http://localhost:3002/products"
+        title="Products"
+        style={{ width: '100%', height: '600px', border: 'none' }}
+      />
+      
+      {/* Cart MFE */}
+      <iframe 
+        src="http://localhost:3003/cart"
+        title="Cart"
+        style={{ width: '300px', height: '400px', border: 'none' }}
+      />
+    </div>
+  );
+}
+
+export default App;
+```
+
+**Communication Between IFrames:**
+```javascript
+// Shell App - Send message to iframe
+const productsFrame = document.querySelector('iframe[title="Products"]');
+productsFrame.contentWindow.postMessage({
+  type: 'ADD_TO_CART',
+  product: { id: 1, name: 'Product 1' }
+}, 'http://localhost:3002');
+
+// Products MFE - Receive message
+window.addEventListener('message', (event) => {
+  if (event.origin !== 'http://localhost:3000') return; // Security check
+  
+  if (event.data.type === 'ADD_TO_CART') {
+    addToCart(event.data.product);
+  }
+});
+
+// Products MFE - Send message to parent
+window.parent.postMessage({
+  type: 'CART_UPDATED',
+  count: cartItems.length
+}, 'http://localhost:3000');
+```
+
+**Pros:**
+- ✅ Complete isolation
+- ✅ No shared dependencies
+- ✅ Different frameworks per iframe
+- ✅ Security through sandboxing
+
+**Cons:**
+- ❌ Performance overhead
+- ❌ SEO challenges
+- ❌ Complex communication
+- ❌ Styling limitations
+- ❌ Multiple DOM trees
+
+---
+
+##### **Approach 4: Build-Time Integration**
+
+**NPM Packages** - Compile-time composition
+
+```bash
+# Publish each MFE as npm package
+npm publish @company/header-mfe
+npm publish @company/products-mfe
+npm publish @company/cart-mfe
+```
+
+**Shell App:**
+```javascript
+// shell-app/package.json
+{
+  "dependencies": {
+    "@company/header-mfe": "^1.2.0",
+    "@company/products-mfe": "^2.1.0",
+    "@company/cart-mfe": "^1.0.5"
+  }
+}
+```
+
+```javascript
+// shell-app/src/App.jsx
+import React from 'react';
+import Header from '@company/header-mfe';
+import ProductList from '@company/products-mfe';
+import Cart from '@company/cart-mfe';
+
+function App() {
+  return (
+    <div className="app">
+      <Header />
+      <main>
+        <ProductList />
+      </main>
+      <aside>
+        <Cart />
+      </aside>
+    </div>
+  );
+}
+
+export default App;
+```
+
+**Pros:**
+- ✅ Simple integration
+- ✅ Better performance (single bundle)
+- ✅ Type safety with TypeScript
+
+**Cons:**
+- ❌ Must redeploy shell for updates
+- ❌ No independent deployment
+- ❌ Version management complexity
+
+---
+
+##### **Approach 5: Single-SPA Framework**
+
+**Meta-framework** for micro frontends
+
+**Installation:**
+```bash
+npm install single-spa single-spa-react
+```
+
+**Root Config (Shell):**
+```javascript
+// shell-app/src/root-config.js
+import { registerApplication, start } from 'single-spa';
+
+// Register header MFE
+registerApplication({
+  name: '@company/header',
+  app: () => System.import('@company/header'),
+  activeWhen: '/', // Always active
+});
+
+// Register products MFE
+registerApplication({
+  name: '@company/products',
+  app: () => System.import('@company/products'),
+  activeWhen: ['/products', '/products/:id'],
+});
+
+// Register cart MFE
+registerApplication({
+  name: '@company/cart',
+  app: () => System.import('@company/cart'),
+  activeWhen: '/cart',
+});
+
+// Start single-spa
+start();
+```
+
+**MFE Setup:**
+```javascript
+// products-mfe/src/root.component.jsx
+import React from 'react';
+import ReactDOM from 'react-dom';
+import singleSpaReact from 'single-spa-react';
+import ProductList from './ProductList';
+
+const lifecycles = singleSpaReact({
+  React,
+  ReactDOM,
+  rootComponent: ProductList,
+  errorBoundary(err, info, props) {
+    return <div>Error in Products MFE: {err.message}</div>;
+  },
+});
+
+export const { bootstrap, mount, unmount } = lifecycles;
+```
+
+---
+
+##### **Shared State Management**
+
+**Challenge:** How do MFEs communicate?
+
+**Solution 1: Event Bus**
+```javascript
+// shared/eventBus.js
+class EventBus {
+  constructor() {
+    this.events = {};
+  }
+  
+  subscribe(event, callback) {
+    if (!this.events[event]) {
+      this.events[event] = [];
+    }
+    this.events[event].push(callback);
+    
+    // Return unsubscribe function
+    return () => {
+      this.events[event] = this.events[event].filter(cb => cb !== callback);
+    };
+  }
+  
+  publish(event, data) {
+    if (this.events[event]) {
+      this.events[event].forEach(callback => callback(data));
+    }
+  }
+}
+
+export const eventBus = new EventBus();
+```
+
+**Usage in Products MFE:**
+```javascript
+// products-mfe/src/ProductCard.jsx
+import { eventBus } from '@company/shared';
+
+function ProductCard({ product }) {
+  const handleAddToCart = () => {
+    eventBus.publish('cart:add', product);
+  };
+  
+  return (
+    <div className="product-card">
+      <h3>{product.name}</h3>
+      <button onClick={handleAddToCart}>Add to Cart</button>
+    </div>
+  );
+}
+```
+
+**Usage in Cart MFE:**
+```javascript
+// cart-mfe/src/Cart.jsx
+import { useEffect, useState } from 'react';
+import { eventBus } from '@company/shared';
+
+function Cart() {
+  const [items, setItems] = useState([]);
+  
+  useEffect(() => {
+    const unsubscribe = eventBus.subscribe('cart:add', (product) => {
+      setItems(prev => [...prev, product]);
+    });
+    
+    return unsubscribe; // Cleanup
+  }, []);
+  
+  return (
+    <div className="cart">
+      <h2>Cart ({items.length})</h2>
+      {items.map(item => (
+        <div key={item.id}>{item.name}</div>
+      ))}
+    </div>
+  );
+}
+```
+
+**Solution 2: Shared State Library**
+```javascript
+// shared/store.js
+import create from 'zustand';
+
+export const useCartStore = create((set) => ({
+  items: [],
+  addItem: (item) => set((state) => ({ 
+    items: [...state.items, item] 
+  })),
+  removeItem: (id) => set((state) => ({ 
+    items: state.items.filter(item => item.id !== id) 
+  })),
+}));
+```
+
+**Usage across MFEs:**
+```javascript
+// products-mfe/src/ProductCard.jsx
+import { useCartStore } from '@company/shared/store';
+
+function ProductCard({ product }) {
+  const addItem = useCartStore(state => state.addItem);
+  
+  return (
+    <button onClick={() => addItem(product)}>
+      Add to Cart
+    </button>
+  );
+}
+
+// cart-mfe/src/Cart.jsx
+import { useCartStore } from '@company/shared/store';
+
+function Cart() {
+  const items = useCartStore(state => state.items);
+  const removeItem = useCartStore(state => state.removeItem);
+  
+  return (
+    <div>
+      {items.map(item => (
+        <div key={item.id}>
+          {item.name}
+          <button onClick={() => removeItem(item.id)}>Remove</button>
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+---
+
+##### **Routing in Micro Frontends**
+
+**Approach 1: Shell Controls Routing**
+```javascript
+// shell-app/src/App.jsx
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { lazy, Suspense } from 'react';
+
+const Header = lazy(() => import('header/Header'));
+const Products = lazy(() => import('products/ProductList'));
+const ProductDetail = lazy(() => import('products/ProductDetail'));
+const Cart = lazy(() => import('cart/Cart'));
+
+function App() {
+  return (
+    <BrowserRouter>
+      <Suspense fallback={<div>Loading...</div>}>
+        <Header />
+        
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/products" element={<Products />} />
+          <Route path="/products/:id" element={<ProductDetail />} />
+          <Route path="/cart" element={<Cart />} />
+        </Routes>
+      </Suspense>
+    </BrowserRouter>
+  );
+}
+```
+
+**Approach 2: Each MFE Has Own Router**
+```javascript
+// products-mfe/src/App.jsx
+import { Routes, Route } from 'react-router-dom';
+
+function ProductsApp({ basename = '/products' }) {
+  return (
+    <Routes>
+      <Route path="/" element={<ProductList />} />
+      <Route path="/:id" element={<ProductDetail />} />
+      <Route path="/category/:category" element={<CategoryView />} />
+    </Routes>
+  );
+}
+
+// Shell mounts with basename
+<Router basename="/products">
+  <ProductsApp />
+</Router>
+```
+
+---
+
+##### **Styling Strategies**
+
+**Challenge:** Prevent style conflicts between MFEs
+
+**Solution 1: CSS Modules**
+```javascript
+// products-mfe/src/ProductCard.module.css
+.card {
+  border: 1px solid #ddd;
+  padding: 1rem;
+}
+
+// products-mfe/src/ProductCard.jsx
+import styles from './ProductCard.module.css';
+
+function ProductCard() {
+  return <div className={styles.card}>...</div>;
+}
+// Generates unique class: ProductCard_card__2x3k9
+```
+
+**Solution 2: CSS-in-JS (Styled Components)**
+```javascript
+// products-mfe/src/ProductCard.jsx
+import styled from 'styled-components';
+
+const Card = styled.div`
+  border: 1px solid #ddd;
+  padding: 1rem;
+`;
+
+function ProductCard() {
+  return <Card>...</Card>;
+}
+// Generates unique class: sc-bdVaJa gKWRPz
+```
+
+**Solution 3: Shadow DOM**
+```javascript
+// products-mfe/src/ProductCard.jsx
+import { useEffect, useRef } from 'react';
+import ReactDOM from 'react-dom/client';
+
+function ProductCard() {
+  const hostRef = useRef(null);
+  
+  useEffect(() => {
+    const shadow = hostRef.current.attachShadow({ mode: 'open' });
+    
+    // Styles are encapsulated
+    const style = document.createElement('style');
+    style.textContent = `
+      .card { border: 1px solid #ddd; }
+    `;
+    shadow.appendChild(style);
+    
+    const div = document.createElement('div');
+    shadow.appendChild(div);
+    
+    const root = ReactDOM.createRoot(div);
+    root.render(<div className="card">Content</div>);
+  }, []);
+  
+  return <div ref={hostRef}></div>;
+}
+```
+
+**Solution 4: Namespaced Classes**
+```css
+/* products-mfe/src/styles.css */
+.products-mfe .card { /* ... */ }
+.products-mfe .button { /* ... */ }
+.products-mfe .header { /* ... */ }
+
+/* cart-mfe/src/styles.css */
+.cart-mfe .card { /* ... */ }
+.cart-mfe .button { /* ... */ }
+```
+
+---
+
+##### **Performance Optimization**
+
+**1. Lazy Loading:**
+```javascript
+// Only load MFE when needed
+const Products = lazy(() => import('products/ProductList'));
+
+<Suspense fallback={<Spinner />}>
+  {showProducts && <Products />}
+</Suspense>
+```
+
+**2. Shared Dependencies:**
+```javascript
+// webpack.config.js - Mark as singleton
+shared: {
+  react: { 
+    singleton: true, 
+    eager: false, // Don't load until needed
+    requiredVersion: '^18.0.0',
+  },
+  'react-dom': { singleton: true },
+  'react-router-dom': { singleton: true },
+}
+```
+
+**3. Preloading:**
+```javascript
+// Preload MFE before user navigates
+<link rel="preload" href="http://localhost:3002/remoteEntry.js" as="script" />
+
+// Or programmatically
+const preloadMFE = () => {
+  const link = document.createElement('link');
+  link.rel = 'preload';
+  link.href = 'http://localhost:3002/remoteEntry.js';
+  link.as = 'script';
+  document.head.appendChild(link);
+};
+
+// Preload on hover
+<Link 
+  to="/products" 
+  onMouseEnter={() => preloadMFE()}
+>
+  Products
+</Link>
+```
+
+**4. Code Splitting:**
+```javascript
+// Split large MFE into chunks
+const ProductList = lazy(() => import('./ProductList'));
+const ProductDetail = lazy(() => import('./ProductDetail'));
+const ProductReviews = lazy(() => import('./ProductReviews'));
+```
+
+---
+
+##### **Error Handling & Fallbacks**
+
+```javascript
+// shell-app/src/App.jsx
+import { lazy, Suspense } from 'react';
+import ErrorBoundary from './ErrorBoundary';
+
+const Products = lazy(() => 
+  import('products/ProductList')
+    .catch(() => {
+      console.error('Failed to load Products MFE');
+      // Return fallback component
+      return { default: () => <ProductsFallback /> };
+    })
+);
+
+function App() {
+  return (
+    <ErrorBoundary fallback={<ProductsError />}>
+      <Suspense fallback={<ProductsLoading />}>
+        <Products />
+      </Suspense>
+    </ErrorBoundary>
+  );
+}
+
+function ProductsFallback() {
+  return (
+    <div className="fallback">
+      <h2>Products Temporarily Unavailable</h2>
+      <p>We're experiencing technical difficulties. Please try again later.</p>
+    </div>
+  );
+}
+```
+
+---
+
+##### **Real-World Example: E-Commerce Platform**
+
+**Project Structure:**
+```
+micro-frontend-ecommerce/
+├── shell-app/                  # Container application
+│   ├── src/
+│   │   ├── App.jsx
+│   │   └── index.js
+│   ├── webpack.config.js
+│   └── package.json
+│
+├── header-mfe/                 # Navigation & user menu
+│   ├── src/
+│   │   ├── Header.jsx
+│   │   ├── Navigation.jsx
+│   │   └── UserMenu.jsx
+│   └── webpack.config.js
+│
+├── products-mfe/               # Product catalog
+│   ├── src/
+│   │   ├── ProductList.jsx
+│   │   ├── ProductCard.jsx
+│   │   ├── ProductDetail.jsx
+│   │   └── SearchBar.jsx
+│   └── webpack.config.js
+│
+├── cart-mfe/                   # Shopping cart
+│   ├── src/
+│   │   ├── Cart.jsx
+│   │   ├── CartItem.jsx
+│   │   └── Checkout.jsx
+│   └── webpack.config.js
+│
+├── user-mfe/                   # User profile & orders
+│   ├── src/
+│   │   ├── Profile.jsx
+│   │   ├── OrderHistory.jsx
+│   │   └── Settings.jsx
+│   └── webpack.config.js
+│
+└── shared/                     # Shared utilities
+    ├── src/
+    │   ├── store.js           # Shared state
+    │   ├── eventBus.js        # Event communication
+    │   ├── api.js             # API client
+    │   └── components/        # Shared components
+    └── package.json
+```
+
+**Complete Shell App:**
+```javascript
+// shell-app/src/App.jsx
+import React, { lazy, Suspense } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import ErrorBoundary from './components/ErrorBoundary';
+import { AuthProvider } from '@company/shared/auth';
+
+// Lazy load all MFEs
+const Header = lazy(() => import('header/Header'));
+const Products = lazy(() => import('products/ProductList'));
+const ProductDetail = lazy(() => import('products/ProductDetail'));
+const Cart = lazy(() => import('cart/Cart'));
+const Checkout = lazy(() => import('cart/Checkout'));
+const Profile = lazy(() => import('user/Profile'));
+const Orders = lazy(() => import('user/OrderHistory'));
+
+function App() {
+  return (
+    <AuthProvider>
+      <BrowserRouter>
+        <div className="app">
+          <ErrorBoundary name="Header">
+            <Suspense fallback={<div>Loading header...</div>}>
+              <Header />
+            </Suspense>
+          </ErrorBoundary>
+          
+          <main className="content">
+            <ErrorBoundary name="Main Content">
+              <Suspense fallback={<div className="spinner">Loading...</div>}>
+                <Routes>
+                  <Route path="/" element={<Navigate to="/products" />} />
+                  
+                  <Route path="/products" element={<Products />} />
+                  <Route path="/products/:id" element={<ProductDetail />} />
+                  
+                  <Route path="/cart" element={<Cart />} />
+                  <Route path="/checkout" element={<Checkout />} />
+                  
+                  <Route path="/profile" element={<Profile />} />
+                  <Route path="/orders" element={<Orders />} />
+                </Routes>
+              </Suspense>
+            </ErrorBoundary>
+          </main>
+        </div>
+      </BrowserRouter>
+    </AuthProvider>
+  );
+}
+
+export default App;
+```
+
+---
+
+##### **Deployment Strategies**
+
+**Option 1: Independent Deployment**
+```yaml
+# products-mfe/.github/workflows/deploy.yml
+name: Deploy Products MFE
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'products-mfe/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      
+      - name: Build
+        run: |
+          cd products-mfe
+          npm ci
+          npm run build
+      
+      - name: Deploy to S3
+        run: aws s3 sync ./dist s3://mfe-products/
+      
+      - name: Invalidate CloudFront
+        run: aws cloudfront create-invalidation --distribution-id ${{ secrets.CF_ID }}
+```
+
+**Option 2: Versioned Deployment**
+```javascript
+// shell-app/src/mfe-config.js
+export const MFE_CONFIG = {
+  header: {
+    url: 'https://cdn.example.com/header-mfe/v1.2.3/remoteEntry.js',
+    version: '1.2.3',
+  },
+  products: {
+    url: 'https://cdn.example.com/products-mfe/v2.1.0/remoteEntry.js',
+    version: '2.1.0',
+  },
+  cart: {
+    url: 'https://cdn.example.com/cart-mfe/v1.5.0/remoteEntry.js',
+    version: '1.5.0',
+  },
+};
+
+// Dynamic import with version
+const Products = lazy(() => 
+  import(/* webpackIgnore: true */ MFE_CONFIG.products.url)
+    .then(module => ({ default: module.ProductList }))
+);
+```
+
+---
+
+##### **Testing Micro Frontends**
+
+**Unit Tests (Individual MFE):**
+```javascript
+// products-mfe/src/__tests__/ProductCard.test.jsx
+import { render, screen, fireEvent } from '@testing-library/react';
+import { eventBus } from '@company/shared';
+import ProductCard from '../ProductCard';
+
+describe('ProductCard', () => {
+  const mockProduct = {
+    id: 1,
+    name: 'Test Product',
+    price: 99.99,
+  };
+  
+  it('publishes cart:add event when Add to Cart clicked', () => {
+    const publishSpy = jest.spyOn(eventBus, 'publish');
+    
+    render(<ProductCard product={mockProduct} />);
+    fireEvent.click(screen.getByText('Add to Cart'));
+    
+    expect(publishSpy).toHaveBeenCalledWith('cart:add', mockProduct);
+  });
+});
+```
+
+**Integration Tests (Cross-MFE):**
+```javascript
+// tests/integration/cart-flow.test.jsx
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import Products from 'products/ProductList';
+import Cart from 'cart/Cart';
+
+describe('Cart Integration', () => {
+  it('adds product to cart from products page', async () => {
+    render(
+      <>
+        <Products />
+        <Cart />
+      </>
+    );
+    
+    // Click add to cart
+    fireEvent.click(screen.getByText('Add to Cart'));
+    
+    // Verify cart updated
+    await waitFor(() => {
+      expect(screen.getByText('Cart (1)')).toBeInTheDocument();
+    });
+  });
+});
+```
+
+**E2E Tests:**
+```javascript
+// tests/e2e/shopping-flow.spec.js
+describe('Complete Shopping Flow', () => {
+  it('completes purchase from browsing to checkout', async () => {
+    await page.goto('http://localhost:3000/products');
+    
+    // Products MFE: Browse and add to cart
+    await page.click('[data-testid="product-card-1"]');
+    await page.click('[data-testid="add-to-cart"]');
+    
+    // Cart MFE: Verify cart
+    await page.goto('http://localhost:3000/cart');
+    await expect(page.locator('.cart-item')).toHaveCount(1);
+    
+    // Checkout MFE: Complete purchase
+    await page.click('[data-testid="checkout-button"]');
+    await page.fill('[name="email"]', 'test@example.com');
+    await page.click('[data-testid="place-order"]');
+    
+    await expect(page.locator('.order-confirmation')).toBeVisible();
+  });
+});
+```
+
+---
+
+##### **Best Practices**
+
+**✅ Do's:**
+1. **Keep MFEs Independent:** Each should be deployable separately
+2. **Share Sparingly:** Only share truly common code (React, utilities)
+3. **Version Contracts:** Use semantic versioning for shared APIs
+4. **Error Boundaries:** Isolate failures to prevent cascade
+5. **Performance Budget:** Monitor bundle sizes per MFE
+6. **Consistent UX:** Share design system/component library
+7. **Clear Ownership:** Each MFE owned by specific team
+8. **API Gateway:** Centralize backend communication
+9. **Monitoring:** Track each MFE's performance separately
+10. **Documentation:** Document integration points clearly
+
+**❌ Don'ts:**
+1. **Don't Share State Directly:** Use event bus or shared store
+2. **Don't Create Circular Dependencies:** MFEs should be independent
+3. **Don't Over-Share:** Avoid tight coupling through shared code
+4. **Don't Ignore Security:** Validate data between MFEs
+5. **Don't Skip Testing:** Test integration between MFEs
+6. **Don't Forget Fallbacks:** Always have error states
+7. **Don't Mix Routing:** Choose one routing strategy
+8. **Don't Ignore Performance:** Monitor load times
+9. **Don't Forget Accessibility:** Each MFE must be accessible
+10. **Don't Skip Documentation:** Document all exposed APIs
+
+---
+
+##### **When to Use Micro Frontends**
+
+**✅ Good Use Cases:**
+- Large teams (10+ developers)
+- Multiple products in one platform
+- Different release cycles needed
+- Teams want technology independence
+- Gradual migration from legacy app
+- Need to scale development
+
+**❌ Not Recommended:**
+- Small teams (< 5 developers)
+- Simple applications
+- Tight deadline projects
+- Limited infrastructure
+- No DevOps maturity
+- Performance-critical apps (e.g., games)
+
+---
+
+##### **Comparison Summary**
+
+| Approach | Complexity | Performance | Flexibility | Best For |
+|----------|-----------|-------------|-------------|----------|
+| Module Federation | Medium | High | High | Production apps |
+| Web Components | Low | Medium | Very High | Simple integration |
+| iFrames | Very Low | Low | Medium | Complete isolation |
+| NPM Packages | Low | Very High | Low | Shared deployment |
+| Single-SPA | High | High | Very High | Complex ecosystems |
+
+---
+
+**Key Takeaway:** Micro Frontends provide powerful architecture for scaling teams and applications, but come with complexity costs. Use Module Federation for modern React apps, Web Components for framework agnostic needs, and evaluate carefully if the benefits outweigh the complexity for your specific use case.
+
+---
+
+### **Key Takeaways for Large-Scale React Apps:**
+
+1. **Structure**: Feature-based organization for scalability
+2. **Performance**: Code splitting, lazy loading, memoization
+3. **State Management**: Right tool for the right job (local, global, server state)
+4. **API Layer**: Centralized, typed, with proper error handling
+5. **Type Safety**: TypeScript for maintainability
+6. **Testing**: Comprehensive unit, integration, and E2E tests
+7. **Monitoring**: Track performance and user behavior
+8. **Security**: Input sanitization, secure API calls, CSP
+9. **Build Optimization**: Bundle splitting, tree shaking, analysis
+10. **Documentation**: Clear docs and consistent code standards
+11. **CI/CD**: Automated testing and deployment
+12. **Error Boundaries**: Graceful error handling at feature levels
+
+**Remember**: Start simple and scale as needed. Don't over-engineer early, but plan for growth!
+
+---
+
+## Debugging in React
+
+Debugging React applications effectively requires understanding various tools, techniques, and best practices. Here's a comprehensive guide to debugging React like a pro.
+
+---
+
+### **1. React DevTools**
+
+React DevTools is your primary debugging companion for inspecting component hierarchy, props, state, and performance.
+
+**Installation:**
+```bash
+# Chrome Extension
+# Search "React Developer Tools" in Chrome Web Store
+
+# Firefox Add-on
+# Search in Firefox Add-ons
+
+# Standalone App
+npm install -g react-devtools
+react-devtools
+```
+
+**Key Features:**
+
+**A. Component Tree Inspection:**
+```javascript
+// Inspect component props and state in real-time
+function UserProfile({ userId }) {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  
+  // In DevTools:
+  // - See current state values
+  // - See props passed to component
+  // - Edit state directly for testing
+  
+  return <div>{user?.name}</div>;
+}
+```
+
+**B. Profiler for Performance:**
+```javascript
+import { Profiler } from 'react';
+
+function App() {
+  const onRenderCallback = (
+    id,              // Component name
+    phase,           // "mount" or "update"
+    actualDuration,  // Time spent rendering
+    baseDuration,    // Estimated time without memoization
+    startTime,
+    commitTime,
+  ) => {
+    console.log(`${id} ${phase}: ${actualDuration}ms`);
+  };
+  
+  return (
+    <Profiler id="Navigation" onRender={onRenderCallback}>
+      <Navigation />
+    </Profiler>
+  );
+}
+```
+
+**C. Highlight Updates:**
+```javascript
+// Enable in React DevTools settings
+// Components that re-render will flash with colored borders
+// Green = fast, Yellow = moderate, Red = slow
+
+// This helps identify unnecessary re-renders
+function ProductList({ products }) {
+  // If this flashes on every keystroke in search,
+  // you might need memoization
+  return products.map(p => <Product key={p.id} {...p} />);
+}
+```
+
+**D. Debugging Hooks:**
+```javascript
+// React DevTools shows all hooks in order
+function UserDashboard() {
+  const [count, setCount] = useState(0);           // State: 0
+  const [name, setName] = useState('John');        // State: "John"
+  const theme = useContext(ThemeContext);          // Context: { mode: 'dark' }
+  const memoValue = useMemo(() => count * 2, [count]); // Memo: 0
+  
+  // In DevTools, you can see all hook values
+  // and their dependencies
+}
+```
+
+---
+
+### **2. Console Debugging Techniques**
+
+**Strategic Console Logging:**
+```javascript
+// ❌ Bad: Random console.logs everywhere
+function ProductCard({ product }) {
+  console.log(product);
+  return <div>{product.name}</div>;
+}
+
+// ✅ Good: Structured logging with context
+function ProductCard({ product }) {
+  console.group('ProductCard');
+  console.log('Props:', product);
+  console.log('Render time:', new Date().toISOString());
+  console.groupEnd();
+  
+  return <div>{product.name}</div>;
+}
+```
+
+**Custom Debug Hook:**
+```javascript
+function useDebug(componentName, props) {
+  const renderCount = useRef(0);
+  const prevProps = useRef(props);
+  
+  useEffect(() => {
+    renderCount.current += 1;
+    
+    console.group(`🔍 ${componentName} - Render #${renderCount.current}`);
+    console.log('Current Props:', props);
+    console.log('Previous Props:', prevProps.current);
+    
+    // Find which props changed
+    const changes = Object.keys(props).reduce((acc, key) => {
+      if (props[key] !== prevProps.current[key]) {
+        acc[key] = {
+          from: prevProps.current[key],
+          to: props[key]
+        };
+      }
+      return acc;
+    }, {});
+    
+    if (Object.keys(changes).length > 0) {
+      console.log('Changed Props:', changes);
+    }
+    
+    console.groupEnd();
+    
+    prevProps.current = props;
+  });
+}
+
+// Usage
+function ProductCard({ product, onUpdate }) {
+  useDebug('ProductCard', { product, onUpdate });
+  
+  return <div>{product.name}</div>;
+}
+```
+
+**Why Did You Render Hook:**
+```javascript
+function useWhyDidYouUpdate(name, props) {
+  const previousProps = useRef();
+  const renderCount = useRef(0);
+  
+  useEffect(() => {
+    renderCount.current += 1;
+    
+    if (previousProps.current) {
+      const allKeys = Object.keys({ ...previousProps.current, ...props });
+      const changedProps = {};
+      
+      allKeys.forEach(key => {
+        if (previousProps.current[key] !== props[key]) {
+          changedProps[key] = {
+            from: previousProps.current[key],
+            to: props[key]
+          };
+        }
+      });
+      
+      if (Object.keys(changedProps).length > 0) {
+        console.log(
+          `[${name}] Re-render #${renderCount.current}:`,
+          changedProps
+        );
+      } else {
+        console.warn(
+          `[${name}] Re-render #${renderCount.current} with no prop changes!`
+        );
+      }
+    }
+    
+    previousProps.current = props;
+  });
+}
+
+// Usage
+function ExpensiveComponent({ data, callback }) {
+  useWhyDidYouUpdate('ExpensiveComponent', { data, callback });
+  // Now you'll see exactly which props caused re-render
+}
+```
+
+**Conditional Debugging:**
+```javascript
+const DEBUG = process.env.NODE_ENV === 'development';
+
+function debug(...args) {
+  if (DEBUG) {
+    console.log('[DEBUG]', ...args);
+  }
+}
+
+function ProductList({ products }) {
+  debug('Rendering ProductList with', products.length, 'products');
+  
+  useEffect(() => {
+    debug('Products changed:', products);
+  }, [products]);
+  
+  return <div>...</div>;
+}
+```
+
+---
+
+### **3. Breakpoint Debugging**
+
+**Chrome DevTools Debugger:**
+```javascript
+function ProductCard({ product }) {
+  // Add debugger statement
+  debugger; // Pauses execution here
+  
+  const handleClick = () => {
+    debugger; // Pauses when clicked
+    updateProduct(product.id);
+  };
+  
+  return <div onClick={handleClick}>{product.name}</div>;
+}
+```
+
+**Conditional Breakpoints:**
+```javascript
+function ProductList({ products }) {
+  products.forEach(product => {
+    // Only pause for specific product
+    if (product.id === 'problematic-id') {
+      debugger;
+    }
+    processProduct(product);
+  });
+}
+```
+
+**VS Code Debugging:**
+```json
+// .vscode/launch.json
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "chrome",
+      "request": "launch",
+      "name": "Debug React App",
+      "url": "http://localhost:3000",
+      "webRoot": "${workspaceFolder}/src",
+      "sourceMapPathOverrides": {
+        "webpack:///src/*": "${webRoot}/*"
+      }
+    }
+  ]
+}
+```
+
+---
+
+### **4. Error Boundaries for Catching Errors**
+
+**Basic Error Boundary:**
+```javascript
+import { Component } from 'react';
+
+class ErrorBoundary extends Component {
+  state = { 
+    hasError: false, 
+    error: null,
+    errorInfo: null 
+  };
+  
+  static getDerivedStateFromError(error) {
+    return { hasError: true };
+  }
+  
+  componentDidCatch(error, errorInfo) {
+    // Log to error reporting service
+    console.error('Error caught by boundary:', error, errorInfo);
+    
+    this.setState({
+      error,
+      errorInfo
+    });
+    
+    // Send to monitoring service (Sentry, LogRocket, etc.)
+    logErrorToService(error, errorInfo);
+  }
+  
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="error-boundary">
+          <h2>Something went wrong</h2>
+          <details style={{ whiteSpace: 'pre-wrap' }}>
+            {this.state.error?.toString()}
+            <br />
+            {this.state.errorInfo?.componentStack}
+          </details>
+          <button onClick={() => this.setState({ hasError: false })}>
+            Try again
+          </button>
+        </div>
+      );
+    }
+    
+    return this.props.children;
+  }
+}
+
+// Usage
+function App() {
+  return (
+    <ErrorBoundary>
+      <Dashboard />
+    </ErrorBoundary>
+  );
+}
+```
+
+**Development-Friendly Error Boundary:**
+```javascript
+class DevErrorBoundary extends Component {
+  state = { hasError: false, error: null, errorInfo: null };
+  
+  static getDerivedStateFromError(error) {
+    return { hasError: true };
+  }
+  
+  componentDidCatch(error, errorInfo) {
+    this.setState({ error, errorInfo });
+    
+    // In production, send to monitoring
+    if (process.env.NODE_ENV === 'production') {
+      logErrorToService(error, errorInfo);
+    } else {
+      // In development, show detailed error
+      console.group('🔴 Error Boundary Caught Error');
+      console.error('Error:', error);
+      console.error('Component Stack:', errorInfo.componentStack);
+      console.groupEnd();
+    }
+  }
+  
+  render() {
+    if (this.state.hasError) {
+      if (process.env.NODE_ENV === 'development') {
+        return (
+          <div style={{ 
+            padding: 20, 
+            background: '#ffebee', 
+            border: '2px solid #f44336',
+            borderRadius: 4 
+          }}>
+            <h2 style={{ color: '#c62828' }}>
+              ⚠️ Component Error
+            </h2>
+            <div style={{ 
+              fontFamily: 'monospace', 
+              fontSize: 14,
+              background: '#fff',
+              padding: 10,
+              overflow: 'auto'
+            }}>
+              <strong>Error:</strong>
+              <pre>{this.state.error?.toString()}</pre>
+              
+              <strong>Component Stack:</strong>
+              <pre>{this.state.errorInfo?.componentStack}</pre>
+            </div>
+            <button 
+              onClick={() => this.setState({ hasError: false })}
+              style={{ marginTop: 10 }}
+            >
+              Reset Error Boundary
+            </button>
+          </div>
+        );
+      }
+      
+      return <FriendlyErrorPage />;
+    }
+    
+    return this.props.children;
+  }
+}
+```
+
+**Granular Error Boundaries:**
+```javascript
+function App() {
+  return (
+    <ErrorBoundary name="App">
+      <Header />
+      
+      <ErrorBoundary name="Sidebar">
+        <Sidebar />
+      </ErrorBoundary>
+      
+      <ErrorBoundary name="MainContent">
+        <MainContent />
+      </ErrorBoundary>
+      
+      <ErrorBoundary name="Footer">
+        <Footer />
+      </ErrorBoundary>
+    </ErrorBoundary>
+  );
+}
+// If Sidebar crashes, rest of app continues working
+```
+
+---
+
+### **5. Network Debugging**
+
+**Monitor API Calls:**
+```javascript
+import axios from 'axios';
+
+// Request logging interceptor
+axios.interceptors.request.use(
+  (config) => {
+    console.group('🌐 API Request');
+    console.log('URL:', config.url);
+    console.log('Method:', config.method.toUpperCase());
+    console.log('Headers:', config.headers);
+    console.log('Data:', config.data);
+    console.groupEnd();
+    
+    return config;
+  },
+  (error) => {
+    console.error('Request Error:', error);
+    return Promise.reject(error);
+  }
+);
+
+// Response logging interceptor
+axios.interceptors.response.use(
+  (response) => {
+    console.group('✅ API Response');
+    console.log('URL:', response.config.url);
+    console.log('Status:', response.status);
+    console.log('Data:', response.data);
+    console.log('Duration:', Date.now() - response.config.metadata.startTime, 'ms');
+    console.groupEnd();
+    
+    return response;
+  },
+  (error) => {
+    console.group('❌ API Error');
+    console.error('URL:', error.config?.url);
+    console.error('Status:', error.response?.status);
+    console.error('Message:', error.message);
+    console.error('Response:', error.response?.data);
+    console.groupEnd();
+    
+    return Promise.reject(error);
+  }
+);
+
+// Add request timing
+axios.interceptors.request.use((config) => {
+  config.metadata = { startTime: Date.now() };
+  return config;
+});
+```
+
+**Debug API Hook:**
+```javascript
+function useDebugAPI(url, options) {
+  const [state, setState] = useState({ 
+    data: null, 
+    loading: true, 
+    error: null 
+  });
+  
+  useEffect(() => {
+    console.log('🔄 API Call Starting:', url);
+    const startTime = Date.now();
+    
+    fetch(url, options)
+      .then(response => {
+        console.log('✅ Response received:', {
+          url,
+          status: response.status,
+          duration: Date.now() - startTime + 'ms'
+        });
+        return response.json();
+      })
+      .then(data => {
+        console.log('📦 Data:', data);
+        setState({ data, loading: false, error: null });
+      })
+      .catch(error => {
+        console.error('❌ API Error:', {
+          url,
+          error: error.message,
+          duration: Date.now() - startTime + 'ms'
+        });
+        setState({ data: null, loading: false, error });
+      });
+  }, [url]);
+  
+  return state;
+}
+```
+
+---
+
+### **6. State Debugging**
+
+**Redux DevTools:**
+```javascript
+import { configureStore } from '@reduxjs/toolkit';
+
+const store = configureStore({
+  reducer: rootReducer,
+  // Redux DevTools automatically enabled in development
+  devTools: process.env.NODE_ENV !== 'production',
+});
+
+// Features:
+// - Time-travel debugging
+// - Action history
+// - State diff viewer
+// - Action replay
+```
+
+**Context Debugging:**
+```javascript
+const ThemeContext = createContext();
+
+// Add debug wrapper
+function ThemeProvider({ children }) {
+  const [theme, setTheme] = useState('light');
+  
+  // Debug context changes
+  useEffect(() => {
+    console.log('Theme context updated:', theme);
+  }, [theme]);
+  
+  const value = {
+    theme,
+    setTheme,
+    // Add debug method
+    _debug: () => console.log('Current theme:', theme)
+  };
+  
+  return (
+    <ThemeContext.Provider value={value}>
+      {children}
+    </ThemeContext.Provider>
+  );
+}
+
+// Access debug in console: window.theme = useContext(ThemeContext)
+```
+
+**State Logger Hook:**
+```javascript
+function useStateLogger(stateName, state) {
+  const prevState = useRef();
+  const renderCount = useRef(0);
+  
+  useEffect(() => {
+    renderCount.current += 1;
+    
+    if (prevState.current !== undefined) {
+      console.log(
+        `[${stateName}] Update #${renderCount.current}:`,
+        {
+          from: prevState.current,
+          to: state,
+          changed: prevState.current !== state
+        }
+      );
+    } else {
+      console.log(`[${stateName}] Initial:`, state);
+    }
+    
+    prevState.current = state;
+  }, [stateName, state]);
+}
+
+// Usage
+function Counter() {
+  const [count, setCount] = useState(0);
+  useStateLogger('count', count);
+  
+  return <button onClick={() => setCount(c => c + 1)}>{count}</button>;
+}
+```
+
+---
+
+### **7. Performance Debugging**
+
+**React Profiler API:**
+```javascript
+import { Profiler } from 'react';
+
+function onRenderCallback(
+  id,              // Component identifier
+  phase,           // "mount" or "update"  
+  actualDuration,  // Time spent rendering
+  baseDuration,    // Estimated time without memoization
+  startTime,       // When render started
+  commitTime,      // When React committed
+  interactions     // Set of interactions (React 18+)
+) {
+  // Log slow renders
+  if (actualDuration > 10) {
+    console.warn(`⚠️ Slow render: ${id} took ${actualDuration}ms`);
+  }
+  
+  // Track in analytics
+  if (process.env.NODE_ENV === 'production') {
+    analytics.track('render-performance', {
+      component: id,
+      phase,
+      duration: actualDuration
+    });
+  }
+}
+
+function App() {
+  return (
+    <Profiler id="App" onRender={onRenderCallback}>
+      <Dashboard />
+    </Profiler>
+  );
+}
+```
+
+**Render Tracking:**
+```javascript
+function useRenderTracking(componentName) {
+  const renderCount = useRef(0);
+  const lastRender = useRef(Date.now());
+  
+  renderCount.current += 1;
+  const timeSinceLastRender = Date.now() - lastRender.current;
+  
+  console.log(
+    `[${componentName}] Render #${renderCount.current} ` +
+    `(${timeSinceLastRender}ms since last)`
+  );
+  
+  lastRender.current = Date.now();
+  
+  // Return render count for use in component
+  return renderCount.current;
+}
+
+// Usage
+function ProductList({ products }) {
+  const renderCount = useRenderTracking('ProductList');
+  
+  return (
+    <div>
+      <small>Renders: {renderCount}</small>
+      {products.map(p => <Product key={p.id} {...p} />)}
+    </div>
+  );
+}
+```
+
+---
+
+### **8. Memory Leak Detection**
+
+**Cleanup Checker:**
+```javascript
+function useMemoryLeakDetector(componentName) {
+  useEffect(() => {
+    console.log(`✅ ${componentName} mounted`);
+    
+    return () => {
+      console.log(`🧹 ${componentName} cleanup`);
+    };
+  }, [componentName]);
+}
+
+// Common memory leak patterns
+function LeakyComponent() {
+  const [data, setData] = useState(null);
+  
+  useEffect(() => {
+    // ❌ Bad: No cleanup
+    const interval = setInterval(() => {
+      fetchData().then(setData);
+    }, 1000);
+    
+    // ✅ Good: Cleanup interval
+    return () => clearInterval(interval);
+  }, []);
+  
+  useEffect(() => {
+    // ❌ Bad: Event listener not removed
+    window.addEventListener('resize', handleResize);
+    
+    // ✅ Good: Remove listener
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+  
+  useEffect(() => {
+    let isCancelled = false;
+    
+    // ✅ Good: Cancel async operation
+    fetchData().then(data => {
+      if (!isCancelled) {
+        setData(data);
+      }
+    });
+    
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
+}
+```
+
+**Memory Usage Monitoring:**
+```javascript
+function useMemoryMonitor(componentName) {
+  useEffect(() => {
+    if (performance.memory) {
+      console.log(`[${componentName}] Memory:`, {
+        used: (performance.memory.usedJSHeapSize / 1048576).toFixed(2) + ' MB',
+        total: (performance.memory.totalJSHeapSize / 1048576).toFixed(2) + ' MB',
+        limit: (performance.memory.jsHeapSizeLimit / 1048576).toFixed(2) + ' MB'
+      });
+    }
+  });
+}
+```
+
+---
+
+### **9. Third-Party Debugging Tools**
+
+**A. Why Did You Render (Library):**
+```bash
+npm install @welldone-software/why-did-you-render
+```
+
+```javascript
+// wdyr.js
+import React from 'react';
+
+if (process.env.NODE_ENV === 'development') {
+  const whyDidYouRender = require('@welldone-software/why-did-you-render');
+  whyDidYouRender(React, {
+    trackAllPureComponents: true,
+    trackHooks: true,
+    trackExtraHooks: [[require('react-redux/lib'), 'useSelector']],
+  });
+}
+
+// Mark components to track
+MyComponent.whyDidYouRender = true;
+```
+
+**B. React Query DevTools:**
+```javascript
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <YourApp />
+      <ReactQueryDevtools initialIsOpen={false} />
+    </QueryClientProvider>
+  );
+}
+// Shows all queries, their state, cache, etc.
+```
+
+**C. Sentry for Error Tracking:**
+```javascript
+import * as Sentry from '@sentry/react';
+
+Sentry.init({
+  dsn: "your-sentry-dsn",
+  integrations: [
+    new Sentry.BrowserTracing(),
+    new Sentry.Replay(),
+  ],
+  tracesSampleRate: 1.0,
+  replaysSessionSampleRate: 0.1,
+  replaysOnErrorSampleRate: 1.0,
+});
+
+// Wrap app
+function App() {
+  return (
+    <Sentry.ErrorBoundary fallback={ErrorFallback}>
+      <YourApp />
+    </Sentry.ErrorBoundary>
+  );
+}
+```
+
+**D. LogRocket for Session Replay:**
+```javascript
+import LogRocket from 'logrocket';
+
+LogRocket.init('your-app-id');
+
+// Identify users
+LogRocket.identify('user-id', {
+  name: 'John Doe',
+  email: 'john@example.com'
+});
+
+// Track errors
+window.addEventListener('error', (event) => {
+  LogRocket.captureException(event.error);
+});
+```
+
+---
+
+### **10. Debug Utilities**
+
+**Custom Logger Service:**
+```javascript
+class Logger {
+  constructor() {
+    this.enabled = process.env.NODE_ENV === 'development';
+    this.history = [];
+  }
+  
+  log(message, data) {
+    if (!this.enabled) return;
+    
+    const entry = {
+      type: 'log',
+      message,
+      data,
+      timestamp: new Date().toISOString(),
+      stack: new Error().stack
+    };
+    
+    this.history.push(entry);
+    console.log(`[${entry.timestamp}]`, message, data);
+  }
+  
+  error(message, error) {
+    const entry = {
+      type: 'error',
+      message,
+      error: error.message,
+      stack: error.stack,
+      timestamp: new Date().toISOString()
+    };
+    
+    this.history.push(entry);
+    console.error(`[${entry.timestamp}]`, message, error);
+    
+    // Send to monitoring service
+    if (process.env.NODE_ENV === 'production') {
+      this.sendToMonitoring(entry);
+    }
+  }
+  
+  warn(message, data) {
+    if (!this.enabled) return;
+    
+    this.history.push({ type: 'warn', message, data });
+    console.warn(message, data);
+  }
+  
+  getHistory() {
+    return this.history;
+  }
+  
+  clear() {
+    this.history = [];
+  }
+  
+  sendToMonitoring(entry) {
+    // Send to Sentry, LogRocket, etc.
+  }
+}
+
+export const logger = new Logger();
+
+// Usage
+function ProductCard({ product }) {
+  logger.log('Rendering ProductCard', { productId: product.id });
+  
+  try {
+    processProduct(product);
+  } catch (error) {
+    logger.error('Failed to process product', error);
+  }
+}
+```
+
+**Debug Panel Component:**
+```javascript
+function DebugPanel() {
+  const [isOpen, setIsOpen] = useState(false);
+  const [logs, setLogs] = useState(logger.getHistory());
+  
+  if (process.env.NODE_ENV !== 'development') {
+    return null;
+  }
+  
+  return (
+    <div 
+      style={{
+        position: 'fixed',
+        bottom: 0,
+        right: 0,
+        width: 400,
+        maxHeight: isOpen ? 500 : 40,
+        background: '#1e1e1e',
+        color: '#fff',
+        overflow: 'auto',
+        zIndex: 9999,
+        transition: 'max-height 0.3s'
+      }}
+    >
+      <div 
+        onClick={() => setIsOpen(!isOpen)}
+        style={{ padding: 10, cursor: 'pointer', borderBottom: '1px solid #333' }}
+      >
+        🐛 Debug Panel ({logs.length} logs)
+      </div>
+      
+      {isOpen && (
+        <div style={{ padding: 10 }}>
+          <button onClick={() => {
+            logger.clear();
+            setLogs([]);
+          }}>
+            Clear Logs
+          </button>
+          
+          {logs.map((log, i) => (
+            <div 
+              key={i} 
+              style={{ 
+                padding: 5, 
+                borderBottom: '1px solid #333',
+                fontSize: 12,
+                fontFamily: 'monospace'
+              }}
+            >
+              <span style={{ 
+                color: log.type === 'error' ? '#f44336' : 
+                       log.type === 'warn' ? '#ff9800' : '#4caf50'
+              }}>
+                {log.type.toUpperCase()}
+              </span>
+              {' '}
+              <span>{log.message}</span>
+              {log.data && <pre>{JSON.stringify(log.data, null, 2)}</pre>}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+---
+
+### **React Debugging Checklist:**
+
+✅ **Install React DevTools** - Essential browser extension  
+✅ **Use Error Boundaries** - Catch and display errors gracefully  
+✅ **Enable Strict Mode** - Detect potential problems  
+✅ **Use Profiler** - Identify performance bottlenecks  
+✅ **Add Strategic Logging** - Debug hooks for key components  
+✅ **Monitor Network** - Log API requests/responses  
+✅ **Track State Changes** - Log state updates with context  
+✅ **Check for Memory Leaks** - Cleanup effects properly  
+✅ **Use Why Did You Render** - Find unnecessary re-renders  
+✅ **Set Up Error Tracking** - Sentry, LogRocket for production  
+✅ **Debug in VS Code** - Set up launch.json for breakpoints  
+✅ **Use React Query DevTools** - If using React Query  
+
+---
+
+### **Common Debugging Scenarios:**
+
+**1. Component Not Re-rendering:**
+```javascript
+// Check:
+// - Are you mutating state directly?
+// - Is reference changing for objects/arrays?
+// - Are dependencies correct in useEffect/useMemo?
+
+// ❌ Wrong
+state.items.push(newItem); // Direct mutation
+
+// ✅ Correct
+setState({ ...state, items: [...state.items, newItem] });
+```
+
+**2. Infinite Re-render Loop:**
+```javascript
+// ❌ Causes infinite loop
+function Component() {
+  const [count, setCount] = useState(0);
+  
+  useEffect(() => {
+    setCount(count + 1); // Updates state, triggers effect again!
+  }, [count]);
+}
+
+// ✅ Fixed
+useEffect(() => {
+  setCount(c => c + 1); // Use functional update
+}, []); // Empty deps or setCount(count + 1) without count in deps
+```
+
+**3. Stale Closure:**
+```javascript
+// ❌ Stale closure
+function Component() {
+  const [count, setCount] = useState(0);
+  
+  useEffect(() => {
+    setInterval(() => {
+      console.log(count); // Always logs 0!
+    }, 1000);
+  }, []);
+}
+
+// ✅ Fixed
+useEffect(() => {
+  setInterval(() => {
+    setCount(c => c + 1); // Use functional update
+  }, 1000);
+}, []);
+```
+
+**4. Props Not Updating:**
+```javascript
+// Check if component is memoized incorrectly
+const MemoComponent = memo(Component, () => true); // ❌ Never updates!
+
+// Or missing key prop
+{items.map(item => <Item item={item} />)} // ❌ No key
+
+// ✅ Correct
+{items.map(item => <Item key={item.id} item={item} />)}
+```
+
+---
+
+**Pro Tip**: Enable React Strict Mode to catch common mistakes during development:
+
+```javascript
+import { StrictMode } from 'react';
+
+root.render(
+  <StrictMode>
+    <App />
+  </StrictMode>
+);
+// Strict Mode helps identify:
+// - Unsafe lifecycles
+// - Legacy API usage
+// - Side effects in render
+// - Deprecated findDOMNode usage
+```
+
+---
+
+## System Design in React Applications
+
+### Understanding System Design for React Apps
+
+System design involves creating a high-level architecture that defines how your React application will be structured, how components interact, how data flows, and how the system scales. This section covers comprehensive system design principles for React applications.
+
+---
+
+### **1. Architecture Patterns**
+
+#### **1.1 Layered Architecture (Most Common)**
+
+```
+┌─────────────────────────────────────┐
+│     Presentation Layer (UI)         │
+│     - React Components              │
+│     - Hooks, Context                │
+└─────────────────────────────────────┘
+              ↕
+┌─────────────────────────────────────┐
+│     Business Logic Layer            │
+│     - Custom Hooks                  │
+│     - State Management              │
+│     - Validation, Transformation    │
+└─────────────────────────────────────┘
+              ↕
+┌─────────────────────────────────────┐
+│     Data Access Layer               │
+│     - API Clients                   │
+│     - React Query/SWR               │
+│     - WebSocket Connections         │
+└─────────────────────────────────────┘
+              ↕
+┌─────────────────────────────────────┐
+│     External Services               │
+│     - REST APIs                     │
+│     - GraphQL                       │
+│     - Third-party Services          │
+└─────────────────────────────────────┘
+```
+
+**Implementation:**
+
+```javascript
+// 📁 Presentation Layer
+// src/components/UserProfile.jsx
+import { useUserData } from '../hooks/useUserData';
+
+function UserProfile({ userId }) {
+  const { user, isLoading, error } = useUserData(userId);
+  
+  if (isLoading) return <LoadingSpinner />;
+  if (error) return <ErrorMessage error={error} />;
+  
+  return (
+    <div className="user-profile">
+      <Avatar src={user.avatar} />
+      <h2>{user.name}</h2>
+      <p>{user.bio}</p>
+    </div>
+  );
+}
+
+// 📁 Business Logic Layer
+// src/hooks/useUserData.js
+import { useQuery } from '@tanstack/react-query';
+import { userAPI } from '../services/api/userAPI';
+import { transformUserData } from '../utils/dataTransformers';
+
+export function useUserData(userId) {
+  return useQuery({
+    queryKey: ['user', userId],
+    queryFn: async () => {
+      const rawData = await userAPI.getUser(userId);
+      return transformUserData(rawData); // Business logic
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+// 📁 Data Access Layer
+// src/services/api/userAPI.js
+import { apiClient } from './apiClient';
+
+export const userAPI = {
+  getUser: (userId) => apiClient.get(`/users/${userId}`),
+  updateUser: (userId, data) => apiClient.put(`/users/${userId}`, data),
+  deleteUser: (userId) => apiClient.delete(`/users/${userId}`),
+};
+
+// 📁 API Client Configuration
+// src/services/api/apiClient.js
+import axios from 'axios';
+
+export const apiClient = axios.create({
+  baseURL: process.env.REACT_APP_API_URL,
+  timeout: 10000,
+});
+
+// Interceptors for auth, logging, etc.
+apiClient.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+```
+
+---
+
+#### **1.2 Feature-Slice Architecture**
+
+**Organize by features, not by file types:**
+
+```
+src/
+├── features/
+│   ├── authentication/
+│   │   ├── components/
+│   │   │   ├── LoginForm.jsx
+│   │   │   ├── SignupForm.jsx
+│   │   │   └── PasswordReset.jsx
+│   │   ├── hooks/
+│   │   │   ├── useAuth.js
+│   │   │   └── useLogin.js
+│   │   ├── services/
+│   │   │   └── authAPI.js
+│   │   ├── store/
+│   │   │   └── authSlice.js
+│   │   ├── types/
+│   │   │   └── auth.types.ts
+│   │   ├── utils/
+│   │   │   └── tokenManager.js
+│   │   └── index.ts (public exports)
+│   │
+│   ├── products/
+│   │   ├── components/
+│   │   │   ├── ProductList.jsx
+│   │   │   ├── ProductCard.jsx
+│   │   │   └── ProductDetails.jsx
+│   │   ├── hooks/
+│   │   │   ├── useProducts.js
+│   │   │   └── useProductFilters.js
+│   │   ├── services/
+│   │   │   └── productsAPI.js
+│   │   └── index.ts
+│   │
+│   └── shopping-cart/
+│       ├── components/
+│       ├── hooks/
+│       ├── store/
+│       └── index.ts
+│
+├── shared/
+│   ├── components/ (Button, Input, Modal)
+│   ├── hooks/ (useDebounce, useLocalStorage)
+│   ├── utils/ (formatters, validators)
+│   ├── constants/
+│   └── types/
+│
+├── core/
+│   ├── api/
+│   │   └── apiClient.js
+│   ├── auth/
+│   │   └── AuthProvider.jsx
+│   ├── routing/
+│   │   └── Router.jsx
+│   └── theme/
+│       └── ThemeProvider.jsx
+│
+└── App.jsx
+```
+
+**Benefits:**
+- ✅ Easy to locate feature code
+- ✅ Independent team work
+- ✅ Better code splitting
+- ✅ Easy to add/remove features
+
+---
+
+#### **1.3 Flux/Redux Architecture**
+
+**Unidirectional Data Flow:**
+
+```
+┌──────────┐      ┌──────────┐      ┌─────────┐      ┌───────┐
+│  Action  │─────▶│Dispatcher│─────▶│  Store  │─────▶│  View │
+└──────────┘      └──────────┘      └─────────┘      └───────┘
+                                                           │
+                                                           │
+                                                           ▼
+                                                     ┌──────────┐
+                                                     │  Action  │
+                                                     └──────────┘
+```
+
+**Modern Redux Toolkit Example:**
+
+```javascript
+// src/features/products/store/productsSlice.js
+import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import { productsAPI } from '../services/productsAPI';
+
+// Async thunk
+export const fetchProducts = createAsyncThunk(
+  'products/fetchAll',
+  async ({ page, filters }, { rejectWithValue }) => {
+    try {
+      const response = await productsAPI.getAll(page, filters);
+      return response;
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+// Slice
+const productsSlice = createSlice({
+  name: 'products',
+  initialState: {
+    items: [],
+    loading: false,
+    error: null,
+    page: 1,
+    totalPages: 0,
+  },
+  reducers: {
+    setPage: (state, action) => {
+      state.page = action.payload;
+    },
+    clearError: (state) => {
+      state.error = null;
+    },
+  },
+  extraReducers: (builder) => {
+    builder
+      .addCase(fetchProducts.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchProducts.fulfilled, (state, action) => {
+        state.loading = false;
+        state.items = action.payload.items;
+        state.totalPages = action.payload.totalPages;
+      })
+      .addCase(fetchProducts.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      });
+  },
+});
+
+export const { setPage, clearError } = productsSlice.actions;
+export default productsSlice.reducer;
+
+// Usage in component
+import { useDispatch, useSelector } from 'react-redux';
+import { fetchProducts, setPage } from '../store/productsSlice';
+
+function ProductList() {
+  const dispatch = useDispatch();
+  const { items, loading, error, page } = useSelector(state => state.products);
+  
+  useEffect(() => {
+    dispatch(fetchProducts({ page, filters: {} }));
+  }, [page, dispatch]);
+  
+  const handlePageChange = (newPage) => {
+    dispatch(setPage(newPage));
+  };
+  
+  return (
+    <div>
+      {loading && <LoadingSpinner />}
+      {error && <ErrorMessage error={error} />}
+      <div className="products-grid">
+        {items.map(product => (
+          <ProductCard key={product.id} product={product} />
+        ))}
+      </div>
+      <Pagination page={page} onChange={handlePageChange} />
+    </div>
+  );
+}
+```
+
+---
+
+### **2. Component Design Patterns**
+
+#### **2.1 Container/Presentational Pattern**
+
+**Separation of concerns: Logic vs. UI**
+
+```javascript
+// 📁 Presentational Component (UI only)
+// src/components/ProductCard/ProductCard.jsx
+function ProductCard({ product, onAddToCart, onViewDetails, isLoading }) {
+  return (
+    <div className="product-card">
+      <img src={product.image} alt={product.name} />
+      <h3>{product.name}</h3>
+      <p className="price">${product.price}</p>
+      <p className="description">{product.description}</p>
+      <div className="actions">
+        <button 
+          onClick={() => onAddToCart(product)}
+          disabled={isLoading || !product.inStock}
+        >
+          {isLoading ? 'Adding...' : 'Add to Cart'}
+        </button>
+        <button onClick={() => onViewDetails(product.id)}>
+          View Details
+        </button>
+      </div>
+      {!product.inStock && <span className="badge">Out of Stock</span>}
+    </div>
+  );
+}
+
+export default ProductCard;
+
+// 📁 Container Component (Logic)
+// src/containers/ProductCardContainer.jsx
+import { useState } from 'react';
+import { useCart } from '../hooks/useCart';
+import { useNavigate } from 'react-router-dom';
+import ProductCard from '../components/ProductCard/ProductCard';
+
+function ProductCardContainer({ product }) {
+  const [isLoading, setIsLoading] = useState(false);
+  const { addToCart } = useCart();
+  const navigate = useNavigate();
+  
+  const handleAddToCart = async (product) => {
+    setIsLoading(true);
+    try {
+      await addToCart(product);
+      // Show success notification
+    } catch (error) {
+      // Show error notification
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  const handleViewDetails = (productId) => {
+    navigate(`/products/${productId}`);
+  };
+  
+  return (
+    <ProductCard
+      product={product}
+      onAddToCart={handleAddToCart}
+      onViewDetails={handleViewDetails}
+      isLoading={isLoading}
+    />
+  );
+}
+
+export default ProductCardContainer;
+```
+
+**Benefits:**
+- ✅ Reusable UI components
+- ✅ Easy to test presentational components
+- ✅ Clear separation of concerns
+- ✅ Better Storybook integration
+
+---
+
+#### **2.2 Compound Components Pattern**
+
+**Components that work together to form a cohesive UI:**
+
+```javascript
+// 📁 Accordion compound component
+// src/components/Accordion/Accordion.jsx
+import { createContext, useContext, useState } from 'react';
+
+// Context for sharing state
+const AccordionContext = createContext();
+
+function Accordion({ children, defaultOpen = null }) {
+  const [openItem, setOpenItem] = useState(defaultOpen);
+  
+  return (
+    <AccordionContext.Provider value={{ openItem, setOpenItem }}>
+      <div className="accordion">{children}</div>
+    </AccordionContext.Provider>
+  );
+}
+
+function AccordionItem({ id, children }) {
+  const { openItem, setOpenItem } = useContext(AccordionContext);
+  const isOpen = openItem === id;
+  
+  return (
+    <div className={`accordion-item ${isOpen ? 'open' : ''}`}>
+      {children}
+    </div>
+  );
+}
+
+function AccordionHeader({ id, children }) {
+  const { openItem, setOpenItem } = useContext(AccordionContext);
+  const isOpen = openItem === id;
+  
+  const toggle = () => {
+    setOpenItem(isOpen ? null : id);
+  };
+  
+  return (
+    <button className="accordion-header" onClick={toggle}>
+      {children}
+      <span className="icon">{isOpen ? '−' : '+'}</span>
+    </button>
+  );
+}
+
+function AccordionContent({ id, children }) {
+  const { openItem } = useContext(AccordionContext);
+  const isOpen = openItem === id;
+  
+  if (!isOpen) return null;
+  
+  return (
+    <div className="accordion-content">
+      {children}
+    </div>
+  );
+}
+
+// Export compound component
+Accordion.Item = AccordionItem;
+Accordion.Header = AccordionHeader;
+Accordion.Content = AccordionContent;
+
+export default Accordion;
+
+// 📁 Usage
+function FAQPage() {
+  return (
+    <Accordion defaultOpen="1">
+      <Accordion.Item id="1">
+        <Accordion.Header id="1">
+          What is React?
+        </Accordion.Header>
+        <Accordion.Content id="1">
+          React is a JavaScript library for building user interfaces.
+        </Accordion.Content>
+      </Accordion.Item>
+      
+      <Accordion.Item id="2">
+        <Accordion.Header id="2">
+          What are hooks?
+        </Accordion.Header>
+        <Accordion.Content id="2">
+          Hooks are functions that let you use state and lifecycle features.
+        </Accordion.Content>
+      </Accordion.Item>
+    </Accordion>
+  );
+}
+```
+
+---
+
+#### **2.3 Higher-Order Components (HOC) Pattern**
+
+**Wrap components to add functionality:**
+
+```javascript
+// 📁 HOC for authentication
+// src/hocs/withAuth.jsx
+import { Navigate } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
+
+function withAuth(Component, requiredRole = null) {
+  return function AuthenticatedComponent(props) {
+    const { user, isAuthenticated, loading } = useAuth();
+    
+    if (loading) {
+      return <LoadingSpinner />;
+    }
+    
+    if (!isAuthenticated) {
+      return <Navigate to="/login" replace />;
+    }
+    
+    if (requiredRole && user.role !== requiredRole) {
+      return <Navigate to="/unauthorized" replace />;
+    }
+    
+    return <Component {...props} user={user} />;
+  };
+}
+
+export default withAuth;
+
+// 📁 Usage
+import withAuth from '../hocs/withAuth';
+
+function AdminDashboard({ user }) {
+  return (
+    <div>
+      <h1>Admin Dashboard</h1>
+      <p>Welcome, {user.name}</p>
+    </div>
+  );
+}
+
+export default withAuth(AdminDashboard, 'admin');
+
+// 📁 HOC for loading states
+// src/hocs/withLoadingState.jsx
+function withLoadingState(Component, LoadingComponent = LoadingSpinner) {
+  return function ComponentWithLoading({ isLoading, ...props }) {
+    if (isLoading) {
+      return <LoadingComponent />;
+    }
+    
+    return <Component {...props} />;
+  };
+}
+
+// Usage
+const ProductListWithLoading = withLoadingState(ProductList);
+
+function App() {
+  const { products, isLoading } = useProducts();
+  
+  return (
+    <ProductListWithLoading 
+      products={products} 
+      isLoading={isLoading} 
+    />
+  );
+}
+```
+
+---
+
+#### **2.4 Render Props Pattern**
+
+**Share code using props with function values:**
+
+```javascript
+// 📁 Mouse tracker using render props
+// src/components/MouseTracker/MouseTracker.jsx
+import { useState, useEffect } from 'react';
+
+function MouseTracker({ render }) {
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      setPosition({ x: e.clientX, y: e.clientY });
+    };
+    
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, []);
+  
+  return render(position);
+}
+
+// 📁 Usage
+function App() {
+  return (
+    <div>
+      <h1>Move your mouse around</h1>
+      
+      <MouseTracker 
+        render={({ x, y }) => (
+          <div>Mouse position: {x}, {y}</div>
+        )}
+      />
+      
+      <MouseTracker 
+        render={({ x, y }) => (
+          <div 
+            style={{
+              position: 'absolute',
+              left: x,
+              top: y,
+              width: 20,
+              height: 20,
+              background: 'red',
+              borderRadius: '50%',
+            }}
+          />
+        )}
+      />
+    </div>
+  );
+}
+
+// 📁 More practical example: Data fetching with render props
+function DataFetcher({ url, render }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  
+  useEffect(() => {
+    fetch(url)
+      .then(res => res.json())
+      .then(data => {
+        setData(data);
+        setLoading(false);
+      })
+      .catch(err => {
+        setError(err);
+        setLoading(false);
+      });
+  }, [url]);
+  
+  return render({ data, loading, error });
+}
+
+// Usage
+function UserProfile({ userId }) {
+  return (
+    <DataFetcher
+      url={`/api/users/${userId}`}
+      render={({ data, loading, error }) => {
+        if (loading) return <LoadingSpinner />;
+        if (error) return <ErrorMessage error={error} />;
+        return (
+          <div>
+            <h2>{data.name}</h2>
+            <p>{data.email}</p>
+          </div>
+        );
+      }}
+    />
+  );
+}
+```
+
+**Modern Alternative: Custom Hooks** (Preferred)
+
+```javascript
+// src/hooks/useMousePosition.js
+import { useState, useEffect } from 'react';
+
+export function useMousePosition() {
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      setPosition({ x: e.clientX, y: e.clientY });
+    };
+    
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, []);
+  
+  return position;
+}
+
+// Usage (cleaner!)
+function App() {
+  const { x, y } = useMousePosition();
+  
+  return <div>Mouse position: {x}, {y}</div>;
+}
+```
+
+---
+
+### **3. State Management Architecture**
+
+#### **3.1 State Classification**
+
+```javascript
+/**
+ * State Type Decision Tree:
+ * 
+ * 1. LOCAL STATE (useState, useReducer)
+ *    - Form inputs
+ *    - UI toggles (modals, dropdowns)
+ *    - Component-specific data
+ * 
+ * 2. GLOBAL STATE (Context, Redux, Zustand)
+ *    - User authentication
+ *    - Theme preferences
+ *    - Shopping cart
+ *    - Notifications
+ * 
+ * 3. SERVER STATE (React Query, SWR)
+ *    - API responses
+ *    - Cached data
+ *    - Background syncing
+ * 
+ * 4. URL STATE (React Router)
+ *    - Current route
+ *    - Query parameters
+ *    - Filters, pagination
+ */
+
+// Example: Multi-tier state architecture
+import { create } from 'zustand';
+import { useQuery, useMutation } from '@tanstack/react-query';
+
+// 1. Global State (Zustand)
+const useAppStore = create((set) => ({
+  theme: 'light',
+  setTheme: (theme) => set({ theme }),
+  
+  notifications: [],
+  addNotification: (notification) =>
+    set((state) => ({
+      notifications: [...state.notifications, notification]
+    })),
+  
+  sidebarOpen: false,
+  toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
+}));
+
+// 2. Server State (React Query)
+function useProducts(filters) {
+  return useQuery({
+    queryKey: ['products', filters],
+    queryFn: () => productsAPI.getAll(filters),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+// 3. Local State (useState)
+function ProductFilters() {
+  const [priceRange, setPriceRange] = useState([0, 1000]);
+  const [category, setCategory] = useState('all');
+  
+  // ... component logic
+}
+
+// 4. URL State (React Router)
+function ProductsPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const page = searchParams.get('page') || '1';
+  const sort = searchParams.get('sort') || 'newest';
+  
+  const handlePageChange = (newPage) => {
+    setSearchParams({ page: newPage, sort });
+  };
+}
+```
+
+---
+
+#### **3.2 State Management Comparison**
+
+```javascript
+// ========================================
+// OPTION 1: Context API (Built-in)
+// ========================================
+// Best for: Simple global state, theme, auth
+
+import { createContext, useContext, useState } from 'react';
+
+const CartContext = createContext();
+
+export function CartProvider({ children }) {
+  const [items, setItems] = useState([]);
+  
+  const addItem = (product) => {
+    setItems(prev => [...prev, product]);
+  };
+  
+  const removeItem = (productId) => {
+    setItems(prev => prev.filter(item => item.id !== productId));
+  };
+  
+  return (
+    <CartContext.Provider value={{ items, addItem, removeItem }}>
+      {children}
+    </CartContext.Provider>
+  );
+}
+
+export const useCart = () => useContext(CartContext);
+
+// Usage
+function CartButton() {
+  const { items } = useCart();
+  return <button>Cart ({items.length})</button>;
+}
+
+// ========================================
+// OPTION 2: Redux Toolkit (Complex apps)
+// ========================================
+// Best for: Large apps, complex state logic, time-travel debugging
+
+import { configureStore, createSlice } from '@reduxjs/toolkit';
+
+const cartSlice = createSlice({
+  name: 'cart',
+  initialState: { items: [], total: 0 },
+  reducers: {
+    addItem: (state, action) => {
+      state.items.push(action.payload);
+      state.total += action.payload.price;
+    },
+    removeItem: (state, action) => {
+      const item = state.items.find(i => i.id === action.payload);
+      state.items = state.items.filter(i => i.id !== action.payload);
+      state.total -= item.price;
+    },
+  },
+});
+
+export const store = configureStore({
+  reducer: {
+    cart: cartSlice.reducer,
+  },
+});
+
+// Usage
+import { useDispatch, useSelector } from 'react-redux';
+
+function CartButton() {
+  const items = useSelector(state => state.cart.items);
+  return <button>Cart ({items.length})</button>;
+}
+
+// ========================================
+// OPTION 3: Zustand (Modern, lightweight)
+// ========================================
+// Best for: Medium apps, simpler than Redux, no boilerplate
+
+import { create } from 'zustand';
+import { devtools, persist } from 'zustand/middleware';
+
+export const useCartStore = create(
+  devtools(
+    persist(
+      (set) => ({
+        items: [],
+        total: 0,
+        
+        addItem: (product) =>
+          set((state) => ({
+            items: [...state.items, product],
+            total: state.total + product.price,
+          })),
+        
+        removeItem: (productId) =>
+          set((state) => {
+            const item = state.items.find(i => i.id === productId);
+            return {
+              items: state.items.filter(i => i.id !== productId),
+              total: state.total - item.price,
+            };
+          }),
+        
+        clearCart: () => set({ items: [], total: 0 }),
+      }),
+      { name: 'cart-storage' }
+    )
+  )
+);
+
+// Usage (simplest!)
+function CartButton() {
+  const items = useCartStore(state => state.items);
+  return <button>Cart ({items.length})</button>;
+}
+
+// ========================================
+// OPTION 4: React Query (Server state)
+// ========================================
+// Best for: API data, caching, background sync
+
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+
+function useCart() {
+  const queryClient = useQueryClient();
+  
+  // Fetch cart from server
+  const { data: cart, isLoading } = useQuery({
+    queryKey: ['cart'],
+    queryFn: () => cartAPI.getCart(),
+  });
+  
+  // Add item mutation
+  const addItem = useMutation({
+    mutationFn: (product) => cartAPI.addItem(product),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cart'] });
+    },
+  });
+  
+  return { cart, isLoading, addItem };
+}
+
+// Usage
+function CartButton() {
+  const { cart, isLoading } = useCart();
+  if (isLoading) return <button>Loading...</button>;
+  return <button>Cart ({cart.items.length})</button>;
+}
+```
+
+**Decision Matrix:**
+
+| Use Case | Recommendation |
+|----------|---------------|
+| Theme, simple user preferences | Context API |
+| Authentication state | Context API or Zustand |
+| Shopping cart (client-side) | Zustand or Redux |
+| Complex app with time-travel debugging | Redux Toolkit |
+| API data, caching | React Query or SWR |
+| Form state | Local state or React Hook Form |
+| URL-based state (filters, pagination) | React Router params |
+| Real-time data (WebSocket) | Context + useEffect |
+
+---
+
+### **4. API Layer Design**
+
+#### **4.1 Centralized API Client**
+
+```javascript
+// 📁 src/services/api/apiClient.js
+import axios from 'axios';
+import { refreshToken } from './authService';
+
+// Create axios instance
+const apiClient = axios.create({
+  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:3000/api',
+  timeout: 15000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Request interceptor
+apiClient.interceptors.request.use(
+  (config) => {
+    // Add auth token
+    const token = localStorage.getItem('accessToken');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    
+    // Add request ID for tracking
+    config.headers['X-Request-ID'] = generateRequestId();
+    
+    // Log request in dev
+    if (process.env.NODE_ENV === 'development') {
+      console.log('API Request:', config.method.toUpperCase(), config.url);
+    }
+    
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Response interceptor
+apiClient.interceptors.response.use(
+  (response) => {
+    // Log response in dev
+    if (process.env.NODE_ENV === 'development') {
+      console.log('API Response:', response.config.url, response.status);
+    }
+    
+    return response.data; // Return only data
+  },
+  async (error) => {
+    const originalRequest = error.config;
+    
+    // Handle 401 Unauthorized - Token expired
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+      
+      try {
+        const newToken = await refreshToken();
+        localStorage.setItem('accessToken', newToken);
+        
+        // Retry original request with new token
+        originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        return apiClient(originalRequest);
+      } catch (refreshError) {
+        // Refresh failed, redirect to login
+        window.location.href = '/login';
+        return Promise.reject(refreshError);
+      }
+    }
+    
+    // Handle 403 Forbidden
+    if (error.response?.status === 403) {
+      window.location.href = '/unauthorized';
+    }
+    
+    // Handle network errors
+    if (!error.response) {
+      console.error('Network error:', error.message);
+      // Show offline notification
+    }
+    
+    // Normalize error structure
+    const normalizedError = {
+      message: error.response?.data?.message || error.message || 'An error occurred',
+      status: error.response?.status,
+      code: error.response?.data?.code,
+      details: error.response?.data?.details,
+    };
+    
+    return Promise.reject(normalizedError);
+  }
+);
+
+export default apiClient;
+
+// Helper function
+function generateRequestId() {
+  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+}
+```
+
+---
+
+#### **4.2 Feature-Based API Services**
+
+```javascript
+// 📁 src/services/api/userAPI.js
+import apiClient from './apiClient';
+
+export const userAPI = {
+  // Get all users with pagination and filters
+  getAll: async ({ page = 1, limit = 10, search = '', role = '' }) => {
+    const params = new URLSearchParams({
+      page: page.toString(),
+      limit: limit.toString(),
+      ...(search && { search }),
+      ...(role && { role }),
+    });
+    
+    return apiClient.get(`/users?${params}`);
+  },
+  
+  // Get single user
+  getById: (userId) => {
+    return apiClient.get(`/users/${userId}`);
+  },
+  
+  // Create user
+  create: (userData) => {
+    return apiClient.post('/users', userData);
+  },
+  
+  // Update user
+  update: (userId, userData) => {
+    return apiClient.put(`/users/${userId}`, userData);
+  },
+  
+  // Partial update
+  patch: (userId, updates) => {
+    return apiClient.patch(`/users/${userId}`, updates);
+  },
+  
+  // Delete user
+  delete: (userId) => {
+    return apiClient.delete(`/users/${userId}`);
+  },
+  
+  // Upload avatar
+  uploadAvatar: (userId, file) => {
+    const formData = new FormData();
+    formData.append('avatar', file);
+    
+    return apiClient.post(`/users/${userId}/avatar`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+  
+  // Get user permissions
+  getPermissions: (userId) => {
+    return apiClient.get(`/users/${userId}/permissions`);
+  },
+};
+
+// 📁 src/services/api/productsAPI.js
+import apiClient from './apiClient';
+
+export const productsAPI = {
+  getAll: ({ page, limit, category, minPrice, maxPrice, sortBy }) => {
+    const params = new URLSearchParams();
+    if (page) params.append('page', page);
+    if (limit) params.append('limit', limit);
+    if (category) params.append('category', category);
+    if (minPrice) params.append('minPrice', minPrice);
+    if (maxPrice) params.append('maxPrice', maxPrice);
+    if (sortBy) params.append('sortBy', sortBy);
+    
+    return apiClient.get(`/products?${params}`);
+  },
+  
+  getById: (productId) => apiClient.get(`/products/${productId}`),
+  
+  create: (productData) => apiClient.post('/products', productData),
+  
+  update: (productId, productData) => 
+    apiClient.put(`/products/${productId}`, productData),
+  
+  delete: (productId) => apiClient.delete(`/products/${productId}`),
+  
+  // Batch operations
+  deleteMany: (productIds) => 
+    apiClient.post('/products/batch-delete', { ids: productIds }),
+  
+  updateStock: (productId, quantity) =>
+    apiClient.patch(`/products/${productId}/stock`, { quantity }),
+  
+  // Search
+  search: (query) => apiClient.get(`/products/search?q=${query}`),
+};
+```
+
+---
+
+#### **4.3 React Query Integration**
+
+```javascript
+// 📁 src/hooks/api/useUsers.js
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { userAPI } from '../../services/api/userAPI';
+
+// Get all users
+export function useUsers(filters = {}) {
+  return useQuery({
+    queryKey: ['users', filters],
+    queryFn: () => userAPI.getAll(filters),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    cacheTime: 10 * 60 * 1000, // 10 minutes
+  });
+}
+
+// Get single user
+export function useUser(userId) {
+  return useQuery({
+    queryKey: ['users', userId],
+    queryFn: () => userAPI.getById(userId),
+    enabled: !!userId, // Only fetch if userId exists
+  });
+}
+
+// Create user
+export function useCreateUser() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: (userData) => userAPI.create(userData),
+    onSuccess: (newUser) => {
+      // Invalidate users list to refetch
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      
+      // Optimistically update cache
+      queryClient.setQueryData(['users', newUser.id], newUser);
+    },
+    onError: (error) => {
+      console.error('Failed to create user:', error);
+    },
+  });
+}
+
+// Update user
+export function useUpdateUser() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: ({ userId, userData }) => userAPI.update(userId, userData),
+    onMutate: async ({ userId, userData }) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['users', userId] });
+      
+      // Snapshot previous value
+      const previousUser = queryClient.getQueryData(['users', userId]);
+      
+      // Optimistically update
+      queryClient.setQueryData(['users', userId], (old) => ({
+        ...old,
+        ...userData,
+      }));
+      
+      return { previousUser };
+    },
+    onError: (error, variables, context) => {
+      // Rollback on error
+      if (context?.previousUser) {
+        queryClient.setQueryData(
+          ['users', variables.userId],
+          context.previousUser
+        );
+      }
+    },
+    onSettled: (data, error, variables) => {
+      // Refetch after mutation
+      queryClient.invalidateQueries({ queryKey: ['users', variables.userId] });
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+  });
+}
+
+// Delete user
+export function useDeleteUser() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: (userId) => userAPI.delete(userId),
+    onSuccess: (_, userId) => {
+      // Remove from cache
+      queryClient.removeQueries({ queryKey: ['users', userId] });
+      
+      // Invalidate list
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+  });
+}
+
+// 📁 Usage in component
+function UserManagement() {
+  const [filters, setFilters] = useState({ page: 1, limit: 10 });
+  
+  const { data: users, isLoading, error } = useUsers(filters);
+  const createUser = useCreateUser();
+  const updateUser = useUpdateUser();
+  const deleteUser = useDeleteUser();
+  
+  const handleCreateUser = async (userData) => {
+    try {
+      await createUser.mutateAsync(userData);
+      alert('User created successfully!');
+    } catch (error) {
+      alert('Failed to create user: ' + error.message);
+    }
+  };
+  
+  const handleUpdateUser = async (userId, userData) => {
+    await updateUser.mutateAsync({ userId, userData });
+  };
+  
+  const handleDeleteUser = async (userId) => {
+    if (window.confirm('Are you sure?')) {
+      await deleteUser.mutateAsync(userId);
+    }
+  };
+  
+  if (isLoading) return <LoadingSpinner />;
+  if (error) return <ErrorMessage error={error} />;
+  
+  return (
+    <div>
+      <button onClick={() => handleCreateUser({ name: 'New User' })}>
+        Create User
+      </button>
+      
+      {users?.data.map(user => (
+        <div key={user.id}>
+          <span>{user.name}</span>
+          <button onClick={() => handleUpdateUser(user.id, { name: 'Updated' })}>
+            Update
+          </button>
+          <button onClick={() => handleDeleteUser(user.id)}>
+            Delete
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+---
+
+### **5. Real-World System Design Examples**
+
+#### **5.1 E-Commerce Application**
+
+**High-Level Architecture:**
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                   Load Balancer / CDN                   │
+└─────────────────────────────────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────────┐
+│               React SPA (Client-Side)                   │
+│  ┌──────────┐  ┌──────────┐  ┌───────┐  ┌──────────┐  │
+│  │  Header  │  │ Products │  │  Cart │  │ Checkout │  │
+│  │   MFE    │  │   MFE    │  │  MFE  │  │   MFE    │  │
+│  └──────────┘  └──────────┘  └───────┘  └──────────┘  │
+└─────────────────────────────────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────────┐
+│                    API Gateway                          │
+└─────────────────────────────────────────────────────────┘
+                          ↓
+     ┌──────────────┬─────────────┬──────────────┐
+     ↓              ↓             ↓              ↓
+┌─────────┐  ┌──────────┐  ┌─────────┐  ┌──────────┐
+│ Product │  │   User   │  │  Order  │  │ Payment  │
+│ Service │  │ Service  │  │ Service │  │ Service  │
+└─────────┘  └──────────┘  └─────────┘  └──────────┘
+     ↓              ↓             ↓              ↓
+┌─────────┐  ┌──────────┐  ┌─────────┐  ┌──────────┐
+│Products │  │   Users  │  │ Orders  │  │ Payments │
+│   DB    │  │    DB    │  │   DB    │  │    DB    │
+└─────────┘  └──────────┘  └─────────┘  └──────────┘
+```
+
+**Project Structure:**
+
+```
+ecommerce-frontend/
+├── src/
+│   ├── features/
+│   │   ├── products/
+│   │   │   ├── components/
+│   │   │   │   ├── ProductList.jsx
+│   │   │   │   ├── ProductCard.jsx
+│   │   │   │   ├── ProductDetails.jsx
+│   │   │   │   ├── ProductFilters.jsx
+│   │   │   │   └── ProductSearch.jsx
+│   │   │   ├── hooks/
+│   │   │   │   ├── useProducts.js
+│   │   │   │   ├── useProductDetails.js
+│   │   │   │   └── useProductFilters.js
+│   │   │   ├── services/
+│   │   │   │   └── productsAPI.js
+│   │   │   ├── store/
+│   │   │   │   └── productsSlice.js (if using Redux)
+│   │   │   └── index.ts
+│   │   │
+│   │   ├── cart/
+│   │   │   ├── components/
+│   │   │   │   ├── Cart.jsx
+│   │   │   │   ├── CartItem.jsx
+│   │   │   │   ├── CartSummary.jsx
+│   │   │   │   └── CartIcon.jsx
+│   │   │   ├── hooks/
+│   │   │   │   └── useCart.js
+│   │   │   ├── store/
+│   │   │   │   └── cartStore.js (Zustand)
+│   │   │   └── index.ts
+│   │   │
+│   │   ├── checkout/
+│   │   │   ├── components/
+│   │   │   │   ├── CheckoutForm.jsx
+│   │   │   │   ├── ShippingForm.jsx
+│   │   │   │   ├── PaymentForm.jsx
+│   │   │   │   └── OrderSummary.jsx
+│   │   │   ├── hooks/
+│   │   │   │   └── useCheckout.js
+│   │   │   └── index.ts
+│   │   │
+│   │   ├── user/
+│   │   │   ├── components/
+│   │   │   │   ├── Profile.jsx
+│   │   │   │   ├── OrderHistory.jsx
+│   │   │   │   └── AddressBook.jsx
+│   │   │   ├── hooks/
+│   │   │   │   ├── useProfile.js
+│   │   │   │   └── useOrders.js
+│   │   │   └── index.ts
+│   │   │
+│   │   └── auth/
+│   │       ├── components/
+│   │       │   ├── LoginForm.jsx
+│   │       │   └── SignupForm.jsx
+│   │       ├── hooks/
+│   │       │   └── useAuth.js
+│   │       └── context/
+│   │           └── AuthContext.jsx
+│   │
+│   ├── shared/
+│   │   ├── components/
+│   │   │   ├── Button/
+│   │   │   ├── Input/
+│   │   │   ├── Modal/
+│   │   │   ├── LoadingSpinner/
+│   │   │   └── ErrorBoundary/
+│   │   ├── hooks/
+│   │   │   ├── useDebounce.js
+│   │   │   ├── useLocalStorage.js
+│   │   │   ├── useIntersectionObserver.js
+│   │   │   └── useMediaQuery.js
+│   │   ├── utils/
+│   │   │   ├── formatters.js (formatPrice, formatDate)
+│   │   │   ├── validators.js (validateEmail, validateCard)
+│   │   │   └── helpers.js
+│   │   └── constants/
+│   │       └── index.js
+│   │
+│   ├── core/
+│   │   ├── api/
+│   │   │   ├── apiClient.js
+│   │   │   ├── productsAPI.js
+│   │   │   ├── userAPI.js
+│   │   │   ├── orderAPI.js
+│   │   │   └── paymentAPI.js
+│   │   ├── routing/
+│   │   │   └── Router.jsx
+│   │   └── providers/
+│   │       ├── QueryProvider.jsx
+│   │       ├── AuthProvider.jsx
+│   │       └── ThemeProvider.jsx
+│   │
+│   ├── pages/
+│   │   ├── HomePage.jsx
+│   │   ├── ProductsPage.jsx
+│   │   ├── ProductDetailsPage.jsx
+│   │   ├── CartPage.jsx
+│   │   ├── CheckoutPage.jsx
+│   │   ├── ProfilePage.jsx
+│   │   └── OrderConfirmationPage.jsx
+│   │
+│   ├── App.jsx
+│   └── index.jsx
+│
+├── public/
+├── package.json
+└── README.md
+```
+
+**Key Components Implementation:**
+
+```javascript
+// 📁 src/features/cart/store/cartStore.js
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+
+export const useCartStore = create(
+  persist(
+    (set, get) => ({
+      items: [],
+      
+      addItem: (product, quantity = 1) => {
+        const { items } = get();
+        const existingItem = items.find(item => item.id === product.id);
+        
+        if (existingItem) {
+          set({
+            items: items.map(item =>
+              item.id === product.id
+                ? { ...item, quantity: item.quantity + quantity }
+                : item
+            ),
+          });
+        } else {
+          set({
+            items: [...items, { ...product, quantity }],
+          });
+        }
+      },
+      
+      removeItem: (productId) => {
+        set({
+          items: get().items.filter(item => item.id !== productId),
+        });
+      },
+      
+      updateQuantity: (productId, quantity) => {
+        if (quantity <= 0) {
+          get().removeItem(productId);
+          return;
+        }
+        
+        set({
+          items: get().items.map(item =>
+            item.id === productId ? { ...item, quantity } : item
+          ),
+        });
+      },
+      
+      clearCart: () => set({ items: [] }),
+      
+      getTotal: () => {
+        return get().items.reduce(
+          (total, item) => total + item.price * item.quantity,
+          0
+        );
+      },
+      
+      getItemCount: () => {
+        return get().items.reduce((count, item) => count + item.quantity, 0);
+      },
+    }),
+    {
+      name: 'shopping-cart',
+      version: 1,
+    }
+  )
+);
+
+// 📁 src/features/products/components/ProductList.jsx
+import { useState } from 'react';
+import { useProducts } from '../hooks/useProducts';
+import { useCartStore } from '../../cart/store/cartStore';
+import ProductCard from './ProductCard';
+import ProductFilters from './ProductFilters';
+import LoadingSpinner from '../../../shared/components/LoadingSpinner';
+import ErrorMessage from '../../../shared/components/ErrorMessage';
+
+function ProductList() {
+  const [filters, setFilters] = useState({
+    page: 1,
+    limit: 20,
+    category: '',
+    minPrice: 0,
+    maxPrice: 10000,
+    sortBy: 'newest',
+  });
+  
+  const { data, isLoading, error, isFetching } = useProducts(filters);
+  const addToCart = useCartStore(state => state.addItem);
+  
+  const handleFilterChange = (newFilters) => {
+    setFilters(prev => ({ ...prev, ...newFilters, page: 1 }));
+  };
+  
+  const handlePageChange = (newPage) => {
+    setFilters(prev => ({ ...prev, page: newPage }));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+  
+  const handleAddToCart = (product) => {
+    addToCart(product, 1);
+    // Show toast notification
+  };
+  
+  if (isLoading) return <LoadingSpinner />;
+  if (error) return <ErrorMessage error={error} />;
+  
+  return (
+    <div className="products-page">
+      <aside className="filters-sidebar">
+        <ProductFilters 
+          filters={filters} 
+          onChange={handleFilterChange} 
+        />
+      </aside>
+      
+      <main className="products-main">
+        <div className="products-header">
+          <h1>Products</h1>
+          <p>{data?.totalResults} products found</p>
+        </div>
+        
+        {isFetching && <div className="loading-overlay">Updating...</div>}
+        
+        <div className="products-grid">
+          {data?.products.map(product => (
+            <ProductCard
+              key={product.id}
+              product={product}
+              onAddToCart={handleAddToCart}
+            />
+          ))}
+        </div>
+        
+        <Pagination
+          currentPage={filters.page}
+          totalPages={data?.totalPages}
+          onPageChange={handlePageChange}
+        />
+      </main>
+    </div>
+  );
+}
+
+export default ProductList;
+
+// 📁 src/features/checkout/components/CheckoutForm.jsx
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useCartStore } from '../../cart/store/cartStore';
+import { useCreateOrder } from '../hooks/useCreateOrder';
+import ShippingForm from './ShippingForm';
+import PaymentForm from './PaymentForm';
+import OrderSummary from './OrderSummary';
+
+function CheckoutForm() {
+  const navigate = useNavigate();
+  const [step, setStep] = useState(1); // 1: Shipping, 2: Payment, 3: Review
+  const [shippingData, setShippingData] = useState(null);
+  const [paymentData, setPaymentData] = useState(null);
+  
+  const { items, getTotal, clearCart } = useCartStore();
+  const createOrder = useCreateOrder();
+  
+  const handleShippingSubmit = (data) => {
+    setShippingData(data);
+    setStep(2);
+  };
+  
+  const handlePaymentSubmit = (data) => {
+    setPaymentData(data);
+    setStep(3);
+  };
+  
+  const handlePlaceOrder = async () => {
+    try {
+      const orderData = {
+        items: items.map(item => ({
+          productId: item.id,
+          quantity: item.quantity,
+          price: item.price,
+        })),
+        shipping: shippingData,
+        payment: paymentData,
+        total: getTotal(),
+      };
+      
+      const order = await createOrder.mutateAsync(orderData);
+      
+      clearCart();
+      navigate(`/orders/${order.id}/confirmation`);
+    } catch (error) {
+      alert('Failed to place order: ' + error.message);
+    }
+  };
+  
+  return (
+    <div className="checkout-form">
+      <div className="checkout-steps">
+        <div className={`step ${step >= 1 ? 'active' : ''}`}>1. Shipping</div>
+        <div className={`step ${step >= 2 ? 'active' : ''}`}>2. Payment</div>
+        <div className={`step ${step >= 3 ? 'active' : ''}`}>3. Review</div>
+      </div>
+      
+      {step === 1 && (
+        <ShippingForm onSubmit={handleShippingSubmit} />
+      )}
+      
+      {step === 2 && (
+        <PaymentForm 
+          onSubmit={handlePaymentSubmit}
+          onBack={() => setStep(1)}
+        />
+      )}
+      
+      {step === 3 && (
+        <OrderSummary
+          items={items}
+          shipping={shippingData}
+          payment={paymentData}
+          total={getTotal()}
+          onPlaceOrder={handlePlaceOrder}
+          onBack={() => setStep(2)}
+          isLoading={createOrder.isLoading}
+        />
+      )}
+    </div>
+  );
+}
+
+export default CheckoutForm;
+```
+
+---
+
+#### **5.2 Social Media Dashboard**
+
+**Architecture:**
+
+```
+┌───────────────────────────────────────────────────────┐
+│              Social Media Dashboard                   │
+├───────────────────────────────────────────────────────┤
+│  Header (User, Notifications, Search)                 │
+├──────────────┬────────────────────────┬───────────────┤
+│   Sidebar    │    Main Feed           │  Right Panel  │
+│   - Home     │    - Posts (infinite)  │  - Trending   │
+│   - Profile  │    - Stories           │  - Suggested  │
+│   - Messages │    - Create Post       │  - Online     │
+│   - Settings │                        │                │
+└──────────────┴────────────────────────┴───────────────┘
+```
+
+**Key Features Implementation:**
+
+```javascript
+// 📁 src/features/feed/hooks/useInfiniteFeed.js
+import { useInfiniteQuery } from '@tanstack/react-query';
+import { feedAPI } from '../services/feedAPI';
+
+export function useInfiniteFeed({ userId, filter = 'all' }) {
+  return useInfiniteQuery({
+    queryKey: ['feed', userId, filter],
+    queryFn: ({ pageParam = 0 }) => 
+      feedAPI.getPosts({ userId, filter, cursor: pageParam }),
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
+    staleTime: 30 * 1000, // 30 seconds
+  });
+}
+
+// 📁 src/features/feed/components/Feed.jsx
+import { useEffect, useRef } from 'react';
+import { useInView } from 'react-intersection-observer';
+import { useInfiniteFeed } from '../hooks/useInfiniteFeed';
+import Post from './Post';
+
+function Feed({ userId }) {
+  const { ref, inView } = useInView();
+  
+  const {
+    data,
+    isLoading,
+    error,
+    hasNextPage,
+    fetchNextPage,
+    isFetchingNextPage,
+  } = useInfiniteFeed({ userId, filter: 'all' });
+  
+  // Auto-fetch next page when scroll near bottom
+  useEffect(() => {
+    if (inView && hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
+    }
+  }, [inView, hasNextPage, isFetchingNextPage, fetchNextPage]);
+  
+  if (isLoading) return <LoadingSpinner />;
+  if (error) return <ErrorMessage error={error} />;
+  
+  return (
+    <div className="feed">
+      {data.pages.map((page, pageIndex) => (
+        <div key={pageIndex}>
+          {page.posts.map(post => (
+            <Post key={post.id} post={post} />
+          ))}
+        </div>
+      ))}
+      
+      {/* Intersection observer target */}
+      <div ref={ref} className="load-more-trigger">
+        {isFetchingNextPage && <LoadingSpinner />}
+      </div>
+      
+      {!hasNextPage && <div className="end-of-feed">You're all caught up!</div>}
+    </div>
+  );
+}
+
+// 📁 src/features/realtime/hooks/useWebSocket.js
+import { useEffect, useState, useRef } from 'react';
+
+export function useWebSocket(url) {
+  const [isConnected, setIsConnected] = useState(false);
+  const [lastMessage, setLastMessage] = useState(null);
+  const wsRef = useRef(null);
+  const reconnectTimeoutRef = useRef(null);
+  
+  useEffect(() => {
+    const connect = () => {
+      const ws = new WebSocket(url);
+      
+      ws.onopen = () => {
+        console.log('WebSocket connected');
+        setIsConnected(true);
+      };
+      
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        setLastMessage(data);
+      };
+      
+      ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+      };
+      
+      ws.onclose = () => {
+        console.log('WebSocket disconnected');
+        setIsConnected(false);
+        
+        // Reconnect after 3 seconds
+        reconnectTimeoutRef.current = setTimeout(() => {
+          console.log('Reconnecting...');
+          connect();
+        }, 3000);
+      };
+      
+      wsRef.current = ws;
+    };
+    
+    connect();
+    
+    return () => {
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
+    };
+  }, [url]);
+  
+  const sendMessage = (message) => {
+    if (wsRef.current && isConnected) {
+      wsRef.current.send(JSON.stringify(message));
+    }
+  };
+  
+  return { isConnected, lastMessage, sendMessage };
+}
+
+// 📁 src/features/notifications/components/NotificationCenter.jsx
+import { useWebSocket } from '../../realtime/hooks/useWebSocket';
+import { useNotificationStore } from '../store/notificationStore';
+
+function NotificationCenter() {
+  const { lastMessage } = useWebSocket('wss://api.example.com/notifications');
+  const { notifications, addNotification, markAsRead } = useNotificationStore();
+  
+  useEffect(() => {
+    if (lastMessage?.type === 'notification') {
+      addNotification(lastMessage.data);
+      // Show toast
+    }
+  }, [lastMessage, addNotification]);
+  
+  return (
+    <div className="notification-center">
+      <h3>Notifications</h3>
+      {notifications.map(notification => (
+        <div 
+          key={notification.id} 
+          className={`notification ${notification.read ? 'read' : 'unread'}`}
+          onClick={() => markAsRead(notification.id)}
+        >
+          <img src={notification.avatar} alt="" />
+          <div className="content">
+            <p>{notification.message}</p>
+            <span className="time">{formatTime(notification.createdAt)}</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+---
+
+### **6. Performance Optimization Strategies**
+
+#### **6.1 Code Splitting Strategies**
+
+```javascript
+// 📁 Route-based splitting
+import { lazy, Suspense } from 'react';
+import { Routes, Route } from 'react-router-dom';
+
+const Home = lazy(() => import('./pages/Home'));
+const Products = lazy(() => import('./pages/Products'));
+const ProductDetails = lazy(() => import('./pages/ProductDetails'));
+const Cart = lazy(() => import('./pages/Cart'));
+const Checkout = lazy(() => import('./pages/Checkout'));
+const Profile = lazy(() => import('./pages/Profile'));
+
+// Component-based splitting
+const HeavyChart = lazy(() => import('./components/HeavyChart'));
+const VideoPlayer = lazy(() => import('./components/VideoPlayer'));
+
+function App() {
+  return (
+    <Suspense fallback={<LoadingScreen />}>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/products" element={<Products />} />
+        <Route path="/products/:id" element={<ProductDetails />} />
+        <Route path="/cart" element={<Cart />} />
+        <Route path="/checkout" element={<Checkout />} />
+        <Route path="/profile" element={<Profile />} />
+      </Routes>
+    </Suspense>
+  );
+}
+
+// 📁 Preloading routes on hover
+import { useEffect } from 'react';
+
+function NavLink({ to, preload, children }) {
+  const handleMouseEnter = () => {
+    if (preload) {
+      // Dynamically import the component
+      preload();
+    }
+  };
+  
+  return (
+    <Link to={to} onMouseEnter={handleMouseEnter}>
+      {children}
+    </Link>
+  );
+}
+
+// Usage
+<NavLink 
+  to="/products" 
+  preload={() => import('./pages/Products')}
+>
+  Products
+</NavLink>
+```
+
+---
+
+#### **6.2 Rendering Optimization**
+
+```javascript
+// 📁 Virtualization for large lists
+import { FixedSizeList } from 'react-window';
+import AutoSizer from 'react-virtualized-auto-sizer';
+
+function VirtualizedProductList({ products }) {
+  const Row = ({ index, style }) => {
+    const product = products[index];
+    return (
+      <div style={style} className="product-row">
+        <ProductCard product={product} />
+      </div>
+    );
+  };
+  
+  return (
+    <AutoSizer>
+      {({ height, width }) => (
+        <FixedSizeList
+          height={height}
+          width={width}
+          itemCount={products.length}
+          itemSize={200}
+        >
+          {Row}
+        </FixedSizeList>
+      )}
+    </AutoSizer>
+  );
+}
+
+// 📁 Memoization strategies
+import { memo, useMemo, useCallback } from 'react';
+
+// Memoize expensive components
+const ProductCard = memo(({ product, onAddToCart }) => {
+  return (
+    <div className="product-card">
+      <img src={product.image} alt={product.name} />
+      <h3>{product.name}</h3>
+      <p>${product.price}</p>
+      <button onClick={() => onAddToCart(product)}>
+        Add to Cart
+      </button>
+    </div>
+  );
+}, (prevProps, nextProps) => {
+  // Custom comparison
+  return (
+    prevProps.product.id === nextProps.product.id &&
+    prevProps.product.price === nextProps.product.price
+  );
+});
+
+// Memoize expensive calculations
+function ProductAnalytics({ products, filters }) {
+  const statistics = useMemo(() => {
+    // Expensive calculation
+    return {
+      total: products.length,
+      avgPrice: products.reduce((sum, p) => sum + p.price, 0) / products.length,
+      categories: [...new Set(products.map(p => p.category))],
+    };
+  }, [products]);
+  
+  return <div>{/* Display statistics */}</div>;
+}
+
+// Memoize callbacks
+function ProductList({ products }) {
+  const [cart, setCart] = useState([]);
+  
+  // Without useCallback, this creates a new function on every render
+  // causing child components to re-render unnecessarily
+  const handleAddToCart = useCallback((product) => {
+    setCart(prev => [...prev, product]);
+  }, []); // Stable reference
+  
+  return (
+    <div>
+      {products.map(product => (
+        <ProductCard 
+          key={product.id} 
+          product={product} 
+          onAddToCart={handleAddToCart}
+        />
+      ))}
+    </div>
+  );
+}
+```
+
+---
+
+#### **6.3 Image Optimization**
+
+```javascript
+// 📁 Lazy loading images
+import { useState, useEffect, useRef } from 'react';
+
+function LazyImage({ src, alt, placeholder, ...props }) {
+  const [imageSrc, setImageSrc] = useState(placeholder);
+  const [isLoading, setIsLoading] = useState(true);
+  const imgRef = useRef();
+  
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            setImageSrc(src);
+            observer.disconnect();
+          }
+        });
+      },
+      { rootMargin: '50px' }
+    );
+    
+    if (imgRef.current) {
+      observer.observe(imgRef.current);
+    }
+    
+    return () => observer.disconnect();
+  }, [src]);
+  
+  const handleLoad = () => {
+    setIsLoading(false);
+  };
+  
+  return (
+    <div className={`lazy-image ${isLoading ? 'loading' : ''}`}>
+      <img
+        ref={imgRef}
+        src={imageSrc}
+        alt={alt}
+        onLoad={handleLoad}
+        {...props}
+      />
+    </div>
+  );
+}
+
+// 📁 Responsive images with srcSet
+function ResponsiveImage({ src, alt }) {
+  return (
+    <img
+      src={src}
+      srcSet={`
+        ${src}-small.jpg 480w,
+        ${src}-medium.jpg 768w,
+        ${src}-large.jpg 1200w
+      `}
+      sizes="(max-width: 480px) 480px,
+             (max-width: 768px) 768px,
+             1200px"
+      alt={alt}
+      loading="lazy"
+    />
+  );
+}
+
+// 📁 Progressive image loading (blur-up)
+function ProgressiveImage({ placeholder, src, alt }) {
+  const [currentSrc, setCurrentSrc] = useState(placeholder);
+  const [isLoaded, setIsLoaded] = useState(false);
+  
+  useEffect(() => {
+    const img = new Image();
+    img.src = src;
+    img.onload = () => {
+      setCurrentSrc(src);
+      setIsLoaded(true);
+    };
+  }, [src]);
+  
+  return (
+    <img
+      src={currentSrc}
+      alt={alt}
+      className={`progressive-image ${isLoaded ? 'loaded' : 'loading'}`}
+      style={{
+        filter: isLoaded ? 'none' : 'blur(10px)',
+        transition: 'filter 0.3s ease-in-out',
+      }}
+    />
+  );
+}
+```
+
+---
+
+### **7. Scalability Best Practices**
+
+#### **7.1 Caching Strategies**
+
+```javascript
+// 📁 React Query caching configuration
+import { QueryClient } from '@tanstack/react-query';
+
+export const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      cacheTime: 10 * 60 * 1000, // 10 minutes
+      retry: 3,
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: true,
+    },
+  },
+});
+
+// 📁 Service Worker for offline caching
+// public/service-worker.js
+const CACHE_NAME = 'app-cache-v1';
+const urlsToCache = [
+  '/',
+  '/static/js/bundle.js',
+  '/static/css/main.css',
+];
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.addAll(urlsToCache);
+    })
+  );
+});
+
+self.addEventListener('fetch', (event) => {
+  event.respondWith(
+    caches.match(event.request).then((response) => {
+      // Cache hit - return response
+      if (response) {
+        return response;
+      }
+      
+      // Fetch from network
+      return fetch(event.request).then((response) => {
+        // Cache the new response
+        if (event.request.method === 'GET') {
+          const responseToCache = response.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseToCache);
+          });
+        }
+        
+        return response;
+      });
+    })
+  );
+});
+
+// 📁 localStorage caching with expiration
+class CacheManager {
+  set(key, value, ttl = 3600000) { // 1 hour default
+    const item = {
+      value,
+      expiry: Date.now() + ttl,
+    };
+    localStorage.setItem(key, JSON.stringify(item));
+  }
+  
+  get(key) {
+    const item = localStorage.getItem(key);
+    if (!item) return null;
+    
+    const parsed = JSON.parse(item);
+    
+    if (Date.now() > parsed.expiry) {
+      localStorage.removeItem(key);
+      return null;
+    }
+    
+    return parsed.value;
+  }
+  
+  remove(key) {
+    localStorage.removeItem(key);
+  }
+  
+  clear() {
+    localStorage.clear();
+  }
+}
+
+export const cache = new CacheManager();
+```
+
+---
+
+#### **7.2 Error Handling & Monitoring**
+
+```javascript
+// 📁 Global error boundary
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null, errorInfo: null };
+  }
+  
+  static getDerivedStateFromError(error) {
+    return { hasError: true };
+  }
+  
+  componentDidCatch(error, errorInfo) {
+    // Log to error reporting service
+    this.logErrorToService(error, errorInfo);
+    
+    this.setState({
+      error,
+      errorInfo,
+    });
+  }
+  
+  logErrorToService(error, errorInfo) {
+    // Send to Sentry, LogRocket, etc.
+    console.error('Error caught by boundary:', error, errorInfo);
+    
+    // Example: Sentry
+    // Sentry.captureException(error, { extra: errorInfo });
+  }
+  
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="error-page">
+          <h1>Something went wrong</h1>
+          <p>We're sorry for the inconvenience. Please try refreshing the page.</p>
+          <button onClick={() => window.location.reload()}>
+            Refresh Page
+          </button>
+        </div>
+      );
+    }
+    
+    return this.props.children;
+  }
+}
+
+// 📁 API error handling
+class APIError extends Error {
+  constructor(message, status, code, details) {
+    super(message);
+    this.status = status;
+    this.code = code;
+    this.details = details;
+    this.name = 'APIError';
+  }
+}
+
+// Response interceptor with error normalization
+apiClient.interceptors.response.use(
+  (response) => response.data,
+  (error) => {
+    if (error.response) {
+      // Server responded with error status
+      throw new APIError(
+        error.response.data?.message || 'An error occurred',
+        error.response.status,
+        error.response.data?.code,
+        error.response.data?.details
+      );
+    } else if (error.request) {
+      // Request made but no response
+      throw new APIError('Network error. Please check your connection.', 0);
+    } else {
+      // Something else happened
+      throw new APIError('An unexpected error occurred', 0);
+    }
+  }
+);
+
+// 📁 Performance monitoring
+import { useEffect } from 'react';
+
+export function usePerformanceMonitoring(componentName) {
+  useEffect(() => {
+    const startTime = performance.now();
+    
+    return () => {
+      const endTime = performance.now();
+      const renderTime = endTime - startTime;
+      
+      if (renderTime > 1000) {
+        console.warn(`${componentName} took ${renderTime}ms to render`);
+        
+        // Send to analytics
+        // analytics.track('Slow Component', {
+        //   component: componentName,
+        //   renderTime,
+        // });
+      }
+    };
+  }, [componentName]);
+}
+
+// Usage
+function HeavyComponent() {
+  usePerformanceMonitoring('HeavyComponent');
+  
+  return <div>{/* Heavy content */}</div>;
+}
+```
+
+---
+
+### **8. Testing Strategy for System Design**
+
+```javascript
+// 📁 Integration test example
+import { render, screen, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { BrowserRouter } from 'react-router-dom';
+import { rest } from 'msw';
+import { setupServer } from 'msw/node';
+import ProductList from './ProductList';
+
+// Mock server
+const server = setupServer(
+  rest.get('/api/products', (req, res, ctx) => {
+    return res(
+      ctx.json({
+        products: [
+          { id: 1, name: 'Product 1', price: 10 },
+          { id: 2, name: 'Product 2', price: 20 },
+        ],
+        totalPages: 1,
+      })
+    );
+  })
+);
+
+beforeAll(() => server.listen());
+afterEach(() => server.resetHandlers());
+afterAll(() => server.close());
+
+// Test
+test('ProductList fetches and displays products', async () => {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  
+  render(
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <ProductList />
+      </BrowserRouter>
+    </QueryClientProvider>
+  );
+  
+  // Loading state
+  expect(screen.getByText(/loading/i)).toBeInTheDocument();
+  
+  // Wait for products to load
+  await waitFor(() => {
+    expect(screen.getByText('Product 1')).toBeInTheDocument();
+    expect(screen.getByText('Product 2')).toBeInTheDocument();
+  });
+});
+
+// 📁 E2E test example (Playwright/Cypress)
+describe('E-Commerce Checkout Flow', () => {
+  it('should complete checkout successfully', () => {
+    // Navigate to products
+    cy.visit('/products');
+    
+    // Add product to cart
+    cy.contains('Product 1').parent().find('button').contains('Add to Cart').click();
+    
+    // Verify cart count
+    cy.get('[data-testid="cart-count"]').should('contain', '1');
+    
+    // Go to cart
+    cy.get('[data-testid="cart-button"]').click();
+    cy.url().should('include', '/cart');
+    
+    // Proceed to checkout
+    cy.contains('Proceed to Checkout').click();
+    
+    // Fill shipping form
+    cy.get('input[name="name"]').type('John Doe');
+    cy.get('input[name="address"]').type('123 Main St');
+    cy.get('input[name="city"]').type('New York');
+    cy.contains('Next').click();
+    
+    // Fill payment form
+    cy.get('input[name="cardNumber"]').type('4242424242424242');
+    cy.get('input[name="expiry"]').type('12/25');
+    cy.get('input[name="cvc"]').type('123');
+    cy.contains('Place Order').click();
+    
+    // Verify confirmation
+    cy.url().should('include', '/confirmation');
+    cy.contains('Order confirmed').should('be.visible');
+  });
+});
+```
+
+---
+
+### **Key Takeaways for System Design:**
+
+✅ **Choose the right architecture pattern** based on app complexity
+✅ **Organize code by features**, not file types
+✅ **Separate concerns**: UI, business logic, data access
+✅ **Use appropriate state management** for different state types
+✅ **Implement proper error handling** and monitoring
+✅ **Optimize performance** with code splitting, memoization, lazy loading
+✅ **Design scalable API layer** with proper abstraction
+✅ **Test at multiple levels**: unit, integration, E2E
+✅ **Plan for offline support** and caching strategies
+✅ **Monitor and measure** performance continuously
+
+This comprehensive system design guide provides the foundation for building scalable, maintainable, and performant React applications! 🚀
