@@ -3946,3 +3946,4391 @@ class OrderService {
 - ✅ Easier refactoring
 - ✅ Better team collaboration
 - ✅ Reduced technical debt
+
+---
+
+## Essential JavaScript Built-in Functions & Methods
+
+### Array Methods
+
+#### 1. **map()** - Transform Array Elements
+
+Creates a new array by applying a function to each element.
+
+```javascript
+const numbers = [1, 2, 3, 4];
+const doubled = numbers.map(num => num * 2);
+console.log(doubled); // [2, 4, 6, 8]
+
+// Use case: Transform data from API
+const users = [
+  { id: 1, firstName: 'John', lastName: 'Doe' },
+  { id: 2, firstName: 'Jane', lastName: 'Smith' }
+];
+
+const fullNames = users.map(user => `${user.firstName} ${user.lastName}`);
+// ['John Doe', 'Jane Smith']
+
+// Extract specific properties
+const ids = users.map(user => user.id); // [1, 2]
+```
+
+**When to use:** When you need to transform each element without changing the original array.
+
+---
+
+#### 2. **filter()** - Filter Array Elements
+
+Creates a new array with elements that pass a test.
+
+```javascript
+const numbers = [1, 2, 3, 4, 5, 6];
+const evens = numbers.filter(num => num % 2 === 0);
+console.log(evens); // [2, 4, 6]
+
+// Use case: Filter active users
+const users = [
+  { name: 'Alice', active: true },
+  { name: 'Bob', active: false },
+  { name: 'Charlie', active: true }
+];
+
+const activeUsers = users.filter(user => user.active);
+// [{ name: 'Alice', active: true }, { name: 'Charlie', active: true }]
+
+// Complex filtering
+const products = [
+  { name: 'Laptop', price: 1000, inStock: true },
+  { name: 'Phone', price: 500, inStock: false },
+  { name: 'Tablet', price: 300, inStock: true }
+];
+
+const affordableInStock = products.filter(p => p.price < 600 && p.inStock);
+// [{ name: 'Tablet', price: 300, inStock: true }]
+```
+
+**When to use:** When you need to get a subset of array based on conditions.
+
+---
+
+#### 3. **reduce()** - Reduce Array to Single Value
+
+Executes a reducer function on each element, resulting in a single output value.
+
+```javascript
+// Sum of numbers
+const numbers = [1, 2, 3, 4];
+const sum = numbers.reduce((acc, num) => acc + num, 0);
+console.log(sum); // 10
+
+// Use case: Calculate total price
+const cart = [
+  { product: 'Laptop', price: 1000, quantity: 1 },
+  { product: 'Mouse', price: 50, quantity: 2 }
+];
+
+const total = cart.reduce((sum, item) => {
+  return sum + (item.price * item.quantity);
+}, 0);
+console.log(total); // 1100
+
+// Group by category
+const items = [
+  { name: 'Apple', category: 'Fruit' },
+  { name: 'Carrot', category: 'Vegetable' },
+  { name: 'Banana', category: 'Fruit' }
+];
+
+const grouped = items.reduce((acc, item) => {
+  if (!acc[item.category]) {
+    acc[item.category] = [];
+  }
+  acc[item.category].push(item.name);
+  return acc;
+}, {});
+// { Fruit: ['Apple', 'Banana'], Vegetable: ['Carrot'] }
+
+// Count occurrences
+const fruits = ['apple', 'banana', 'apple', 'orange', 'banana', 'apple'];
+const count = fruits.reduce((acc, fruit) => {
+  acc[fruit] = (acc[fruit] || 0) + 1;
+  return acc;
+}, {});
+// { apple: 3, banana: 2, orange: 1 }
+
+// Flatten array
+const nested = [[1, 2], [3, 4], [5, 6]];
+const flattened = nested.reduce((acc, arr) => acc.concat(arr), []);
+// [1, 2, 3, 4, 5, 6]
+```
+
+**When to use:** When you need to transform an array into a single value or different structure.
+
+---
+
+#### 4. **find()** - Find First Matching Element
+
+Returns the first element that satisfies the condition.
+
+```javascript
+const users = [
+  { id: 1, name: 'Alice' },
+  { id: 2, name: 'Bob' },
+  { id: 3, name: 'Charlie' }
+];
+
+const user = users.find(u => u.id === 2);
+console.log(user); // { id: 2, name: 'Bob' }
+
+// Returns undefined if not found
+const notFound = users.find(u => u.id === 99);
+console.log(notFound); // undefined
+
+// Use case: Find product by ID
+const product = products.find(p => p.id === searchId);
+if (product) {
+  console.log(`Found: ${product.name}`);
+} else {
+  console.log('Product not found');
+}
+```
+
+**When to use:** When you need the first element matching a condition.
+
+---
+
+#### 5. **findIndex()** - Find Index of First Match
+
+Returns the index of the first element that satisfies the condition.
+
+```javascript
+const numbers = [5, 12, 8, 130, 44];
+const index = numbers.findIndex(num => num > 10);
+console.log(index); // 1 (number 12)
+
+// Returns -1 if not found
+const notFound = numbers.findIndex(num => num > 200);
+console.log(notFound); // -1
+
+// Use case: Update item in array
+const todos = [
+  { id: 1, task: 'Buy milk', done: false },
+  { id: 2, task: 'Clean room', done: false }
+];
+
+const indexToUpdate = todos.findIndex(todo => todo.id === 2);
+if (indexToUpdate !== -1) {
+  todos[indexToUpdate].done = true;
+}
+```
+
+**When to use:** When you need the position of an element for updating or removing.
+
+---
+
+#### 6. **some()** - Check If Any Element Passes Test
+
+Returns true if at least one element satisfies the condition.
+
+```javascript
+const numbers = [1, 2, 3, 4, 5];
+const hasEven = numbers.some(num => num % 2 === 0);
+console.log(hasEven); // true
+
+// Use case: Validate if any field is empty
+const form = {
+  name: 'John',
+  email: '',
+  phone: '123456'
+};
+
+const hasEmptyField = Object.values(form).some(value => value === '');
+console.log(hasEmptyField); // true
+
+// Check if user has admin permission
+const permissions = ['read', 'write', 'admin'];
+const isAdmin = permissions.some(p => p === 'admin');
+```
+
+**When to use:** When you need to check if at least one element meets a condition.
+
+---
+
+#### 7. **every()** - Check If All Elements Pass Test
+
+Returns true if all elements satisfy the condition.
+
+```javascript
+const numbers = [2, 4, 6, 8];
+const allEven = numbers.every(num => num % 2 === 0);
+console.log(allEven); // true
+
+// Use case: Validate all fields are filled
+const form = {
+  name: 'John',
+  email: 'john@example.com',
+  phone: '123456'
+};
+
+const allFilled = Object.values(form).every(value => value !== '');
+console.log(allFilled); // true
+
+// Check if all items are in stock
+const cart = [
+  { product: 'A', inStock: true },
+  { product: 'B', inStock: true }
+];
+
+const canCheckout = cart.every(item => item.inStock);
+```
+
+**When to use:** When you need to verify all elements meet a condition.
+
+---
+
+#### 8. **forEach()** - Execute Function for Each Element
+
+Executes a function for each array element (no return value).
+
+```javascript
+const numbers = [1, 2, 3];
+numbers.forEach(num => console.log(num * 2));
+// 2
+// 4
+// 6
+
+// Use case: Update DOM elements
+const items = ['Apple', 'Banana', 'Orange'];
+items.forEach((item, index) => {
+  const li = document.createElement('li');
+  li.textContent = `${index + 1}. ${item}`;
+  document.querySelector('ul').appendChild(li);
+});
+
+// Side effects
+const users = [{ name: 'Alice', points: 10 }];
+users.forEach(user => {
+  user.bonus = user.points * 0.1; // Mutates original array
+});
+```
+
+**When to use:** When you need to perform side effects for each element (not creating new array).
+
+**Note:** Use `map()` if you need to transform and return a new array.
+
+---
+
+#### 9. **slice()** - Extract Portion of Array
+
+Returns a shallow copy of a portion of an array.
+
+```javascript
+const fruits = ['Apple', 'Banana', 'Orange', 'Mango', 'Pineapple'];
+
+// Extract from index 1 to 3 (end not included)
+const sliced = fruits.slice(1, 3);
+console.log(sliced); // ['Banana', 'Orange']
+
+// From index 2 to end
+const fromTwo = fruits.slice(2);
+console.log(fromTwo); // ['Orange', 'Mango', 'Pineapple']
+
+// Last 2 elements
+const lastTwo = fruits.slice(-2);
+console.log(lastTwo); // ['Mango', 'Pineapple']
+
+// Copy entire array
+const copy = fruits.slice();
+
+// Use case: Pagination
+const items = [...Array(100)].map((_, i) => `Item ${i + 1}`);
+const page = 2;
+const pageSize = 10;
+const start = (page - 1) * pageSize;
+const pageItems = items.slice(start, start + pageSize);
+```
+
+**When to use:** When you need to extract a portion without modifying the original array.
+
+---
+
+#### 10. **splice()** - Add/Remove Elements (Mutates Array)
+
+Changes the contents of an array by removing or replacing existing elements.
+
+```javascript
+const fruits = ['Apple', 'Banana', 'Orange', 'Mango'];
+
+// Remove 2 elements starting from index 1
+const removed = fruits.splice(1, 2);
+console.log(removed); // ['Banana', 'Orange']
+console.log(fruits);  // ['Apple', 'Mango']
+
+// Insert elements
+fruits.splice(1, 0, 'Grape', 'Kiwi');
+console.log(fruits); // ['Apple', 'Grape', 'Kiwi', 'Mango']
+
+// Replace elements
+fruits.splice(1, 2, 'Pear');
+console.log(fruits); // ['Apple', 'Pear', 'Mango']
+
+// Use case: Remove item by ID
+const todos = [
+  { id: 1, task: 'Task 1' },
+  { id: 2, task: 'Task 2' },
+  { id: 3, task: 'Task 3' }
+];
+
+const indexToRemove = todos.findIndex(t => t.id === 2);
+if (indexToRemove !== -1) {
+  todos.splice(indexToRemove, 1);
+}
+```
+
+**When to use:** When you need to modify the original array (add/remove elements).
+
+**Warning:** Mutates the original array. Use with caution in React/Redux.
+
+---
+
+#### 11. **concat()** - Merge Arrays
+
+Merges two or more arrays without modifying existing arrays.
+
+```javascript
+const arr1 = [1, 2];
+const arr2 = [3, 4];
+const arr3 = [5, 6];
+
+const merged = arr1.concat(arr2, arr3);
+console.log(merged); // [1, 2, 3, 4, 5, 6]
+
+// Modern alternative: Spread operator
+const merged2 = [...arr1, ...arr2, ...arr3];
+
+// Concat with values
+const withValues = arr1.concat(10, 20, arr2);
+console.log(withValues); // [1, 2, 10, 20, 3, 4]
+```
+
+**When to use:** When you need to combine arrays immutably.
+
+---
+
+#### 12. **join()** - Convert Array to String
+
+Joins all elements into a string with a separator.
+
+```javascript
+const words = ['Hello', 'World', '!'];
+const sentence = words.join(' ');
+console.log(sentence); // 'Hello World !'
+
+// CSV format
+const data = ['John', 'Doe', '30', 'Developer'];
+const csv = data.join(',');
+console.log(csv); // 'John,Doe,30,Developer'
+
+// Use case: Create URL path
+const pathParts = ['api', 'users', '123', 'posts'];
+const url = pathParts.join('/');
+console.log(url); // 'api/users/123/posts'
+
+// Join with no separator
+const letters = ['H', 'e', 'l', 'l', 'o'];
+const word = letters.join('');
+console.log(word); // 'Hello'
+```
+
+**When to use:** When you need to convert array elements to a single string.
+
+---
+
+#### 13. **includes()** - Check If Array Contains Value
+
+Determines whether an array includes a certain value.
+
+```javascript
+const fruits = ['Apple', 'Banana', 'Orange'];
+
+console.log(fruits.includes('Banana')); // true
+console.log(fruits.includes('Grape'));  // false
+
+// Case sensitive
+console.log(fruits.includes('apple')); // false
+
+// Use case: Check user role
+const userRoles = ['user', 'editor', 'admin'];
+const hasAdminAccess = userRoles.includes('admin');
+
+// Check from specific index
+const numbers = [1, 2, 3, 4, 5];
+console.log(numbers.includes(3, 2)); // true (search from index 2)
+console.log(numbers.includes(2, 2)); // false (2 is before index 2)
+```
+
+**When to use:** When you need to check if a value exists in an array.
+
+---
+
+#### 14. **indexOf()** - Find Index of Element
+
+Returns the first index of a specified value, or -1 if not found.
+
+```javascript
+const fruits = ['Apple', 'Banana', 'Orange', 'Banana'];
+
+console.log(fruits.indexOf('Banana')); // 1
+console.log(fruits.indexOf('Grape'));  // -1
+
+// Find from specific index
+console.log(fruits.indexOf('Banana', 2)); // 3
+
+// Use case: Check if exists and remove
+const items = ['a', 'b', 'c'];
+const index = items.indexOf('b');
+if (index > -1) {
+  items.splice(index, 1); // Remove 'b'
+}
+```
+
+**When to use:** When you need the position of a primitive value in an array.
+
+---
+
+#### 15. **sort()** - Sort Array (Mutates)
+
+Sorts elements of an array in place.
+
+```javascript
+// String sorting (alphabetical)
+const fruits = ['Banana', 'Apple', 'Orange'];
+fruits.sort();
+console.log(fruits); // ['Apple', 'Banana', 'Orange']
+
+// Number sorting (requires comparator!)
+const numbers = [10, 5, 40, 25, 1000];
+
+// ❌ Wrong - treats as strings
+numbers.sort();
+console.log(numbers); // [10, 1000, 25, 40, 5]
+
+// ✅ Correct - use comparator
+numbers.sort((a, b) => a - b); // Ascending
+console.log(numbers); // [5, 10, 25, 40, 1000]
+
+numbers.sort((a, b) => b - a); // Descending
+console.log(numbers); // [1000, 40, 25, 10, 5]
+
+// Sort objects
+const users = [
+  { name: 'Charlie', age: 30 },
+  { name: 'Alice', age: 25 },
+  { name: 'Bob', age: 35 }
+];
+
+// Sort by name
+users.sort((a, b) => a.name.localeCompare(b.name));
+
+// Sort by age
+users.sort((a, b) => a.age - b.age);
+
+// Multi-level sorting
+users.sort((a, b) => {
+  if (a.age !== b.age) {
+    return a.age - b.age; // Sort by age first
+  }
+  return a.name.localeCompare(b.name); // Then by name
+});
+
+// Immutable sort
+const sorted = [...numbers].sort((a, b) => a - b);
+```
+
+**When to use:** When you need to order array elements.
+
+**Warning:** Mutates the original array. Create a copy first for immutability.
+
+---
+
+#### 16. **reverse()** - Reverse Array (Mutates)
+
+Reverses the order of elements in an array.
+
+```javascript
+const numbers = [1, 2, 3, 4, 5];
+numbers.reverse();
+console.log(numbers); // [5, 4, 3, 2, 1]
+
+// Immutable reverse
+const original = [1, 2, 3];
+const reversed = [...original].reverse();
+console.log(original); // [1, 2, 3] (unchanged)
+console.log(reversed); // [3, 2, 1]
+
+// Use case: Reverse string
+const str = 'Hello';
+const reversedStr = str.split('').reverse().join('');
+console.log(reversedStr); // 'olleH'
+```
+
+**When to use:** When you need to reverse the order of elements.
+
+---
+
+#### 17. **flat()** - Flatten Nested Arrays
+
+Flattens nested arrays to a specified depth.
+
+```javascript
+const nested = [1, [2, 3], [4, [5, 6]]];
+
+// Flatten one level (default)
+console.log(nested.flat()); // [1, 2, 3, 4, [5, 6]]
+
+// Flatten two levels
+console.log(nested.flat(2)); // [1, 2, 3, 4, 5, 6]
+
+// Flatten all levels
+console.log(nested.flat(Infinity)); // [1, 2, 3, 4, 5, 6]
+
+// Remove empty slots
+const withHoles = [1, 2, , 4, 5];
+console.log(withHoles.flat()); // [1, 2, 4, 5]
+
+// Use case: Flatten array of arrays from API
+const responses = [
+  [{ id: 1 }, { id: 2 }],
+  [{ id: 3 }, { id: 4 }],
+  [{ id: 5 }]
+];
+const allItems = responses.flat();
+// [{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }, { id: 5 }]
+```
+
+**When to use:** When you have nested arrays and need a single-level array.
+
+---
+
+#### 18. **flatMap()** - Map + Flatten
+
+Maps each element then flattens the result.
+
+```javascript
+const sentences = ['Hello world', 'How are you'];
+
+// Split each sentence into words
+const words = sentences.flatMap(sentence => sentence.split(' '));
+console.log(words); // ['Hello', 'world', 'How', 'are', 'you']
+
+// Equivalent to:
+const words2 = sentences.map(s => s.split(' ')).flat();
+
+// Use case: Get all tags from posts
+const posts = [
+  { title: 'Post 1', tags: ['js', 'react'] },
+  { title: 'Post 2', tags: ['node', 'express'] },
+  { title: 'Post 3', tags: ['react', 'redux'] }
+];
+
+const allTags = posts.flatMap(post => post.tags);
+// ['js', 'react', 'node', 'express', 'react', 'redux']
+
+const uniqueTags = [...new Set(allTags)];
+// ['js', 'react', 'node', 'express', 'redux']
+
+// Filter and map in one operation
+const numbers = [1, 2, 3, 4];
+const result = numbers.flatMap(n => n % 2 === 0 ? [n, n * 2] : []);
+console.log(result); // [2, 4, 4, 8]
+```
+
+**When to use:** When you need to map and flatten in one operation.
+
+---
+
+#### 19. **fill()** - Fill Array with Value
+
+Fills array elements with a static value.
+
+```javascript
+const arr = new Array(5).fill(0);
+console.log(arr); // [0, 0, 0, 0, 0]
+
+// Fill from index 2 to 4
+const arr2 = [1, 2, 3, 4, 5];
+arr2.fill(0, 2, 4);
+console.log(arr2); // [1, 2, 0, 0, 5]
+
+// ⚠️ Warning with objects - fills with same reference!
+const arr3 = new Array(3).fill({});
+arr3[0].name = 'John';
+console.log(arr3); // [{ name: 'John' }, { name: 'John' }, { name: 'John' }]
+
+// ✅ Correct way for objects
+const arr4 = Array.from({ length: 3 }, () => ({}));
+arr4[0].name = 'John';
+console.log(arr4); // [{ name: 'John' }, {}, {}]
+```
+
+**When to use:** When you need to initialize an array with a default value.
+
+---
+
+#### 20. **from()** - Create Array from Iterable
+
+Creates a new array from an array-like or iterable object.
+
+```javascript
+// From string
+const str = 'Hello';
+const chars = Array.from(str);
+console.log(chars); // ['H', 'e', 'l', 'l', 'o']
+
+// From Set
+const set = new Set([1, 2, 3, 3, 4]);
+const arr = Array.from(set);
+console.log(arr); // [1, 2, 3, 4]
+
+// From NodeList
+const divs = document.querySelectorAll('div');
+const divsArray = Array.from(divs);
+divsArray.forEach(div => console.log(div));
+
+// With mapping function
+const numbers = Array.from({ length: 5 }, (_, i) => i + 1);
+console.log(numbers); // [1, 2, 3, 4, 5]
+
+// Create array of objects
+const users = Array.from({ length: 3 }, (_, i) => ({
+  id: i + 1,
+  name: `User ${i + 1}`
+}));
+// [{ id: 1, name: 'User 1' }, { id: 2, name: 'User 2' }, ...]
+
+// From arguments object
+function sum() {
+  const args = Array.from(arguments);
+  return args.reduce((a, b) => a + b, 0);
+}
+```
+
+**When to use:** When you need to convert an iterable or array-like object to an actual array.
+
+---
+
+### String Methods
+
+#### 21. **split()** - Convert String to Array
+
+Splits a string into an array of substrings.
+
+```javascript
+const sentence = 'Hello World JavaScript';
+const words = sentence.split(' ');
+console.log(words); // ['Hello', 'World', 'JavaScript']
+
+// Split by each character
+const chars = 'Hello'.split('');
+console.log(chars); // ['H', 'e', 'l', 'l', 'o']
+
+// Limit the number of splits
+const limited = sentence.split(' ', 2);
+console.log(limited); // ['Hello', 'World']
+
+// Use case: Parse CSV
+const csv = 'John,Doe,30,Developer';
+const fields = csv.split(',');
+// ['John', 'Doe', '30', 'Developer']
+
+// Use case: Parse URL path
+const path = '/api/users/123/posts';
+const segments = path.split('/').filter(Boolean);
+// ['api', 'users', '123', 'posts']
+
+// Split by regex
+const text = 'apple, banana; orange|grape';
+const fruits = text.split(/[,;|]/);
+// ['apple', ' banana', ' orange', 'grape']
+```
+
+**When to use:** When you need to break a string into parts.
+
+---
+
+#### 22. **substring() / slice()** - Extract Part of String
+
+Extracts a section of a string.
+
+```javascript
+const str = 'Hello World';
+
+// substring(start, end)
+console.log(str.substring(0, 5)); // 'Hello'
+console.log(str.substring(6));    // 'World'
+
+// slice(start, end) - similar but handles negative indices
+console.log(str.slice(0, 5));  // 'Hello'
+console.log(str.slice(-5));    // 'World' (last 5 characters)
+console.log(str.slice(-5, -1)); // 'Worl'
+
+// Use case: Get file extension
+const filename = 'document.pdf';
+const ext = filename.slice(filename.lastIndexOf('.') + 1);
+console.log(ext); // 'pdf'
+
+// Use case: Truncate text
+const longText = 'This is a very long text that needs truncation';
+const truncated = longText.slice(0, 20) + '...';
+console.log(truncated); // 'This is a very long ...'
+```
+
+**When to use:** When you need to extract a portion of a string.
+
+---
+
+#### 23. **replace() / replaceAll()** - Replace String Content
+
+Replaces specified values in a string.
+
+```javascript
+const text = 'Hello World';
+
+// Replace first occurrence
+const replaced = text.replace('World', 'JavaScript');
+console.log(replaced); // 'Hello JavaScript'
+
+// Replace all (regex with g flag)
+const text2 = 'cat, cat, cat';
+const allReplaced = text2.replace(/cat/g, 'dog');
+console.log(allReplaced); // 'dog, dog, dog'
+
+// replaceAll() - modern method
+const allReplaced2 = text2.replaceAll('cat', 'dog');
+console.log(allReplaced2); // 'dog, dog, dog'
+
+// Use case: Remove special characters
+const input = 'Hello! World? 123';
+const cleaned = input.replace(/[^a-zA-Z0-9\s]/g, '');
+console.log(cleaned); // 'Hello World 123'
+
+// Use case: Replace with function
+const template = 'Hello {name}, you are {age} years old';
+const data = { name: 'John', age: 30 };
+const result = template.replace(/{(\w+)}/g, (match, key) => data[key]);
+console.log(result); // 'Hello John, you are 30 years old'
+
+// Case-insensitive replace
+const text3 = 'Hello hello HELLO';
+const replaced3 = text3.replace(/hello/gi, 'Hi');
+console.log(replaced3); // 'Hi Hi Hi'
+```
+
+**When to use:** When you need to modify parts of a string.
+
+---
+
+#### 24. **trim() / trimStart() / trimEnd()** - Remove Whitespace
+
+Removes whitespace from the beginning and/or end of a string.
+
+```javascript
+const str = '  Hello World  ';
+
+console.log(str.trim());      // 'Hello World'
+console.log(str.trimStart()); // 'Hello World  '
+console.log(str.trimEnd());   // '  Hello World'
+
+// Use case: Clean user input
+const userInput = '  john@example.com  ';
+const email = userInput.trim().toLowerCase();
+console.log(email); // 'john@example.com'
+
+// Clean all whitespace in array
+const inputs = ['  Alice  ', '  Bob  ', '  Charlie  '];
+const cleaned = inputs.map(s => s.trim());
+// ['Alice', 'Bob', 'Charlie']
+```
+
+**When to use:** When processing user input or cleaning strings.
+
+---
+
+#### 25. **toUpperCase() / toLowerCase()** - Change Case
+
+Converts string to uppercase or lowercase.
+
+```javascript
+const str = 'Hello World';
+
+console.log(str.toUpperCase()); // 'HELLO WORLD'
+console.log(str.toLowerCase()); // 'hello world'
+
+// Use case: Case-insensitive comparison
+const input1 = 'JavaScript';
+const input2 = 'javascript';
+console.log(input1.toLowerCase() === input2.toLowerCase()); // true
+
+// Use case: Capitalize first letter
+function capitalize(str) {
+  return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+}
+console.log(capitalize('hELLO')); // 'Hello'
+
+// Title case
+function titleCase(str) {
+  return str
+    .toLowerCase()
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+console.log(titleCase('hello world')); // 'Hello World'
+```
+
+**When to use:** When you need to normalize or format text.
+
+---
+
+#### 26. **includes() / startsWith() / endsWith()** - Check String Content
+
+Checks if a string contains, starts, or ends with specified text.
+
+```javascript
+const str = 'Hello World';
+
+// includes - check if contains
+console.log(str.includes('World')); // true
+console.log(str.includes('world')); // false (case-sensitive)
+
+// startsWith
+console.log(str.startsWith('Hello')); // true
+console.log(str.startsWith('World')); // false
+
+// endsWith
+console.log(str.endsWith('World')); // true
+console.log(str.endsWith('Hello')); // false
+
+// Use case: Validate URL
+const url = 'https://example.com/api/users';
+const isHttps = url.startsWith('https://');
+const isApiEndpoint = url.includes('/api/');
+console.log(isHttps, isApiEndpoint); // true, true
+
+// Use case: File type validation
+const filename = 'document.pdf';
+const isPDF = filename.toLowerCase().endsWith('.pdf');
+
+// Check from position
+console.log(str.includes('World', 7)); // false (search from index 7)
+console.log(str.startsWith('World', 6)); // true (check from index 6)
+```
+
+**When to use:** When you need to check string content without regex.
+
+---
+
+#### 27. **match() / matchAll()** - Match Against Regex
+
+Returns matches of a string against a regular expression.
+
+```javascript
+const text = 'My number is 123-456-7890 and 098-765-4321';
+
+// match - get first match
+const match = text.match(/\d{3}-\d{3}-\d{4}/);
+console.log(match[0]); // '123-456-7890'
+
+// match with g flag - get all matches
+const allMatches = text.match(/\d{3}-\d{3}-\d{4}/g);
+console.log(allMatches); // ['123-456-7890', '098-765-4321']
+
+// matchAll - get detailed matches with groups
+const text2 = 'John: 25, Jane: 30, Bob: 35';
+const regex = /(\w+): (\d+)/g;
+const matches = [...text2.matchAll(regex)];
+matches.forEach(match => {
+  console.log(`Name: ${match[1]}, Age: ${match[2]}`);
+});
+// Name: John, Age: 25
+// Name: Jane, Age: 30
+// Name: Bob, Age: 35
+
+// Use case: Extract emails
+const text3 = 'Contact: john@example.com or jane@example.com';
+const emails = text3.match(/[\w.-]+@[\w.-]+\.\w+/g);
+console.log(emails); // ['john@example.com', 'jane@example.com']
+
+// Extract hashtags
+const tweet = 'Loving #JavaScript and #WebDev today!';
+const hashtags = tweet.match(/#\w+/g);
+console.log(hashtags); // ['#JavaScript', '#WebDev']
+```
+
+**When to use:** When you need to extract patterns from strings using regex.
+
+---
+
+#### 28. **padStart() / padEnd()** - Pad String
+
+Pads a string to a specified length.
+
+```javascript
+const num = '5';
+
+// Pad with zeros
+console.log(num.padStart(3, '0')); // '005'
+console.log(num.padEnd(3, '0'));   // '500'
+
+// Use case: Format time
+const hours = '9';
+const minutes = '5';
+const time = `${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}`;
+console.log(time); // '09:05'
+
+// Use case: Format invoice numbers
+const invoiceNum = 42;
+const formatted = String(invoiceNum).padStart(6, '0');
+console.log(`INV-${formatted}`); // 'INV-000042'
+
+// Align text
+const items = ['Apple', 'Banana', 'Kiwi'];
+items.forEach(item => {
+  console.log(item.padEnd(10, '.') + ' $2.99');
+});
+// Apple..... $2.99
+// Banana.... $2.99
+// Kiwi...... $2.99
+```
+
+**When to use:** When you need to format strings to a fixed length.
+
+---
+
+#### 29. **repeat()** - Repeat String
+
+Repeats a string a specified number of times.
+
+```javascript
+const str = 'Ha';
+console.log(str.repeat(3)); // 'HaHaHa'
+
+// Use case: Create visual separator
+const separator = '-'.repeat(50);
+console.log(separator); // '--------------------------------------------------'
+
+// Use case: Indentation
+function printTree(level, text) {
+  const indent = '  '.repeat(level);
+  console.log(`${indent}${text}`);
+}
+printTree(0, 'Root');
+printTree(1, 'Child 1');
+printTree(2, 'Grandchild');
+
+// Create loading animation
+const loadingStates = ['.', '..', '...'].map(dots => `Loading${dots}`);
+```
+
+**When to use:** When you need to duplicate a string pattern.
+
+---
+
+#### 30. **charAt() / charCodeAt()** - Get Character
+
+Gets character or character code at a specified index.
+
+```javascript
+const str = 'Hello';
+
+console.log(str.charAt(0));     // 'H'
+console.log(str.charAt(4));     // 'o'
+console.log(str[0]);            // 'H' (bracket notation)
+
+console.log(str.charCodeAt(0)); // 72 (ASCII code for 'H')
+console.log(str.charCodeAt(4)); // 111 (ASCII code for 'o')
+
+// Use case: Check if uppercase
+function isUpperCase(char) {
+  return char === char.toUpperCase() && char !== char.toLowerCase();
+}
+console.log(isUpperCase(str.charAt(0))); // true
+
+// Use case: Generate random string
+function randomString(length) {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let result = '';
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
+```
+
+**When to use:** When you need to access individual characters.
+
+---
+
+### Object Methods
+
+#### 31. **Object.keys()** - Get Object Keys
+
+Returns an array of an object's own property names.
+
+```javascript
+const user = {
+  name: 'John',
+  age: 30,
+  email: 'john@example.com'
+};
+
+const keys = Object.keys(user);
+console.log(keys); // ['name', 'age', 'email']
+
+// Use case: Iterate over object properties
+Object.keys(user).forEach(key => {
+  console.log(`${key}: ${user[key]}`);
+});
+// name: John
+// age: 30
+// email: john@example.com
+
+// Use case: Check if object is empty
+const isEmpty = obj => Object.keys(obj).length === 0;
+console.log(isEmpty({})); // true
+console.log(isEmpty(user)); // false
+
+// Use case: Filter object properties
+const product = { id: 1, name: 'Laptop', price: 1000, inStock: true };
+const filtered = {};
+Object.keys(product)
+  .filter(key => key !== 'id')
+  .forEach(key => filtered[key] = product[key]);
+// { name: 'Laptop', price: 1000, inStock: true }
+```
+
+**When to use:** When you need to iterate over or work with object property names.
+
+---
+
+#### 32. **Object.values()** - Get Object Values
+
+Returns an array of an object's own property values.
+
+```javascript
+const user = {
+  name: 'John',
+  age: 30,
+  email: 'john@example.com'
+};
+
+const values = Object.values(user);
+console.log(values); // ['John', 30, 'john@example.com']
+
+// Use case: Sum all numeric values
+const scores = { math: 90, science: 85, english: 92 };
+const total = Object.values(scores).reduce((sum, score) => sum + score, 0);
+console.log(total); // 267
+
+// Use case: Check if any value is empty
+const form = { name: 'John', email: '', phone: '123' };
+const hasEmpty = Object.values(form).some(value => value === '');
+console.log(hasEmpty); // true
+
+// Use case: Get all users from grouped data
+const usersByRole = {
+  admin: ['Alice', 'Bob'],
+  user: ['Charlie', 'David'],
+  guest: ['Eve']
+};
+const allUsers = Object.values(usersByRole).flat();
+// ['Alice', 'Bob', 'Charlie', 'David', 'Eve']
+```
+
+**When to use:** When you need to work with object values without their keys.
+
+---
+
+#### 33. **Object.entries()** - Get Key-Value Pairs
+
+Returns an array of an object's own [key, value] pairs.
+
+```javascript
+const user = {
+  name: 'John',
+  age: 30,
+  email: 'john@example.com'
+};
+
+const entries = Object.entries(user);
+console.log(entries);
+// [['name', 'John'], ['age', 30], ['email', 'john@example.com']]
+
+// Use case: Convert to Map
+const map = new Map(Object.entries(user));
+
+// Use case: Iterate with both key and value
+Object.entries(user).forEach(([key, value]) => {
+  console.log(`${key}: ${value}`);
+});
+
+// Use case: Filter and reconstruct object
+const product = { id: 1, name: 'Laptop', price: 1000, discount: 0 };
+const filtered = Object.fromEntries(
+  Object.entries(product).filter(([key, value]) => value !== 0)
+);
+// { id: 1, name: 'Laptop', price: 1000 }
+
+// Use case: Transform object values
+const prices = { apple: 1, banana: 0.5, orange: 0.75 };
+const doubled = Object.fromEntries(
+  Object.entries(prices).map(([key, value]) => [key, value * 2])
+);
+// { apple: 2, banana: 1, orange: 1.5 }
+
+// Use case: Swap keys and values
+const original = { a: 1, b: 2, c: 3 };
+const swapped = Object.fromEntries(
+  Object.entries(original).map(([key, value]) => [value, key])
+);
+// { 1: 'a', 2: 'b', 3: 'c' }
+```
+
+**When to use:** When you need both keys and values for transformation or iteration.
+
+---
+
+#### 34. **Object.assign()** - Merge Objects
+
+Copies properties from source objects to a target object.
+
+```javascript
+const target = { a: 1, b: 2 };
+const source = { b: 3, c: 4 };
+
+const result = Object.assign(target, source);
+console.log(result); // { a: 1, b: 3, c: 4 }
+console.log(target); // { a: 1, b: 3, c: 4 } (target is mutated!)
+
+// Immutable merge (common pattern)
+const obj1 = { a: 1 };
+const obj2 = { b: 2 };
+const merged = Object.assign({}, obj1, obj2);
+// or use spread operator (preferred)
+const merged2 = { ...obj1, ...obj2 };
+
+// Use case: Add default properties
+const defaults = { color: 'blue', size: 'medium' };
+const userPrefs = { color: 'red' };
+const settings = { ...defaults, ...userPrefs };
+// { color: 'red', size: 'medium' }
+
+// Use case: Clone object (shallow)
+const original = { name: 'John', age: 30 };
+const clone = Object.assign({}, original);
+
+// Merge multiple objects
+const obj3 = { a: 1 };
+const obj4 = { b: 2 };
+const obj5 = { c: 3 };
+const combined = Object.assign({}, obj3, obj4, obj5);
+// { a: 1, b: 2, c: 3 }
+```
+
+**When to use:** When you need to merge objects (prefer spread operator in modern code).
+
+---
+
+#### 35. **Object.freeze()** - Make Object Immutable
+
+Freezes an object, preventing modifications.
+
+```javascript
+const user = {
+  name: 'John',
+  age: 30
+};
+
+Object.freeze(user);
+
+// These modifications will fail silently (or throw in strict mode)
+user.age = 31;        // Fails
+user.email = 'test';  // Fails
+delete user.name;     // Fails
+
+console.log(user); // { name: 'John', age: 30 } (unchanged)
+
+// Check if frozen
+console.log(Object.isFrozen(user)); // true
+
+// ⚠️ Shallow freeze - nested objects not frozen
+const data = {
+  user: { name: 'John' },
+  settings: { theme: 'dark' }
+};
+Object.freeze(data);
+
+data.user.name = 'Jane'; // This works! Nested object not frozen
+console.log(data.user.name); // 'Jane'
+
+// Deep freeze function
+function deepFreeze(obj) {
+  Object.freeze(obj);
+  Object.values(obj).forEach(value => {
+    if (typeof value === 'object' && value !== null) {
+      deepFreeze(value);
+    }
+  });
+  return obj;
+}
+
+// Use case: Constants
+const CONFIG = Object.freeze({
+  API_URL: 'https://api.example.com',
+  TIMEOUT: 5000
+});
+```
+
+**When to use:** When you need to ensure an object cannot be modified.
+
+---
+
+#### 36. **Object.seal()** - Seal Object
+
+Prevents adding/removing properties but allows modifying existing ones.
+
+```javascript
+const user = {
+  name: 'John',
+  age: 30
+};
+
+Object.seal(user);
+
+// Can modify existing properties
+user.age = 31; // ✅ Works
+console.log(user.age); // 31
+
+// Cannot add new properties
+user.email = 'test'; // ❌ Fails
+console.log(user.email); // undefined
+
+// Cannot delete properties
+delete user.name; // ❌ Fails
+console.log(user.name); // 'John'
+
+console.log(Object.isSealed(user)); // true
+
+// Use case: Ensure object structure remains constant
+const apiResponse = {
+  status: 200,
+  data: null,
+  error: null
+};
+Object.seal(apiResponse);
+```
+
+**When to use:** When you want to allow value changes but prevent structural changes.
+
+---
+
+#### 37. **Object.create()** - Create Object with Prototype
+
+Creates a new object with the specified prototype.
+
+```javascript
+const personPrototype = {
+  greet() {
+    console.log(`Hello, I'm ${this.name}`);
+  }
+};
+
+const john = Object.create(personPrototype);
+john.name = 'John';
+john.greet(); // 'Hello, I'm John'
+
+// Create object without prototype
+const obj = Object.create(null); // No prototype chain
+console.log(obj.toString); // undefined
+
+// Use case: Inherit methods
+const animal = {
+  makeSound() {
+    console.log(this.sound);
+  }
+};
+
+const dog = Object.create(animal);
+dog.sound = 'Woof';
+dog.makeSound(); // 'Woof'
+
+// Create with properties
+const person = Object.create(personPrototype, {
+  name: {
+    value: 'Jane',
+    writable: true,
+    enumerable: true
+  },
+  age: {
+    value: 25,
+    writable: false // Read-only
+  }
+});
+```
+
+**When to use:** When you need to create objects with a specific prototype chain.
+
+---
+
+#### 38. **Object.hasOwnProperty()** - Check Own Property
+
+Checks if an object has a property as its own (not inherited).
+
+```javascript
+const user = {
+  name: 'John',
+  age: 30
+};
+
+console.log(user.hasOwnProperty('name')); // true
+console.log(user.hasOwnProperty('toString')); // false (inherited)
+
+// Modern alternative: Object.hasOwn()
+console.log(Object.hasOwn(user, 'name')); // true
+
+// Use case: Safe property access
+function safeGet(obj, key, defaultValue) {
+  return obj.hasOwnProperty(key) ? obj[key] : defaultValue;
+}
+
+// Use case: Filter own properties
+const obj = Object.create({ inherited: 'value' });
+obj.own = 'own value';
+
+for (let key in obj) {
+  if (obj.hasOwnProperty(key)) {
+    console.log(key, obj[key]); // Only logs: own own value
+  }
+}
+```
+
+**When to use:** When you need to distinguish own properties from inherited ones.
+
+---
+
+#### 39. **Object.getOwnPropertyDescriptor()** - Get Property Details
+
+Returns property descriptor for an own property.
+
+```javascript
+const obj = {
+  name: 'John'
+};
+
+const descriptor = Object.getOwnPropertyDescriptor(obj, 'name');
+console.log(descriptor);
+// {
+//   value: 'John',
+//   writable: true,
+//   enumerable: true,
+//   configurable: true
+// }
+
+// Define property with custom descriptor
+Object.defineProperty(obj, 'age', {
+  value: 30,
+  writable: false,  // Read-only
+  enumerable: true,
+  configurable: false // Cannot be deleted or reconfigured
+});
+
+obj.age = 31; // Fails silently (or throws in strict mode)
+console.log(obj.age); // 30
+
+// Use case: Create getter/setter
+Object.defineProperty(obj, 'fullName', {
+  get() {
+    return `${this.firstName} ${this.lastName}`;
+  },
+  set(value) {
+    [this.firstName, this.lastName] = value.split(' ');
+  },
+  enumerable: true
+});
+
+obj.fullName = 'John Doe';
+console.log(obj.firstName); // 'John'
+console.log(obj.fullName);  // 'John Doe'
+```
+
+**When to use:** When you need fine-grained control over property behavior.
+
+---
+
+### Function Methods
+
+#### 40. **bind()** - Bind Context
+
+Creates a new function with a fixed `this` value.
+
+```javascript
+const user = {
+  name: 'John',
+  greet() {
+    console.log(`Hello, ${this.name}`);
+  }
+};
+
+const greet = user.greet;
+greet(); // Error or undefined - lost context
+
+const boundGreet = user.greet.bind(user);
+boundGreet(); // 'Hello, John' - context preserved
+
+// Use case: Event handlers
+class Button {
+  constructor(label) {
+    this.label = label;
+    this.handleClick = this.handleClick.bind(this); // Bind in constructor
+  }
+  
+  handleClick() {
+    console.log(`${this.label} clicked`);
+  }
+}
+
+const btn = new Button('Submit');
+document.querySelector('button').addEventListener('click', btn.handleClick);
+
+// Partial application
+function multiply(a, b) {
+  return a * b;
+}
+
+const double = multiply.bind(null, 2); // Fix first argument
+console.log(double(5)); // 10
+console.log(double(10)); // 20
+
+const triple = multiply.bind(null, 3);
+console.log(triple(5)); // 15
+```
+
+**When to use:** When you need to preserve function context or create partial functions.
+
+---
+
+#### 41. **call()** - Call Function with Context
+
+Calls a function with a given `this` value and arguments.
+
+```javascript
+function greet(greeting, punctuation) {
+  console.log(`${greeting}, ${this.name}${punctuation}`);
+}
+
+const user = { name: 'John' };
+
+greet.call(user, 'Hello', '!'); // 'Hello, John!'
+
+// Use case: Borrow methods
+const person1 = {
+  name: 'Alice',
+  greet() {
+    console.log(`Hi, I'm ${this.name}`);
+  }
+};
+
+const person2 = { name: 'Bob' };
+
+person1.greet.call(person2); // 'Hi, I'm Bob'
+
+// Use case: Find max in array (historical)
+const numbers = [1, 5, 3, 9, 2];
+const max = Math.max.call(null, ...numbers); // or Math.max(...numbers)
+console.log(max); // 9
+
+// Use case: Convert array-like to array
+function toArray() {
+  return Array.prototype.slice.call(arguments);
+}
+console.log(toArray(1, 2, 3)); // [1, 2, 3]
+```
+
+**When to use:** When you need to invoke a function immediately with a specific context.
+
+---
+
+#### 42. **apply()** - Call Function with Arguments Array
+
+Similar to `call()` but takes arguments as an array.
+
+```javascript
+function greet(greeting, punctuation) {
+  console.log(`${greeting}, ${this.name}${punctuation}`);
+}
+
+const user = { name: 'John' };
+
+greet.apply(user, ['Hello', '!']); // 'Hello, John!'
+
+// Use case: Find min/max with array
+const numbers = [1, 5, 3, 9, 2];
+const max = Math.max.apply(null, numbers);
+console.log(max); // 9
+
+// Modern alternative: spread operator
+const max2 = Math.max(...numbers);
+
+// Use case: Append array to another
+const arr1 = [1, 2, 3];
+const arr2 = [4, 5, 6];
+Array.prototype.push.apply(arr1, arr2);
+console.log(arr1); // [1, 2, 3, 4, 5, 6]
+
+// Modern alternative
+arr1.push(...arr2);
+```
+
+**When to use:** When you need to call a function with arguments from an array (less common now with spread operator).
+
+---
+
+### Utility Functions
+
+#### 43. **setTimeout() / setInterval()** - Timers
+
+Executes code after a delay or at intervals.
+
+```javascript
+// setTimeout - execute once after delay
+const timerId = setTimeout(() => {
+  console.log('Executed after 2 seconds');
+}, 2000);
+
+// Cancel timeout
+clearTimeout(timerId);
+
+// setInterval - execute repeatedly
+const intervalId = setInterval(() => {
+  console.log('Executed every second');
+}, 1000);
+
+// Cancel interval
+clearInterval(intervalId);
+
+// Use case: Debounce search
+function debounce(func, delay) {
+  let timeoutId;
+  return function(...args) {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => func.apply(this, args), delay);
+  };
+}
+
+const searchInput = document.querySelector('input');
+const handleSearch = debounce((e) => {
+  console.log('Searching for:', e.target.value);
+}, 500);
+searchInput.addEventListener('input', handleSearch);
+
+// Use case: Throttle scroll
+function throttle(func, limit) {
+  let inThrottle;
+  return function(...args) {
+    if (!inThrottle) {
+      func.apply(this, args);
+      inThrottle = true;
+      setTimeout(() => inThrottle = false, limit);
+    }
+  };
+}
+
+const handleScroll = throttle(() => {
+  console.log('Scroll position:', window.scrollY);
+}, 200);
+window.addEventListener('scroll', handleScroll);
+
+// Use case: Countdown timer
+let count = 10;
+const countdown = setInterval(() => {
+  console.log(count);
+  count--;
+  if (count < 0) {
+    clearInterval(countdown);
+    console.log('Done!');
+  }
+}, 1000);
+```
+
+**When to use:** When you need to delay execution or repeat code at intervals.
+
+---
+
+#### 44. **JSON.parse() / JSON.stringify()** - JSON Operations
+
+Converts between JSON strings and JavaScript objects.
+
+```javascript
+// JSON.stringify - object to JSON string
+const user = {
+  name: 'John',
+  age: 30,
+  hobbies: ['reading', 'gaming']
+};
+
+const json = JSON.stringify(user);
+console.log(json); // '{"name":"John","age":30,"hobbies":["reading","gaming"]}'
+
+// Pretty print with indentation
+const prettyJson = JSON.stringify(user, null, 2);
+console.log(prettyJson);
+// {
+//   "name": "John",
+//   "age": 30,
+//   "hobbies": ["reading", "gaming"]
+// }
+
+// JSON.parse - JSON string to object
+const parsed = JSON.parse(json);
+console.log(parsed.name); // 'John'
+
+// Use case: Deep clone object (simple way)
+const original = { a: 1, b: { c: 2 } };
+const clone = JSON.parse(JSON.stringify(original));
+clone.b.c = 3;
+console.log(original.b.c); // 2 (unchanged)
+
+// ⚠️ Limitations: functions, undefined, symbols are removed
+const obj = {
+  name: 'John',
+  greet: function() { console.log('Hi'); }, // Lost
+  age: undefined, // Lost
+  [Symbol('id')]: 123 // Lost
+};
+console.log(JSON.stringify(obj)); // '{"name":"John"}'
+
+// Custom serialization
+const obj2 = {
+  name: 'John',
+  password: 'secret123',
+  toJSON() {
+    return { name: this.name }; // Exclude password
+  }
+};
+console.log(JSON.stringify(obj2)); // '{"name":"John"}'
+
+// Replacer function
+const data = {
+  name: 'John',
+  age: 30,
+  password: 'secret'
+};
+const filtered = JSON.stringify(data, (key, value) => {
+  if (key === 'password') return undefined; // Exclude password
+  return value;
+});
+
+// Use case: localStorage
+localStorage.setItem('user', JSON.stringify(user));
+const savedUser = JSON.parse(localStorage.getItem('user'));
+```
+
+**When to use:** When you need to serialize/deserialize data for storage or transmission.
+
+---
+
+#### 45. **parseInt() / parseFloat()** - Parse Numbers
+
+Converts strings to numbers.
+
+```javascript
+// parseInt - string to integer
+console.log(parseInt('123'));       // 123
+console.log(parseInt('123.45'));    // 123 (decimals ignored)
+console.log(parseInt('   42   ')); // 42 (whitespace trimmed)
+
+// With radix (base)
+console.log(parseInt('1010', 2));   // 10 (binary)
+console.log(parseInt('FF', 16));    // 255 (hexadecimal)
+
+// ⚠️ Stops at first non-digit
+console.log(parseInt('123abc'));    // 123
+console.log(parseInt('abc123'));    // NaN
+
+// parseFloat - string to decimal
+console.log(parseFloat('123.45'));  // 123.45
+console.log(parseFloat('3.14abc')); // 3.14
+
+// Use case: Parse user input
+const input = '  42.5  ';
+const number = parseFloat(input);
+if (!isNaN(number)) {
+  console.log(`Valid number: ${number}`);
+}
+
+// Use case: Parse URL parameters
+const url = 'example.com/page?id=123&price=45.99';
+const params = new URL(url, 'http://example.com').searchParams;
+const id = parseInt(params.get('id'));
+const price = parseFloat(params.get('price'));
+
+// Modern alternative: Number()
+console.log(Number('123'));    // 123
+console.log(Number('123.45')); // 123.45
+console.log(Number('123abc')); // NaN (stricter)
+
+// Unary plus operator
+console.log(+'123');    // 123
+console.log(+'123.45'); // 123.45
+```
+
+**When to use:** When converting string input to numbers.
+
+---
+
+#### 46. **isNaN() / Number.isNaN()** - Check for NaN
+
+Checks if a value is NaN (Not-a-Number).
+
+```javascript
+// isNaN - converts to number first (can be misleading)
+console.log(isNaN(NaN));        // true
+console.log(isNaN('hello'));    // true (converted to NaN)
+console.log(isNaN('123'));      // false (converted to 123)
+console.log(isNaN(undefined));  // true
+
+// Number.isNaN - strict check (recommended)
+console.log(Number.isNaN(NaN));       // true
+console.log(Number.isNaN('hello'));   // false (no conversion)
+console.log(Number.isNaN(123));       // false
+console.log(Number.isNaN(undefined)); // false
+
+// Use case: Validate numeric input
+function safeParseInt(value) {
+  const num = parseInt(value);
+  return Number.isNaN(num) ? null : num;
+}
+
+console.log(safeParseInt('123'));   // 123
+console.log(safeParseInt('abc'));   // null
+
+// Check if finite number
+console.log(Number.isFinite(123));      // true
+console.log(Number.isFinite(Infinity)); // false
+console.log(Number.isFinite(NaN));      // false
+console.log(Number.isFinite('123'));    // false (no conversion)
+
+// isFinite - converts first
+console.log(isFinite('123')); // true (converted to 123)
+```
+
+**When to use:** When validating numeric calculations or user input.
+
+---
+
+#### 47. **encodeURIComponent() / decodeURIComponent()** - URL Encoding
+
+Encodes/decodes URL components.
+
+```javascript
+// encodeURIComponent - encode for URL
+const query = 'hello world!';
+const encoded = encodeURIComponent(query);
+console.log(encoded); // 'hello%20world%21'
+
+// decodeURIComponent - decode URL
+const decoded = decodeURIComponent(encoded);
+console.log(decoded); // 'hello world!'
+
+// Use case: Build query string
+function buildQueryString(params) {
+  return Object.entries(params)
+    .map(([key, value]) => 
+      `${encodeURIComponent(key)}=${encodeURIComponent(value)}`
+    )
+    .join('&');
+}
+
+const params = {
+  name: 'John Doe',
+  email: 'john@example.com',
+  message: 'Hello, how are you?'
+};
+const queryString = buildQueryString(params);
+console.log(queryString);
+// 'name=John%20Doe&email=john%40example.com&message=Hello%2C%20how%20are%20you%3F'
+
+// Use case: Parse query string
+function parseQueryString(query) {
+  return Object.fromEntries(
+    query.split('&').map(pair => {
+      const [key, value] = pair.split('=');
+      return [decodeURIComponent(key), decodeURIComponent(value)];
+    })
+  );
+}
+
+const parsed = parseQueryString(queryString);
+console.log(parsed);
+// { name: 'John Doe', email: 'john@example.com', message: 'Hello, how are you?' }
+
+// encodeURI vs encodeURIComponent
+const url = 'https://example.com/search?q=hello world';
+console.log(encodeURI(url)); // Encodes spaces only
+console.log(encodeURIComponent(url)); // Encodes all special chars
+```
+
+**When to use:** When working with URLs and query parameters.
+
+---
+
+#### 48. **Promise.all() / Promise.race() / Promise.allSettled()** - Promise Utilities
+
+Combines multiple promises.
+
+```javascript
+// Promise.all - waits for all to resolve (fails if any rejects)
+const promises = [
+  fetch('/api/user'),
+  fetch('/api/posts'),
+  fetch('/api/comments')
+];
+
+Promise.all(promises)
+  .then(responses => Promise.all(responses.map(r => r.json())))
+  .then(([user, posts, comments]) => {
+    console.log('All data loaded:', { user, posts, comments });
+  })
+  .catch(error => {
+    console.error('One failed:', error);
+  });
+
+// Promise.race - resolves/rejects with first completed promise
+const timeout = new Promise((_, reject) => 
+  setTimeout(() => reject(new Error('Timeout')), 5000)
+);
+
+const fetchData = fetch('/api/data');
+
+Promise.race([fetchData, timeout])
+  .then(response => console.log('Got response'))
+  .catch(error => console.error('Timeout or error:', error));
+
+// Promise.allSettled - waits for all (doesn't fail)
+const mixed = [
+  Promise.resolve('Success'),
+  Promise.reject('Error'),
+  Promise.resolve('Another success')
+];
+
+Promise.allSettled(mixed)
+  .then(results => {
+    results.forEach(result => {
+      if (result.status === 'fulfilled') {
+        console.log('Success:', result.value);
+      } else {
+        console.log('Failed:', result.reason);
+      }
+    });
+  });
+
+// Promise.any - first successful (ignores rejections)
+const servers = [
+  fetch('https://server1.com/api'),
+  fetch('https://server2.com/api'),
+  fetch('https://server3.com/api')
+];
+
+Promise.any(servers)
+  .then(response => console.log('First server responded'))
+  .catch(error => console.error('All servers failed'));
+
+// Use case: Parallel API calls with error handling
+async function loadDashboard() {
+  const results = await Promise.allSettled([
+    fetchUser(),
+    fetchStats(),
+    fetchNotifications()
+  ]);
+
+  const [user, stats, notifications] = results.map(r => 
+    r.status === 'fulfilled' ? r.value : null
+  );
+
+  // Continue even if some failed
+  renderDashboard({ user, stats, notifications });
+}
+```
+
+**When to use:** When coordinating multiple asynchronous operations.
+
+---
+
+#### 49. **structuredClone()** - Deep Clone
+
+Creates a deep clone of a value.
+
+```javascript
+// Deep clone with structuredClone (modern)
+const original = {
+  name: 'John',
+  address: {
+    city: 'New York',
+    zip: '10001'
+  },
+  hobbies: ['reading', 'gaming']
+};
+
+const clone = structuredClone(original);
+clone.address.city = 'Boston';
+console.log(original.address.city); // 'New York' (unchanged)
+
+// Clones complex structures
+const complex = {
+  date: new Date(),
+  regex: /pattern/gi,
+  map: new Map([['key', 'value']]),
+  set: new Set([1, 2, 3]),
+  nested: { deep: { value: 123 } }
+};
+
+const cloned = structuredClone(complex);
+
+// ⚠️ Limitations: cannot clone functions, DOM nodes, symbols
+const withFunction = {
+  name: 'John',
+  greet() { console.log('Hi'); }
+};
+// structuredClone(withFunction); // Error!
+
+// Old alternatives
+// 1. JSON (limited)
+const jsonClone = JSON.parse(JSON.stringify(original));
+
+// 2. Manual deep clone
+function deepClone(obj) {
+  if (obj === null || typeof obj !== 'object') return obj;
+  if (obj instanceof Date) return new Date(obj);
+  if (obj instanceof Array) return obj.map(item => deepClone(item));
+  
+  const clone = {};
+  for (let key in obj) {
+    if (obj.hasOwnProperty(key)) {
+      clone[key] = deepClone(obj[key]);
+    }
+  }
+  return clone;
+}
+```
+
+**When to use:** When you need a complete deep copy of an object.
+
+---
+
+#### 50. **Math Functions** - Mathematical Operations
+
+Common Math object methods.
+
+```javascript
+// Math.round, Math.ceil, Math.floor
+console.log(Math.round(4.5));  // 5
+console.log(Math.round(4.4));  // 4
+console.log(Math.ceil(4.1));   // 5 (round up)
+console.log(Math.floor(4.9));  // 4 (round down)
+
+// Math.max, Math.min
+console.log(Math.max(1, 5, 3));      // 5
+console.log(Math.min(1, 5, 3));      // 1
+console.log(Math.max(...[1, 5, 3])); // 5 (with spread)
+
+// Math.random - random number between 0 and 1
+console.log(Math.random()); // 0.123456...
+
+// Random integer between min and max (inclusive)
+function randomInt(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+console.log(randomInt(1, 10)); // 1-10
+
+// Math.abs - absolute value
+console.log(Math.abs(-5));  // 5
+console.log(Math.abs(5));   // 5
+
+// Math.pow, Math.sqrt
+console.log(Math.pow(2, 3)); // 8 (2³)
+console.log(2 ** 3);         // 8 (exponentiation operator)
+console.log(Math.sqrt(16));  // 4
+
+// Math.sign - sign of number
+console.log(Math.sign(5));   // 1 (positive)
+console.log(Math.sign(-5));  // -1 (negative)
+console.log(Math.sign(0));   // 0
+
+// Use case: Clamp value
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+console.log(clamp(150, 0, 100)); // 100
+
+// Use case: Generate random color
+function randomColor() {
+  const r = randomInt(0, 255);
+  const g = randomInt(0, 255);
+  const b = randomInt(0, 255);
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
+// Use case: Round to decimal places
+function roundTo(num, decimals) {
+  const factor = 10 ** decimals;
+  return Math.round(num * factor) / factor;
+}
+console.log(roundTo(3.14159, 2)); // 3.14
+```
+
+**When to use:** When performing mathematical calculations.
+
+---
+
+This comprehensive guide covers the most important JavaScript built-in functions and methods that every developer should master. Each function includes practical use cases and examples to help you understand when and how to use them effectively.
+
+---
+
+## Promise Interview Questions - Complete Guide
+
+### Q1: What is a Promise in JavaScript? Explain its states.
+
+**Answer:**
+
+A **Promise** is an object representing the eventual completion or failure of an asynchronous operation. It's a proxy for a value that may not be known when the promise is created.
+
+**Promise States:**
+
+1. **Pending**: Initial state, neither fulfilled nor rejected
+2. **Fulfilled**: Operation completed successfully
+3. **Rejected**: Operation failed
+
+```javascript
+// Creating a Promise
+const promise = new Promise((resolve, reject) => {
+  // Asynchronous operation
+  setTimeout(() => {
+    const success = true;
+    if (success) {
+      resolve('Operation successful!'); // Fulfilled
+    } else {
+      reject('Operation failed!'); // Rejected
+    }
+  }, 1000);
+});
+
+// Consuming a Promise
+promise
+  .then(result => console.log(result)) // Handles fulfillment
+  .catch(error => console.error(error)) // Handles rejection
+  .finally(() => console.log('Cleanup')); // Always executes
+
+// State transitions (one-way only):
+// pending → fulfilled
+// pending → rejected
+// (Once settled, state cannot change)
+```
+
+**Key Characteristics:**
+
+```javascript
+// 1. Promises are immutable once settled
+const promise = Promise.resolve('value');
+promise.then(v => console.log(v)); // 'value'
+promise.then(v => console.log(v)); // 'value' (same result)
+
+// 2. Promises execute immediately
+const promise2 = new Promise((resolve) => {
+  console.log('Executing immediately!'); // Logs right away
+  resolve('done');
+});
+
+// 3. Promises can be chained
+promise2
+  .then(result => result + ' 1')
+  .then(result => result + ' 2')
+  .then(result => console.log(result)); // 'done 1 2'
+```
+
+**Real-World Example:**
+
+```javascript
+// Fetching user data
+function fetchUser(userId) {
+  return new Promise((resolve, reject) => {
+    fetch(`https://api.example.com/users/${userId}`)
+      .then(response => {
+        if (!response.ok) {
+          reject(new Error('User not found'));
+        }
+        return response.json();
+      })
+      .then(data => resolve(data))
+      .catch(error => reject(error));
+  });
+}
+
+fetchUser(123)
+  .then(user => console.log('User:', user))
+  .catch(error => console.error('Error:', error));
+```
+
+---
+
+### Q2: How do you create a Promise? Show different ways.
+
+**Answer:**
+
+**Method 1: Promise Constructor**
+
+```javascript
+const promise = new Promise((resolve, reject) => {
+  // Async operation
+  const success = Math.random() > 0.5;
+  
+  if (success) {
+    resolve('Success!');
+  } else {
+    reject(new Error('Failed!'));
+  }
+});
+```
+
+**Method 2: Promise.resolve() - Create Fulfilled Promise**
+
+```javascript
+// Create immediately resolved promise
+const resolved = Promise.resolve('Immediate value');
+resolved.then(value => console.log(value)); // 'Immediate value'
+
+// Resolves with another promise
+const promise = Promise.resolve(
+  new Promise(resolve => setTimeout(() => resolve('After delay'), 1000))
+);
+
+// Use case: Wrap non-promise value
+function getData(useCache) {
+  if (useCache) {
+    return Promise.resolve(cachedData); // Wrap cached value
+  } else {
+    return fetch('/api/data'); // Already returns promise
+  }
+}
+```
+
+**Method 3: Promise.reject() - Create Rejected Promise**
+
+```javascript
+// Create immediately rejected promise
+const rejected = Promise.reject(new Error('Something went wrong'));
+rejected.catch(error => console.error(error));
+
+// Use case: Early rejection
+function validateInput(input) {
+  if (!input) {
+    return Promise.reject(new Error('Input is required'));
+  }
+  return processInput(input);
+}
+```
+
+**Method 4: Promisify Callback-based Functions**
+
+```javascript
+// Old callback style
+function readFileCallback(path, callback) {
+  // ... read file
+  callback(error, data);
+}
+
+// Promisified version
+function readFilePromise(path) {
+  return new Promise((resolve, reject) => {
+    readFileCallback(path, (error, data) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(data);
+      }
+    });
+  });
+}
+
+// Generic promisify utility
+function promisify(fn) {
+  return function(...args) {
+    return new Promise((resolve, reject) => {
+      fn(...args, (error, result) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve(result);
+        }
+      });
+    });
+  };
+}
+
+const readFile = promisify(readFileCallback);
+readFile('file.txt')
+  .then(data => console.log(data))
+  .catch(error => console.error(error));
+```
+
+**Method 5: Using async Functions**
+
+```javascript
+// async function always returns a promise
+async function getData() {
+  return 'data'; // Automatically wrapped in Promise.resolve()
+}
+
+getData().then(data => console.log(data)); // 'data'
+
+// Throwing in async function rejects the promise
+async function fetchData() {
+  throw new Error('Failed');
+}
+
+fetchData().catch(error => console.error(error)); // 'Failed'
+```
+
+**Method 6: Deferred Promise Pattern**
+
+```javascript
+// Create promise that can be resolved/rejected externally
+function createDeferred() {
+  let resolve, reject;
+  
+  const promise = new Promise((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  
+  return { promise, resolve, reject };
+}
+
+// Usage
+const { promise, resolve, reject } = createDeferred();
+
+setTimeout(() => resolve('Done!'), 1000);
+
+promise.then(result => console.log(result)); // 'Done!' after 1 second
+```
+
+---
+
+### Q3: Explain Promise chaining and how to avoid callback hell.
+
+**Answer:**
+
+**Callback Hell (Pyramid of Doom):**
+
+```javascript
+// ❌ Callback hell - hard to read and maintain
+getData(function(a) {
+  getMoreData(a, function(b) {
+    getMoreData(b, function(c) {
+      getMoreData(c, function(d) {
+        getMoreData(d, function(e) {
+          console.log('Finally done!', e);
+        });
+      });
+    });
+  });
+});
+```
+
+**Promise Chaining - Solution:**
+
+```javascript
+// ✅ Flat, readable promise chain
+getData()
+  .then(a => getMoreData(a))
+  .then(b => getMoreData(b))
+  .then(c => getMoreData(c))
+  .then(d => getMoreData(d))
+  .then(e => {
+    console.log('Finally done!', e);
+  })
+  .catch(error => {
+    console.error('Error at any step:', error);
+  });
+```
+
+**How Promise Chaining Works:**
+
+```javascript
+// Each .then() returns a new promise
+const promise1 = fetch('/api/user');
+
+const promise2 = promise1.then(response => response.json());
+
+const promise3 = promise2.then(user => {
+  console.log('User:', user);
+  return fetch(`/api/posts/${user.id}`); // Return another promise
+});
+
+const promise4 = promise3.then(response => response.json());
+
+const promise5 = promise4.then(posts => {
+  console.log('Posts:', posts);
+});
+
+// Compact version
+fetch('/api/user')
+  .then(response => response.json())
+  .then(user => {
+    console.log('User:', user);
+    return fetch(`/api/posts/${user.id}`);
+  })
+  .then(response => response.json())
+  .then(posts => console.log('Posts:', posts))
+  .catch(error => console.error('Error:', error));
+```
+
+**Returning Values in Chains:**
+
+```javascript
+Promise.resolve(1)
+  .then(value => {
+    console.log(value); // 1
+    return value + 1; // Return regular value
+  })
+  .then(value => {
+    console.log(value); // 2
+    return Promise.resolve(value + 1); // Return promise
+  })
+  .then(value => {
+    console.log(value); // 3
+    // Not returning anything = returns undefined
+  })
+  .then(value => {
+    console.log(value); // undefined
+  });
+```
+
+**Complex Example - User Registration Flow:**
+
+```javascript
+function registerUser(userData) {
+  return validateInput(userData)
+    .then(validData => {
+      console.log('Data validated');
+      return checkUserExists(validData.email);
+    })
+    .then(exists => {
+      if (exists) {
+        throw new Error('User already exists');
+      }
+      return hashPassword(userData.password);
+    })
+    .then(hashedPassword => {
+      return createUser({
+        ...userData,
+        password: hashedPassword
+      });
+    })
+    .then(user => {
+      console.log('User created:', user.id);
+      return sendWelcomeEmail(user.email);
+    })
+    .then(() => {
+      return generateAuthToken(user.id);
+    })
+    .then(token => {
+      console.log('Registration complete');
+      return { user, token };
+    })
+    .catch(error => {
+      console.error('Registration failed:', error);
+      // Could add specific error handling
+      if (error.message === 'User already exists') {
+        // Handle duplicate user
+      }
+      throw error; // Re-throw if not handled
+    });
+}
+```
+
+**Parallel vs Sequential Chains:**
+
+```javascript
+// ❌ Sequential (slow) - waits for each to complete
+function getDataSequential() {
+  return fetchUser()
+    .then(user => fetchPosts()) // Waits for user
+    .then(posts => fetchComments()); // Waits for posts
+}
+
+// ✅ Parallel (fast) - all at once
+function getDataParallel() {
+  return Promise.all([
+    fetchUser(),
+    fetchPosts(),
+    fetchComments()
+  ]).then(([user, posts, comments]) => {
+    return { user, posts, comments };
+  });
+}
+
+// Mixed - parallel then sequential
+function getDataMixed() {
+  return fetchUser()
+    .then(user => {
+      // These can run in parallel
+      return Promise.all([
+        fetchPosts(user.id),
+        fetchComments(user.id),
+        fetchFollowers(user.id)
+      ]);
+    })
+    .then(([posts, comments, followers]) => {
+      return { posts, comments, followers };
+    });
+}
+```
+
+**Avoiding Common Mistakes:**
+
+```javascript
+// ❌ Breaking the chain
+getData()
+  .then(data => {
+    processData(data); // Returns promise but not returned!
+  })
+  .then(result => {
+    console.log(result); // undefined!
+  });
+
+// ✅ Return the promise
+getData()
+  .then(data => {
+    return processData(data); // Must return!
+  })
+  .then(result => {
+    console.log(result); // Correct value
+  });
+
+// ❌ Nesting promises (recreating callback hell)
+getData()
+  .then(data => {
+    getMoreData(data).then(moreData => {
+      getEvenMore(moreData).then(evenMore => {
+        console.log(evenMore);
+      });
+    });
+  });
+
+// ✅ Flatten the chain
+getData()
+  .then(data => getMoreData(data))
+  .then(moreData => getEvenMore(moreData))
+  .then(evenMore => console.log(evenMore));
+```
+
+---
+
+### Q4: What is the difference between Promise.all(), Promise.race(), Promise.allSettled(), and Promise.any()?
+
+**Answer:**
+
+**1. Promise.all() - All must succeed**
+
+Waits for all promises to resolve. Rejects immediately if any promise rejects.
+
+```javascript
+const promise1 = Promise.resolve(1);
+const promise2 = Promise.resolve(2);
+const promise3 = Promise.resolve(3);
+
+Promise.all([promise1, promise2, promise3])
+  .then(values => {
+    console.log(values); // [1, 2, 3]
+  });
+
+// ❌ Fails fast if any rejects
+const failing = Promise.reject('Error!');
+Promise.all([promise1, failing, promise3])
+  .then(values => {
+    console.log('Success:', values); // Never runs
+  })
+  .catch(error => {
+    console.error('Failed:', error); // 'Error!'
+  });
+
+// Use case: Fetch multiple resources (all required)
+async function loadDashboard() {
+  try {
+    const [user, posts, comments] = await Promise.all([
+      fetch('/api/user').then(r => r.json()),
+      fetch('/api/posts').then(r => r.json()),
+      fetch('/api/comments').then(r => r.json())
+    ]);
+    
+    return { user, posts, comments };
+  } catch (error) {
+    console.error('Failed to load dashboard:', error);
+  }
+}
+```
+
+**2. Promise.race() - First to settle wins**
+
+Resolves or rejects with the first promise that settles.
+
+```javascript
+const slow = new Promise(resolve => 
+  setTimeout(() => resolve('Slow'), 2000)
+);
+const fast = new Promise(resolve => 
+  setTimeout(() => resolve('Fast'), 100)
+);
+
+Promise.race([slow, fast])
+  .then(result => console.log(result)); // 'Fast'
+
+// Use case: Timeout for fetch
+function fetchWithTimeout(url, timeout = 5000) {
+  const fetchPromise = fetch(url);
+  const timeoutPromise = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error('Request timeout')), timeout)
+  );
+  
+  return Promise.race([fetchPromise, timeoutPromise]);
+}
+
+fetchWithTimeout('/api/data', 3000)
+  .then(response => response.json())
+  .catch(error => console.error(error));
+
+// Use case: Try multiple servers
+const servers = [
+  fetch('https://server1.com/api'),
+  fetch('https://server2.com/api'),
+  fetch('https://server3.com/api')
+];
+
+Promise.race(servers)
+  .then(response => console.log('First server responded'))
+  .catch(error => console.error('All servers slow or failed'));
+```
+
+**3. Promise.allSettled() - Wait for all, regardless of outcome**
+
+Waits for all promises to settle (either resolve or reject). Never rejects.
+
+```javascript
+const promises = [
+  Promise.resolve('Success 1'),
+  Promise.reject('Error 1'),
+  Promise.resolve('Success 2'),
+  Promise.reject('Error 2')
+];
+
+Promise.allSettled(promises)
+  .then(results => {
+    results.forEach((result, index) => {
+      if (result.status === 'fulfilled') {
+        console.log(`Promise ${index} succeeded:`, result.value);
+      } else {
+        console.log(`Promise ${index} failed:`, result.reason);
+      }
+    });
+  });
+
+// Output:
+// Promise 0 succeeded: Success 1
+// Promise 1 failed: Error 1
+// Promise 2 succeeded: Success 2
+// Promise 3 failed: Error 2
+
+// Use case: Run multiple independent operations
+async function runHealthChecks() {
+  const checks = [
+    checkDatabase(),
+    checkCache(),
+    checkExternalAPI(),
+    checkFileSystem()
+  ];
+  
+  const results = await Promise.allSettled(checks);
+  
+  const report = results.map((result, index) => ({
+    check: ['Database', 'Cache', 'API', 'FileSystem'][index],
+    status: result.status === 'fulfilled' ? 'healthy' : 'unhealthy',
+    details: result.status === 'fulfilled' ? result.value : result.reason
+  }));
+  
+  return report;
+}
+
+// Use case: Batch operations with error tracking
+async function processItems(items) {
+  const results = await Promise.allSettled(
+    items.map(item => processItem(item))
+  );
+  
+  const successful = results.filter(r => r.status === 'fulfilled');
+  const failed = results.filter(r => r.status === 'rejected');
+  
+  console.log(`Processed ${successful.length} items`);
+  console.log(`Failed ${failed.length} items`);
+  
+  return {
+    successful: successful.map(r => r.value),
+    failed: failed.map(r => r.reason)
+  };
+}
+```
+
+**4. Promise.any() - First successful promise**
+
+Resolves with the first fulfilled promise. Rejects only if all promises reject.
+
+```javascript
+const promises = [
+  Promise.reject('Error 1'),
+  Promise.resolve('Success 1'),
+  Promise.resolve('Success 2')
+];
+
+Promise.any(promises)
+  .then(result => console.log(result)) // 'Success 1'
+  .catch(error => console.error(error));
+
+// Rejects only if all fail
+const allFail = [
+  Promise.reject('Error 1'),
+  Promise.reject('Error 2'),
+  Promise.reject('Error 3')
+];
+
+Promise.any(allFail)
+  .then(result => console.log(result))
+  .catch(error => {
+    console.error('All failed:', error); // AggregateError
+    console.error('Individual errors:', error.errors);
+  });
+
+// Use case: Redundant resource fetching
+async function fetchFromMirrors(resource) {
+  const mirrors = [
+    fetch(`https://mirror1.com/${resource}`),
+    fetch(`https://mirror2.com/${resource}`),
+    fetch(`https://mirror3.com/${resource}`)
+  ];
+  
+  try {
+    const response = await Promise.any(mirrors);
+    return await response.json();
+  } catch (error) {
+    console.error('All mirrors failed:', error);
+    throw new Error('Resource unavailable');
+  }
+}
+
+// Use case: Try multiple authentication methods
+async function authenticate(credentials) {
+  const methods = [
+    authenticateWithOAuth(credentials),
+    authenticateWithSAML(credentials),
+    authenticateWithLDAP(credentials)
+  ];
+  
+  try {
+    const result = await Promise.any(methods);
+    console.log('Authenticated successfully');
+    return result;
+  } catch (error) {
+    console.error('All authentication methods failed');
+    throw new Error('Authentication failed');
+  }
+}
+```
+
+**Comparison Table:**
+
+| Method | Resolves When | Rejects When | Use Case |
+|--------|---------------|--------------|----------|
+| **Promise.all()** | All fulfill | Any rejects | All operations required |
+| **Promise.race()** | First settles | First settles with rejection | Timeout, fastest response |
+| **Promise.allSettled()** | All settle | Never | Independent operations, need all results |
+| **Promise.any()** | First fulfills | All reject | Redundancy, first success wins |
+
+**Visual Example:**
+
+```javascript
+async function demonstrateAll() {
+  const p1 = delay(1000, 'one');
+  const p2 = delay(2000, 'two');
+  const p3 = delay(3000, 'three');
+  
+  console.log('Starting...');
+  
+  // Promise.all - waits for all (3 seconds)
+  const allResult = await Promise.all([p1, p2, p3]);
+  console.log('All:', allResult); // ['one', 'two', 'three']
+  
+  // Promise.race - first to finish (1 second)
+  const raceResult = await Promise.race([p1, p2, p3]);
+  console.log('Race:', raceResult); // 'one'
+  
+  // Promise.any - first successful (1 second)
+  const anyResult = await Promise.any([p1, p2, p3]);
+  console.log('Any:', anyResult); // 'one'
+  
+  // Promise.allSettled - waits for all (3 seconds)
+  const settledResult = await Promise.allSettled([p1, p2, p3]);
+  console.log('AllSettled:', settledResult);
+  // [
+  //   { status: 'fulfilled', value: 'one' },
+  //   { status: 'fulfilled', value: 'two' },
+  //   { status: 'fulfilled', value: 'three' }
+  // ]
+}
+
+function delay(ms, value) {
+  return new Promise(resolve => setTimeout(() => resolve(value), ms));
+}
+```
+
+---
+
+### Q5: What is async/await? How is it different from Promises?
+
+**Answer:**
+
+**async/await** is syntactic sugar built on top of Promises that makes asynchronous code look and behave more like synchronous code.
+
+**Basic Syntax:**
+
+```javascript
+// Promise-based approach
+function fetchData() {
+  return fetch('/api/data')
+    .then(response => response.json())
+    .then(data => {
+      console.log('Data:', data);
+      return data;
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      throw error;
+    });
+}
+
+// async/await approach
+async function fetchData() {
+  try {
+    const response = await fetch('/api/data');
+    const data = await response.json();
+    console.log('Data:', data);
+    return data;
+  } catch (error) {
+    console.error('Error:', error);
+    throw error;
+  }
+}
+```
+
+**How async/await Works:**
+
+```javascript
+// 1. async function always returns a Promise
+async function getValue() {
+  return 42; // Automatically wrapped in Promise.resolve(42)
+}
+
+getValue().then(value => console.log(value)); // 42
+
+// 2. await pauses execution until promise resolves
+async function example() {
+  console.log('Start');
+  
+  const result = await Promise.resolve('Done');
+  // Execution pauses here until promise resolves
+  
+  console.log('Result:', result);
+  console.log('End');
+}
+// Output:
+// Start
+// Result: Done
+// End
+
+// 3. Error handling with try/catch
+async function handleErrors() {
+  try {
+    const data = await fetch('/api/data');
+    return data;
+  } catch (error) {
+    console.error('Caught:', error);
+    return null;
+  }
+}
+```
+
+**Complex Example - Sequential vs Parallel:**
+
+```javascript
+// Sequential execution (slow)
+async function sequential() {
+  const user = await fetchUser(); // Wait 1s
+  const posts = await fetchPosts(); // Wait 1s
+  const comments = await fetchComments(); // Wait 1s
+  return { user, posts, comments };
+  // Total: 3 seconds
+}
+
+// Parallel execution (fast)
+async function parallel() {
+  const [user, posts, comments] = await Promise.all([
+    fetchUser(),
+    fetchPosts(),
+    fetchComments()
+  ]);
+  return { user, posts, comments };
+  // Total: 1 second (all run simultaneously)
+}
+
+// Mixed approach
+async function mixed() {
+  const user = await fetchUser(); // Must happen first
+  
+  // These can run in parallel after we have user
+  const [posts, comments] = await Promise.all([
+    fetchPosts(user.id),
+    fetchComments(user.id)
+  ]);
+  
+  return { user, posts, comments };
+}
+```
+
+**Real-World Example:**
+
+```javascript
+// User registration with async/await
+async function registerUser(userData) {
+  try {
+    // Validate input
+    const validData = await validateInput(userData);
+    console.log('Validation passed');
+    
+    // Check if user exists
+    const exists = await checkUserExists(validData.email);
+    if (exists) {
+      throw new Error('User already exists');
+    }
+    
+    // Hash password
+    const hashedPassword = await hashPassword(validData.password);
+    
+    // Create user in database
+    const user = await createUser({
+      ...validData,
+      password: hashedPassword
+    });
+    console.log('User created:', user.id);
+    
+    // Send welcome email (don't wait for it)
+    sendWelcomeEmail(user.email).catch(err => 
+      console.error('Email failed:', err)
+    );
+    
+    // Generate auth token
+    const token = await generateAuthToken(user.id);
+    
+    return { user, token };
+    
+  } catch (error) {
+    console.error('Registration failed:', error);
+    
+    // Handle specific errors
+    if (error.message === 'User already exists') {
+      throw new Error('Email already registered');
+    }
+    
+    throw error;
+  }
+}
+```
+
+**Error Handling Patterns:**
+
+```javascript
+// Pattern 1: Try/catch per operation
+async function pattern1() {
+  let user;
+  try {
+    user = await fetchUser();
+  } catch (error) {
+    console.error('Failed to fetch user:', error);
+    return null;
+  }
+  
+  let posts;
+  try {
+    posts = await fetchPosts(user.id);
+  } catch (error) {
+    console.error('Failed to fetch posts:', error);
+    posts = [];
+  }
+  
+  return { user, posts };
+}
+
+// Pattern 2: Single try/catch
+async function pattern2() {
+  try {
+    const user = await fetchUser();
+    const posts = await fetchPosts(user.id);
+    return { user, posts };
+  } catch (error) {
+    console.error('Operation failed:', error);
+    throw error;
+  }
+}
+
+// Pattern 3: Fallback values
+async function pattern3() {
+  const user = await fetchUser().catch(err => {
+    console.error('User fetch failed:', err);
+    return { id: null, name: 'Guest' };
+  });
+  
+  const posts = await fetchPosts(user.id).catch(() => []);
+  
+  return { user, posts };
+}
+
+// Pattern 4: Helper function
+async function safeAwait(promise) {
+  try {
+    const data = await promise;
+    return [null, data];
+  } catch (error) {
+    return [error, null];
+  }
+}
+
+async function pattern4() {
+  const [userError, user] = await safeAwait(fetchUser());
+  if (userError) {
+    console.error('User fetch failed:', userError);
+    return null;
+  }
+  
+  const [postsError, posts] = await safeAwait(fetchPosts(user.id));
+  if (postsError) {
+    console.error('Posts fetch failed:', postsError);
+  }
+  
+  return { user, posts: posts || [] };
+}
+```
+
+**async/await vs Promises Comparison:**
+
+```javascript
+// Promises - more verbose for complex flows
+function promiseVersion() {
+  return fetchUser()
+    .then(user => {
+      return fetchPosts(user.id)
+        .then(posts => {
+          return fetchComments(posts[0].id)
+            .then(comments => {
+              return { user, posts, comments };
+            });
+        });
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      throw error;
+    });
+}
+
+// async/await - cleaner, easier to read
+async function asyncVersion() {
+  try {
+    const user = await fetchUser();
+    const posts = await fetchPosts(user.id);
+    const comments = await fetchComments(posts[0].id);
+    return { user, posts, comments };
+  } catch (error) {
+    console.error('Error:', error);
+    throw error;
+  }
+}
+```
+
+**Await in Loops:**
+
+```javascript
+// ❌ Sequential (slow) - each awaits previous
+async function processSequential(items) {
+  const results = [];
+  for (const item of items) {
+    const result = await processItem(item); // Waits for each
+    results.push(result);
+  }
+  return results;
+}
+
+// ✅ Parallel (fast) - all at once
+async function processParallel(items) {
+  const promises = items.map(item => processItem(item));
+  return await Promise.all(promises);
+}
+
+// Mixed - process in batches
+async function processBatches(items, batchSize = 5) {
+  const results = [];
+  for (let i = 0; i < items.length; i += batchSize) {
+    const batch = items.slice(i, i + batchSize);
+    const batchResults = await Promise.all(
+      batch.map(item => processItem(item))
+    );
+    results.push(...batchResults);
+  }
+  return results;
+}
+```
+
+**Top-Level await (Modern JavaScript):**
+
+```javascript
+// In ES modules, can use await at top level
+// main.js
+const data = await fetch('/api/data').then(r => r.json());
+console.log('Data loaded:', data);
+
+export default data;
+
+// Before, had to wrap in async function
+(async () => {
+  const data = await fetch('/api/data').then(r => r.json());
+  console.log('Data loaded:', data);
+})();
+```
+
+**When to Use async/await vs Promises:**
+
+| Scenario | Recommendation |
+|----------|----------------|
+| Sequential operations | async/await (cleaner) |
+| Parallel operations | Promise.all with await |
+| Error handling | async/await with try/catch |
+| Simple chains | Either works, async/await cleaner |
+| Library/framework code | Promises (more explicit) |
+| Need fine control | Promises |
+| Complex branching logic | async/await (easier to read) |
+
+---
+
+### Q6: How do you handle errors in Promises and async/await?
+
+**Answer:**
+
+**Promise Error Handling:**
+
+```javascript
+// Method 1: .catch() at the end
+fetch('/api/data')
+  .then(response => response.json())
+  .then(data => processData(data))
+  .then(result => console.log(result))
+  .catch(error => {
+    console.error('Error anywhere in chain:', error);
+  });
+
+// Method 2: .catch() for specific step
+fetch('/api/data')
+  .then(response => response.json())
+  .catch(error => {
+    console.error('Fetch or parse failed:', error);
+    return { default: 'data' }; // Provide fallback
+  })
+  .then(data => processData(data))
+  .catch(error => {
+    console.error('Processing failed:', error);
+  });
+
+// Method 3: Error recovery in chain
+fetch('/api/data')
+  .then(response => {
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    return response.json();
+  })
+  .then(data => processData(data))
+  .catch(error => {
+    console.error('Primary failed:', error);
+    return fetch('/api/backup-data'); // Try backup
+  })
+  .then(response => response.json())
+  .catch(error => {
+    console.error('Both failed:', error);
+    return { fallback: true }; // Ultimate fallback
+  });
+
+// Method 4: Finally for cleanup
+let loading = true;
+fetch('/api/data')
+  .then(response => response.json())
+  .then(data => updateUI(data))
+  .catch(error => showError(error))
+  .finally(() => {
+    loading = false; // Always runs
+    hideSpinner();
+  });
+```
+
+**async/await Error Handling:**
+
+```javascript
+// Method 1: try/catch block
+async function fetchData() {
+  try {
+    const response = await fetch('/api/data');
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    const processed = await processData(data);
+    
+    return processed;
+    
+  } catch (error) {
+    console.error('Error:', error.message);
+    throw error; // Re-throw or handle
+  }
+}
+
+// Method 2: Multiple try/catch blocks
+async function complexOperation() {
+  let user;
+  
+  try {
+    user = await fetchUser();
+  } catch (error) {
+    console.error('User fetch failed:', error);
+    user = getDefaultUser();
+  }
+  
+  let posts;
+  try {
+    posts = await fetchPosts(user.id);
+  } catch (error) {
+    console.error('Posts fetch failed:', error);
+    posts = [];
+  }
+  
+  return { user, posts };
+}
+
+// Method 3: Try/catch with finally
+async function withCleanup() {
+  let connection;
+  
+  try {
+    connection = await openConnection();
+    const data = await connection.query('SELECT * FROM users');
+    return data;
+    
+  } catch (error) {
+    console.error('Database error:', error);
+    throw error;
+    
+  } finally {
+    if (connection) {
+      await connection.close(); // Always cleanup
+    }
+  }
+}
+
+// Method 4: Catch on await
+async function selectiveCatch() {
+  const user = await fetchUser().catch(error => {
+    console.error('User failed:', error);
+    return { id: null, name: 'Guest' };
+  });
+  
+  const posts = await fetchPosts(user.id).catch(() => []);
+  
+  return { user, posts };
+}
+```
+
+**Custom Error Classes:**
+
+```javascript
+class APIError extends Error {
+  constructor(message, statusCode, response) {
+    super(message);
+    this.name = 'APIError';
+    this.statusCode = statusCode;
+    this.response = response;
+  }
+}
+
+class ValidationError extends Error {
+  constructor(message, field) {
+    super(message);
+    this.name = 'ValidationError';
+    this.field = field;
+  }
+}
+
+async function fetchUser(id) {
+  try {
+    const response = await fetch(`/api/users/${id}`);
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new APIError(
+        errorData.message || 'API request failed',
+        response.status,
+        errorData
+      );
+    }
+    
+    const user = await response.json();
+    
+    if (!user.email) {
+      throw new ValidationError('Email is required', 'email');
+    }
+    
+    return user;
+    
+  } catch (error) {
+    if (error instanceof APIError) {
+      console.error(`API Error ${error.statusCode}:`, error.message);
+      if (error.statusCode === 404) {
+        return null; // User not found
+      }
+    } else if (error instanceof ValidationError) {
+      console.error(`Validation failed for ${error.field}:`, error.message);
+    } else {
+      console.error('Unexpected error:', error);
+    }
+    
+    throw error;
+  }
+}
+```
+
+**Error Handling Utilities:**
+
+```javascript
+// Safe async wrapper
+function safeAsync(fn) {
+  return async function(...args) {
+    try {
+      return await fn(...args);
+    } catch (error) {
+      console.error(`Error in ${fn.name}:`, error);
+      return null;
+    }
+  };
+}
+
+const safeFetchUser = safeAsync(async (id) => {
+  const response = await fetch(`/api/users/${id}`);
+  return response.json();
+});
+
+// Result wrapper (Go-style)
+async function to(promise) {
+  try {
+    const data = await promise;
+    return [null, data];
+  } catch (error) {
+    return [error, null];
+  }
+}
+
+async function example() {
+  const [userError, user] = await to(fetchUser(123));
+  
+  if (userError) {
+    console.error('Failed to fetch user:', userError);
+    return;
+  }
+  
+  const [postsError, posts] = await to(fetchPosts(user.id));
+  
+  if (postsError) {
+    console.error('Failed to fetch posts:', postsError);
+  }
+  
+  return { user, posts: posts || [] };
+}
+
+// Retry utility
+async function retry(fn, maxAttempts = 3, delay = 1000) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      if (attempt === maxAttempts) {
+        throw error;
+      }
+      
+      console.log(`Attempt ${attempt} failed, retrying in ${delay}ms...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+      delay *= 2; // Exponential backoff
+    }
+  }
+}
+
+// Usage
+const data = await retry(() => fetch('/api/data').then(r => r.json()));
+
+// Timeout utility
+async function withTimeout(promise, ms) {
+  const timeout = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error('Operation timed out')), ms)
+  );
+  
+  return Promise.race([promise, timeout]);
+}
+
+// Usage
+try {
+  const data = await withTimeout(fetchData(), 5000);
+  console.log('Data:', data);
+} catch (error) {
+  if (error.message === 'Operation timed out') {
+    console.error('Request took too long');
+  }
+}
+```
+
+**Global Error Handlers:**
+
+```javascript
+// Unhandled promise rejections
+window.addEventListener('unhandledrejection', event => {
+  console.error('Unhandled rejection:', event.reason);
+  
+  // Prevent default browser behavior
+  event.preventDefault();
+  
+  // Log to error tracking service
+  logToSentry(event.reason);
+  
+  // Show user-friendly message
+  showNotification('Something went wrong. Please try again.');
+});
+
+// Example of unhandled rejection
+async function buggyFunction() {
+  throw new Error('This will be unhandled!');
+}
+
+buggyFunction(); // No .catch() - triggers unhandledrejection
+
+// Proper handling
+buggyFunction().catch(error => console.error('Caught:', error));
+```
+
+**Best Practices:**
+
+```javascript
+// ✅ Always handle errors
+async function good() {
+  try {
+    return await fetchData();
+  } catch (error) {
+    console.error('Error:', error);
+    return defaultData;
+  }
+}
+
+// ❌ Silent failures
+async function bad() {
+  return await fetchData(); // Error bubbles up uncaught
+}
+
+// ✅ Specific error handling
+async function specificHandling() {
+  try {
+    const data = await fetchData();
+    return processData(data);
+  } catch (error) {
+    if (error.name === 'NetworkError') {
+      return retryWithBackup();
+    } else if (error.name === 'ValidationError') {
+      throw new UserFacingError('Invalid data received');
+    } else {
+      logError(error);
+      throw error;
+    }
+  }
+}
+
+// ✅ Cleanup with finally
+async function withCleanup() {
+  const resource = await acquireResource();
+  
+  try {
+    return await useResource(resource);
+  } catch (error) {
+    console.error('Resource usage failed:', error);
+    throw error;
+  } finally {
+    await releaseResource(resource); // Always cleanup
+  }
+}
+
+// ✅ Parallel error handling
+async function parallelErrors() {
+  const results = await Promise.allSettled([
+    fetchUser(),
+    fetchPosts(),
+    fetchComments()
+  ]);
+  
+  const errors = results
+    .filter(r => r.status === 'rejected')
+    .map(r => r.reason);
+  
+  if (errors.length > 0) {
+    console.error('Some operations failed:', errors);
+  }
+  
+  const data = results
+    .filter(r => r.status === 'fulfilled')
+    .map(r => r.value);
+  
+  return data;
+}
+```
+
+---
+
+### Q7: Explain Promise composition patterns and advanced techniques.
+
+**Answer:**
+
+**Pattern 1: Promise Pipelining**
+
+```javascript
+// Chain of transformations
+const pipeline = (value) =>
+  Promise.resolve(value)
+    .then(v => v * 2)
+    .then(v => v + 10)
+    .then(v => v.toString())
+    .then(v => `Result: ${v}`);
+
+pipeline(5).then(console.log); // 'Result: 20'
+
+// Generic pipeline function
+function pipe(...fns) {
+  return (value) => {
+    return fns.reduce(
+      (promise, fn) => promise.then(fn),
+      Promise.resolve(value)
+    );
+  };
+}
+
+const transform = pipe(
+  (x) => x * 2,
+  (x) => x + 10,
+  (x) => x.toString(),
+  (x) => `Result: ${x}`
+);
+
+transform(5).then(console.log); // 'Result: 20'
+
+// Async pipeline
+function asyncPipe(...fns) {
+  return async (value) => {
+    let result = value;
+    for (const fn of fns) {
+      result = await fn(result);
+    }
+    return result;
+  };
+}
+
+const asyncTransform = asyncPipe(
+  async (x) => x * 2,
+  async (x) => await delay(100, x + 10),
+  async (x) => x.toString()
+);
+```
+
+**Pattern 2: Sequential Execution**
+
+```javascript
+// Execute promises one after another
+async function sequential(tasks) {
+  const results = [];
+  for (const task of tasks) {
+    const result = await task();
+    results.push(result);
+  }
+  return results;
+}
+
+const tasks = [
+  () => fetchUser(1),
+  () => fetchUser(2),
+  () => fetchUser(3)
+];
+
+const users = await sequential(tasks);
+
+// With reduce
+function sequentialReduce(tasks) {
+  return tasks.reduce(
+    (promise, task) => promise.then(results =>
+      task().then(result => [...results, result])
+    ),
+    Promise.resolve([])
+  );
+}
+```
+
+**Pattern 3: Parallel Batching**
+
+```javascript
+// Process items in parallel batches
+async function batchProcess(items, batchSize, processFn) {
+  const results = [];
+  
+  for (let i = 0; i < items.length; i += batchSize) {
+    const batch = items.slice(i, i + batchSize);
+    const batchResults = await Promise.all(
+      batch.map(item => processFn(item))
+    );
+    results.push(...batchResults);
+    
+    // Optional: delay between batches
+    if (i + batchSize < items.length) {
+      await delay(100);
+    }
+  }
+  
+  return results;
+}
+
+// Usage
+const userIds = Array.from({ length: 100 }, (_, i) => i + 1);
+const users = await batchProcess(userIds, 10, fetchUser);
+// Fetches in batches of 10
+
+// With concurrency limit
+async function limitConcurrency(tasks, limit) {
+  const results = [];
+  const executing = [];
+  
+  for (const task of tasks) {
+    const promise = task().then(result => {
+      executing.splice(executing.indexOf(promise), 1);
+      return result;
+    });
+    
+    results.push(promise);
+    executing.push(promise);
+    
+    if (executing.length >= limit) {
+      await Promise.race(executing);
+    }
+  }
+  
+  return Promise.all(results);
+}
+
+// Process max 5 at a time
+const limited = await limitConcurrency(tasks, 5);
+```
+
+**Pattern 4: Promise Memoization**
+
+```javascript
+// Cache promise results
+function memoizeAsync(fn) {
+  const cache = new Map();
+  
+  return function(...args) {
+    const key = JSON.stringify(args);
+    
+    if (cache.has(key)) {
+      return cache.get(key);
+    }
+    
+    const promise = fn(...args).catch(error => {
+      cache.delete(key); // Remove from cache on error
+      throw error;
+    });
+    
+    cache.set(key, promise);
+    return promise;
+  };
+}
+
+const memoizedFetch = memoizeAsync(async (url) => {
+  const response = await fetch(url);
+  return response.json();
+});
+
+// First call - fetches from server
+await memoizedFetch('/api/user/1');
+
+// Second call - returns cached promise
+await memoizedFetch('/api/user/1'); // Instant!
+
+// With expiration
+function memoizeAsyncWithTTL(fn, ttl = 60000) {
+  const cache = new Map();
+  
+  return function(...args) {
+    const key = JSON.stringify(args);
+    const cached = cache.get(key);
+    
+    if (cached && Date.now() - cached.timestamp < ttl) {
+      return cached.promise;
+    }
+    
+    const promise = fn(...args);
+    cache.set(key, {
+      promise,
+      timestamp: Date.now()
+    });
+    
+    return promise;
+  };
+}
+```
+
+**Pattern 5: Retry with Exponential Backoff**
+
+```javascript
+async function retryWithBackoff(
+  fn,
+  maxRetries = 3,
+  baseDelay = 1000,
+  maxDelay = 30000
+) {
+  let lastError;
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+      
+      if (attempt < maxRetries - 1) {
+        const delay = Math.min(
+          baseDelay * Math.pow(2, attempt),
+          maxDelay
+        );
+        
+        console.log(`Retry ${attempt + 1}/${maxRetries} in ${delay}ms`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+  
+  throw lastError;
+}
+
+// Usage
+const data = await retryWithBackoff(
+  () => fetch('/api/data').then(r => r.json()),
+  5,
+  1000
+);
+
+// With jitter (randomness)
+async function retryWithJitter(fn, maxRetries = 3) {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      if (attempt < maxRetries - 1) {
+        const baseDelay = 1000 * Math.pow(2, attempt);
+        const jitter = Math.random() * 1000;
+        const delay = baseDelay + jitter;
+        
+        await new Promise(resolve => setTimeout(resolve, delay));
+      } else {
+        throw error;
+      }
+    }
+  }
+}
+```
+
+**Pattern 6: Circuit Breaker**
+
+```javascript
+class CircuitBreaker {
+  constructor(fn, options = {}) {
+    this.fn = fn;
+    this.failureThreshold = options.failureThreshold || 5;
+    this.resetTimeout = options.resetTimeout || 60000;
+    this.state = 'CLOSED'; // CLOSED, OPEN, HALF_OPEN
+    this.failureCount = 0;
+    this.nextAttempt = Date.now();
+  }
+  
+  async execute(...args) {
+    if (this.state === 'OPEN') {
+      if (Date.now() < this.nextAttempt) {
+        throw new Error('Circuit breaker is OPEN');
+      }
+      this.state = 'HALF_OPEN';
+    }
+    
+    try {
+      const result = await this.fn(...args);
+      this.onSuccess();
+      return result;
+    } catch (error) {
+      this.onFailure();
+      throw error;
+    }
+  }
+  
+  onSuccess() {
+    this.failureCount = 0;
+    this.state = 'CLOSED';
+  }
+  
+  onFailure() {
+    this.failureCount++;
+    
+    if (this.failureCount >= this.failureThreshold) {
+      this.state = 'OPEN';
+      this.nextAttempt = Date.now() + this.resetTimeout;
+      console.log('Circuit breaker opened');
+    }
+  }
+}
+
+// Usage
+const breaker = new CircuitBreaker(
+  (url) => fetch(url).then(r => r.json()),
+  { failureThreshold: 3, resetTimeout: 30000 }
+);
+
+try {
+  const data = await breaker.execute('/api/data');
+} catch (error) {
+  console.error('Request failed or circuit open');
+}
+```
+
+**Pattern 7: Promise Pool**
+
+```javascript
+class PromisePool {
+  constructor(maxConcurrent = 5) {
+    this.maxConcurrent = maxConcurrent;
+    this.currentlyRunning = 0;
+    this.queue = [];
+  }
+  
+  async add(promiseFn) {
+    while (this.currentlyRunning >= this.maxConcurrent) {
+      await Promise.race(this.queue);
+    }
+    
+    this.currentlyRunning++;
+    
+    const promise = promiseFn()
+      .then(result => {
+        this.currentlyRunning--;
+        this.queue.splice(this.queue.indexOf(promise), 1);
+        return result;
+      })
+      .catch(error => {
+        this.currentlyRunning--;
+        this.queue.splice(this.queue.indexOf(promise), 1);
+        throw error;
+      });
+    
+    this.queue.push(promise);
+    return promise;
+  }
+  
+  async all(promiseFns) {
+    return Promise.all(
+      promiseFns.map(fn => this.add(fn))
+    );
+  }
+}
+
+// Usage
+const pool = new PromisePool(3);
+
+const tasks = Array.from({ length: 10 }, (_, i) => 
+  () => fetchUser(i + 1)
+);
+
+const results = await pool.all(tasks);
+// Only 3 running at a time
+```
+
+**Pattern 8: Debounced Promises**
+
+```javascript
+function debounceAsync(fn, delay) {
+  let timeoutId;
+  let latestResolve;
+  let latestReject;
+  
+  return function(...args) {
+    return new Promise((resolve, reject) => {
+      clearTimeout(timeoutId);
+      
+      latestResolve = resolve;
+      latestReject = reject;
+      
+      timeoutId = setTimeout(async () => {
+        try {
+          const result = await fn(...args);
+          latestResolve(result);
+        } catch (error) {
+          latestReject(error);
+        }
+      }, delay);
+    });
+  };
+}
+
+// Usage
+const debouncedSearch = debounceAsync(
+  async (query) => {
+    const response = await fetch(`/api/search?q=${query}`);
+    return response.json();
+  },
+  500
+);
+
+// Multiple rapid calls
+debouncedSearch('jav'); // Cancelled
+debouncedSearch('java'); // Cancelled
+debouncedSearch('javasc'); // Cancelled
+debouncedSearch('javascript'); // Executes after 500ms
+```
+
+**Pattern 9: Promise Cancellation (AbortController)**
+
+```javascript
+// Cancellable fetch
+async function cancellableFetch(url, options = {}) {
+  const controller = new AbortController();
+  const { signal } = controller;
+  
+  const fetchPromise = fetch(url, { ...options, signal })
+    .then(response => response.json());
+  
+  return {
+    promise: fetchPromise,
+    cancel: () => controller.abort()
+  };
+}
+
+// Usage
+const { promise, cancel } = cancellableFetch('/api/data');
+
+// Cancel after 5 seconds
+setTimeout(cancel, 5000);
+
+try {
+  const data = await promise;
+  console.log('Data:', data);
+} catch (error) {
+  if (error.name === 'AbortError') {
+    console.log('Request was cancelled');
+  }
+}
+
+// Generic cancellable promise
+function makeCancellable(promise) {
+  let hasCancelled = false;
+  
+  const wrappedPromise = new Promise((resolve, reject) => {
+    promise
+      .then(value => hasCancelled ? reject({ isCancelled: true }) : resolve(value))
+      .catch(error => hasCancelled ? reject({ isCancelled: true }) : reject(error));
+  });
+  
+  return {
+    promise: wrappedPromise,
+    cancel: () => { hasCancelled = true; }
+  };
+}
+```
+
+**Pattern 10: Lazy Promise**
+
+```javascript
+// Promise that doesn't execute until .then() is called
+class LazyPromise {
+  constructor(executor) {
+    this.executor = executor;
+    this.promise = null;
+  }
+  
+  then(onFulfilled, onRejected) {
+    if (!this.promise) {
+      this.promise = new Promise(this.executor);
+    }
+    return this.promise.then(onFulfilled, onRejected);
+  }
+  
+  catch(onRejected) {
+    return this.then(null, onRejected);
+  }
+}
+
+// Usage
+const lazy = new LazyPromise((resolve) => {
+  console.log('Executing now!'); // Only when .then() is called
+  setTimeout(() => resolve('Done'), 1000);
+});
+
+// Not executed yet...
+await delay(2000);
+
+// Now it executes
+lazy.then(result => console.log(result));
+```
+
+These patterns enable sophisticated asynchronous flow control and are commonly used in production applications for handling complex scenarios like rate limiting, error recovery, and resource management.
+
+---
+
+### Q8: What are common Promise anti-patterns and mistakes?
+
+**Answer:**
+
+**Anti-Pattern 1: The Nested Promise Hell**
+
+```javascript
+// ❌ Nesting promises (recreates callback hell)
+fetchUser()
+  .then(user => {
+    fetchPosts(user.id).then(posts => {
+      fetchComments(posts[0].id).then(comments => {
+        console.log({ user, posts, comments });
+      });
+    });
+  });
+
+// ✅ Flat promise chain
+fetchUser()
+  .then(user => {
+    this.user = user;
+    return fetchPosts(user.id);
+  })
+  .then(posts => {
+    this.posts = posts;
+    return fetchComments(posts[0].id);
+  })
+  .then(comments => {
+    console.log({ user: this.user, posts: this.posts, comments });
+  });
+
+// ✅ Better with async/await
+async function getData() {
+  const user = await fetchUser();
+  const posts = await fetchPosts(user.id);
+  const comments = await fetchComments(posts[0].id);
+  return { user, posts, comments };
+}
+```
+
+**Anti-Pattern 2: Forgetting to Return**
+
+```javascript
+// ❌ Not returning promise
+function getUserData(id) {
+  fetchUser(id)
+    .then(user => {
+      return user.data; // This return is for .then(), not getUserData()
+    });
+}
+
+const data = getUserData(123); // undefined!
+
+// ✅ Return the promise
+function getUserData(id) {
+  return fetchUser(id)
+    .then(user => user.data);
+}
+
+const data = await getUserData(123); // Correct!
+
+// ❌ Breaking the chain
+getData()
+  .then(data => {
+    processData(data); // Returns promise but not returned!
+  })
+  .then(result => {
+    console.log(result); // undefined
+  });
+
+// ✅ Return the promise
+getData()
+  .then(data => {
+    return processData(data);
+  })
+  .then(result => {
+    console.log(result); // Correct value
+  });
+```
+
+**Anti-Pattern 3: Using async Without await**
+
+```javascript
+// ❌ Unnecessary async
+async function getUser(id) {
+  return fetchUser(id); // Don't need async here
+}
+
+// ✅ Remove async if not awaiting
+function getUser(id) {
+  return fetchUser(id);
+}
+
+// ❌ async function not awaited
+async function process() {
+  const result = fetchData(); // Missing await!
+  console.log(result); // Promise object, not the data
+}
+
+// ✅ await the async function
+async function process() {
+  const result = await fetchData();
+  console.log(result); // Actual data
+}
+```
+
+**Anti-Pattern 4: Not Handling Errors**
+
+```javascript
+// ❌ No error handling
+async function getData() {
+  const data = await fetch('/api/data');
+  return data.json();
+  // If fetch fails, error bubbles up unhandled
+}
+
+getData(); // Unhandled promise rejection!
+
+// ✅ Proper error handling
+async function getData() {
+  try {
+    const data = await fetch('/api/data');
+    return data.json();
+  } catch (error) {
+    console.error('Failed to fetch data:', error);
+    return null;
+  }
+}
+
+// ❌ Silent failures
+fetchData().catch(() => {}); // Error swallowed!
+
+// ✅ At least log the error
+fetchData().catch(error => {
+  console.error('Error:', error);
+  // Handle or re-throw
+});
+```
+
+**Anti-Pattern 5: Creating Unnecessary Promises**
+
+```javascript
+// ❌ Wrapping already-promised values
+async function getUser(id) {
+  return new Promise((resolve) => {
+    fetchUser(id).then(user => {
+      resolve(user); // Unnecessary wrapping
+    });
+  });
+}
+
+// ✅ Just return the existing promise
+async function getUser(id) {
+  return fetchUser(id);
+}
+
+// or even simpler
+function getUser(id) {
+  return fetchUser(id);
+}
+
+// ❌ Promise constructor for async function
+function getData() {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const data = await fetchData();
+      resolve(data);
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
+// ✅ Just use async function
+async function getData() {
+  return await fetchData();
+}
+```
+
+**Anti-Pattern 6: Sequential When Could Be Parallel**
+
+```javascript
+// ❌ Sequential (slow)
+async function loadData() {
+  const users = await fetchUsers(); // 1 second
+  const posts = await fetchPosts(); // 1 second
+  const comments = await fetchComments(); // 1 second
+  return { users, posts, comments };
+  // Total: 3 seconds
+}
+
+// ✅ Parallel (fast)
+async function loadData() {
+  const [users, posts, comments] = await Promise.all([
+    fetchUsers(),
+    fetchPosts(),
+    fetchComments()
+  ]);
+  return { users, posts, comments };
+  // Total: 1 second (all run together)
+}
+
+// ❌ Using await in map
+async function processItems(items) {
+  return items.map(async item => {
+    return await processItem(item);
+  });
+  // Returns array of promises!
+}
+
+// ✅ Properly await Promise.all
+async function processItems(items) {
+  return await Promise.all(
+    items.map(item => processItem(item))
+  );
+}
+```
+
+**Anti-Pattern 7: Using .then() with async/await**
+
+```javascript
+// ❌ Mixing paradigms
+async function getData() {
+  return await fetchData()
+    .then(data => processData(data))
+    .then(result => result.value);
+}
+
+// ✅ Stick with async/await
+async function getData() {
+  const data = await fetchData();
+  const processed = await processData(data);
+  return processed.value;
+}
+
+// or stick with promises
+function getData() {
+  return fetchData()
+    .then(data => processData(data))
+    .then(result => result.value);
+}
+```
+
+**Anti-Pattern 8: Ignoring Promise.all() Failures**
+
+```javascript
+// ❌ All fail if one fails
+async function loadAll() {
+  try {
+    const [users, posts, comments] = await Promise.all([
+      fetchUsers(),
+      fetchPosts(), // If this fails, you get nothing
+      fetchComments()
+    ]);
+  } catch (error) {
+    // One failure = lose all results
+  }
+}
+
+// ✅ Use Promise.allSettled for independent operations
+async function loadAll() {
+  const results = await Promise.allSettled([
+    fetchUsers(),
+    fetchPosts(),
+    fetchComments()
+  ]);
+  
+  const [users, posts, comments] = results.map(result =>
+    result.status === 'fulfilled' ? result.value : null
+  );
+  
+  return { users, posts, comments };
+  // Get what succeeded, null for failures
+}
+```
+
+**Anti-Pattern 9: Modifying Promise Prototype**
+
+```javascript
+// ❌ Never modify built-in prototypes
+Promise.prototype.delay = function(ms) {
+  return this.then(value =>
+    new Promise(resolve => setTimeout(() => resolve(value), ms))
+  );
+};
+
+// ✅ Use utility functions
+function delay(promise, ms) {
+  return promise.then(value =>
+    new Promise(resolve => setTimeout(() => resolve(value), ms))
+  );
+}
+
+// or helper function
+const delayedFetch = (url) =>
+  fetch(url).then(r => 
+    new Promise(resolve => 
+      setTimeout(() => resolve(r.json()), 1000)
+    )
+  );
+```
+
+**Anti-Pattern 10: Race Conditions**
+
+```javascript
+// ❌ Race condition
+let data;
+
+async function getData() {
+  if (!data) {
+    data = await fetchData(); // Multiple calls = multiple fetches!
+  }
+  return data;
+}
+
+// Called twice rapidly
+getData();
+getData();
+// Both calls fetch because data is still undefined
+
+// ✅ Cache the promise itself
+let dataPromise;
+
+async function getData() {
+  if (!dataPromise) {
+    dataPromise = fetchData();
+  }
+  return dataPromise;
+}
+
+// Both calls share same promise
+getData();
+getData();
+```
+
+**Anti-Pattern 11: forEach with async**
+
+```javascript
+// ❌ forEach doesn't wait for async
+async function processAll(items) {
+  items.forEach(async item => {
+    await processItem(item);
+  });
+  console.log('Done!'); // Logs immediately, not when done!
+}
+
+// ✅ Use for...of
+async function processAll(items) {
+  for (const item of items) {
+    await processItem(item);
+  }
+  console.log('Done!'); // Logs when actually done
+}
+
+// ✅ Or Promise.all for parallel
+async function processAll(items) {
+  await Promise.all(
+    items.map(item => processItem(item))
+  );
+  console.log('Done!');
+}
+```
+
+**Anti-Pattern 12: try/catch Without Rethrowing**
+
+```javascript
+// ❌ Catching and not rethrowing
+async function getData() {
+  try {
+    return await fetchData();
+  } catch (error) {
+    console.error('Error:', error);
+    // Error is swallowed!
+  }
+}
+
+const data = await getData(); // undefined, no indication of error!
+
+// ✅ Rethrow or return explicit value
+async function getData() {
+  try {
+    return await fetchData();
+  } catch (error) {
+    console.error('Error:', error);
+    throw error; // Let caller handle it
+  }
+}
+
+// or return explicit value
+async function getData() {
+  try {
+    return await fetchData();
+  } catch (error) {
+    console.error('Error:', error);
+    return null; // Explicit fallback
+  }
+}
+```
+
+**Summary of Best Practices:**
+
+✅ Always return promises from functions
+✅ Use async/await consistently (don't mix with .then())
+✅ Always handle errors with try/catch or .catch()
+✅ Use Promise.all() for parallel operations
+✅ Use Promise.allSettled() when some failures are okay
+✅ Avoid nesting promises
+✅ Don't create unnecessary promise wrappers
+✅ Use for...of or Promise.all(), not forEach() with async
+✅ Cache promises to avoid race conditions
+✅ Rethrow errors unless explicitly handling them
+
+---
+
+This comprehensive guide covers all important Promise-related interview questions with practical examples and real-world scenarios.

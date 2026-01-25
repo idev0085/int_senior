@@ -11652,3 +11652,1345 @@ describe('E-Commerce Checkout Flow', () => {
 ✅ **Monitor and measure** performance continuously
 
 This comprehensive system design guide provides the foundation for building scalable, maintainable, and performant React applications! 🚀
+
+---
+
+## React PropTypes - Complete Guide
+
+### Q1: What are PropTypes and why should you use them?
+
+**Answer:**
+
+PropTypes is a runtime type-checking library for React component props. It helps catch bugs by validating that components receive the correct prop types.
+
+**Why Use PropTypes:**
+
+1. **Type Safety**: Validate props at runtime
+2. **Documentation**: Props become self-documenting
+3. **Early Bug Detection**: Catch type errors in development
+4. **Better DX**: Clear warnings when props are incorrect
+5. **Team Communication**: Makes component API clear
+
+**Installation:**
+
+```bash
+npm install prop-types
+```
+
+**Basic Usage:**
+
+```javascript
+import PropTypes from 'prop-types';
+
+function UserCard({ name, age, email, isActive }) {
+  return (
+    <div>
+      <h2>{name}</h2>
+      <p>Age: {age}</p>
+      <p>Email: {email}</p>
+      <p>Status: {isActive ? 'Active' : 'Inactive'}</p>
+    </div>
+  );
+}
+
+// Define PropTypes
+UserCard.propTypes = {
+  name: PropTypes.string.isRequired,
+  age: PropTypes.number.isRequired,
+  email: PropTypes.string,
+  isActive: PropTypes.bool
+};
+
+// Optional: Define default values
+UserCard.defaultProps = {
+  isActive: true,
+  email: 'N/A'
+};
+
+// Usage
+<UserCard name="John" age={30} /> // ✅ Valid
+<UserCard name="John" age="30" /> // ❌ Warning: age should be number
+<UserCard age={30} /> // ❌ Warning: name is required
+```
+
+**When Warning Appears:**
+
+```javascript
+// Development mode: Console warning
+Warning: Failed prop type: Invalid prop `age` of type `string` 
+supplied to `UserCard`, expected `number`.
+
+// Production mode: No warnings (PropTypes are stripped out)
+```
+
+---
+
+### Q2: What are all the available PropTypes validators?
+
+**Answer:**
+
+**1. Primitive Types:**
+
+```javascript
+import PropTypes from 'prop-types';
+
+Component.propTypes = {
+  // Basic JavaScript types
+  stringProp: PropTypes.string,
+  numberProp: PropTypes.number,
+  boolProp: PropTypes.bool,
+  functionProp: PropTypes.func,
+  symbolProp: PropTypes.symbol,
+  
+  // Any type (not recommended)
+  anyProp: PropTypes.any
+};
+```
+
+**2. Renderable Types:**
+
+```javascript
+Component.propTypes = {
+  // Anything that can be rendered: numbers, strings, elements, array
+  renderableProp: PropTypes.node,
+  
+  // A React element (e.g., <div>, <MyComponent />)
+  elementProp: PropTypes.element,
+  
+  // A React element of specific type
+  buttonElement: PropTypes.elementType // e.g., Button, 'button'
+};
+
+// Examples
+<Component 
+  renderableProp="Hello" // ✅ string
+  renderableProp={123} // ✅ number
+  renderableProp={<div>Hi</div>} // ✅ element
+  renderableProp={[1, 2, 3]} // ✅ array
+  
+  elementProp={<Button />} // ✅ React element
+  elementProp="Not element" // ❌ Warning
+  
+  buttonElement={Button} // ✅ Component
+  buttonElement="button" // ✅ HTML element
+/>
+```
+
+**3. Instance Types:**
+
+```javascript
+class MyClass {}
+
+Component.propTypes = {
+  // Instance of a specific class
+  dateProp: PropTypes.instanceOf(Date),
+  customProp: PropTypes.instanceOf(MyClass)
+};
+
+// Usage
+<Component 
+  dateProp={new Date()} // ✅
+  dateProp="2024-01-01" // ❌ Warning
+  
+  customProp={new MyClass()} // ✅
+/>
+```
+
+**4. Enum Types:**
+
+```javascript
+Component.propTypes = {
+  // One of specific values
+  status: PropTypes.oneOf(['pending', 'success', 'error']),
+  
+  // One of specific types
+  value: PropTypes.oneOfType([
+    PropTypes.string,
+    PropTypes.number,
+    PropTypes.bool
+  ])
+};
+
+// Usage
+<Component 
+  status="success" // ✅
+  status="loading" // ❌ Warning
+  
+  value="hello" // ✅ string
+  value={42} // ✅ number
+  value={true} // ✅ bool
+  value={[]} // ❌ Warning: array not allowed
+/>
+```
+
+**5. Array and Object Types:**
+
+```javascript
+Component.propTypes = {
+  // Array of any type
+  simpleArray: PropTypes.array,
+  
+  // Array of specific type
+  numbers: PropTypes.arrayOf(PropTypes.number),
+  users: PropTypes.arrayOf(PropTypes.shape({
+    id: PropTypes.number,
+    name: PropTypes.string
+  })),
+  
+  // Object of any shape
+  simpleObject: PropTypes.object,
+  
+  // Object with specific properties
+  user: PropTypes.shape({
+    id: PropTypes.number.isRequired,
+    name: PropTypes.string.isRequired,
+    email: PropTypes.string,
+    age: PropTypes.number
+  }),
+  
+  // Object with strict shape (no extra properties)
+  exactUser: PropTypes.exact({
+    id: PropTypes.number,
+    name: PropTypes.string
+  }),
+  
+  // Object with values of specific type
+  scores: PropTypes.objectOf(PropTypes.number)
+};
+
+// Usage
+<Component 
+  numbers={[1, 2, 3]} // ✅
+  numbers={[1, "2", 3]} // ❌ Warning
+  
+  user={{
+    id: 1,
+    name: "John",
+    email: "john@example.com"
+  }} // ✅
+  
+  user={{
+    id: 1
+    // ❌ Warning: name is required
+  }}
+  
+  exactUser={{
+    id: 1,
+    name: "John",
+    extra: "field" // ❌ Warning with exact
+  }}
+  
+  scores={{
+    math: 90,
+    english: 85
+  }} // ✅
+/>
+```
+
+**6. Required Props:**
+
+```javascript
+Component.propTypes = {
+  // Add .isRequired to make prop mandatory
+  requiredString: PropTypes.string.isRequired,
+  requiredNumber: PropTypes.number.isRequired,
+  requiredArray: PropTypes.array.isRequired,
+  
+  // Can be used with any validator
+  requiredShape: PropTypes.shape({
+    id: PropTypes.number
+  }).isRequired,
+  
+  requiredOneOf: PropTypes.oneOf(['a', 'b']).isRequired
+};
+```
+
+**7. Custom Validators:**
+
+```javascript
+Component.propTypes = {
+  // Custom validation function
+  customProp: function(props, propName, componentName) {
+    const value = props[propName];
+    
+    if (value === undefined) {
+      return null; // Optional prop
+    }
+    
+    // Custom validation logic
+    if (typeof value !== 'string') {
+      return new Error(
+        `Invalid prop \`${propName}\` of type \`${typeof value}\` ` +
+        `supplied to \`${componentName}\`, expected string.`
+      );
+    }
+    
+    if (value.length < 3) {
+      return new Error(
+        `Prop \`${propName}\` in \`${componentName}\` must be ` +
+        `at least 3 characters long.`
+      );
+    }
+    
+    return null; // Valid
+  },
+  
+  // Custom validator for array items
+  customArray: PropTypes.arrayOf(function(propValue, key, componentName, location, propFullName) {
+    if (propValue[key] < 0) {
+      return new Error(
+        `Invalid prop \`${propFullName}\` at index ${key} ` +
+        `in \`${componentName}\`: negative numbers not allowed.`
+      );
+    }
+  }),
+  
+  // Email validation
+  email: function(props, propName, componentName) {
+    const email = props[propName];
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    
+    if (email && !emailRegex.test(email)) {
+      return new Error(
+        `Invalid prop \`${propName}\` supplied to ` +
+        `\`${componentName}\`: invalid email format.`
+      );
+    }
+  }
+};
+
+// Usage
+<Component 
+  customProp="Hello" // ✅ (>= 3 chars)
+  customProp="Hi" // ❌ Warning: too short
+  
+  customArray={[1, 2, 3]} // ✅
+  customArray={[1, -2, 3]} // ❌ Warning: negative number
+  
+  email="john@example.com" // ✅
+  email="invalid-email" // ❌ Warning
+/>
+```
+
+**Complete Example with All Types:**
+
+```javascript
+import PropTypes from 'prop-types';
+
+function CompleteExample({
+  // Primitives
+  name,
+  age,
+  isActive,
+  onClick,
+  
+  // Renderables
+  children,
+  icon,
+  
+  // Enums
+  status,
+  value,
+  
+  // Arrays
+  tags,
+  users,
+  
+  // Objects
+  config,
+  user,
+  
+  // Instances
+  createdAt,
+  
+  // Custom
+  email
+}) {
+  return <div>{/* Component JSX */}</div>;
+}
+
+CompleteExample.propTypes = {
+  // Primitives
+  name: PropTypes.string.isRequired,
+  age: PropTypes.number,
+  isActive: PropTypes.bool,
+  onClick: PropTypes.func.isRequired,
+  
+  // Renderables
+  children: PropTypes.node,
+  icon: PropTypes.element,
+  
+  // Enums
+  status: PropTypes.oneOf(['idle', 'loading', 'success', 'error']),
+  value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  
+  // Arrays
+  tags: PropTypes.arrayOf(PropTypes.string),
+  users: PropTypes.arrayOf(PropTypes.shape({
+    id: PropTypes.number.isRequired,
+    name: PropTypes.string.isRequired
+  })),
+  
+  // Objects
+  config: PropTypes.object,
+  user: PropTypes.shape({
+    id: PropTypes.number.isRequired,
+    email: PropTypes.string.isRequired,
+    profile: PropTypes.shape({
+      avatar: PropTypes.string,
+      bio: PropTypes.string
+    })
+  }),
+  
+  // Instances
+  createdAt: PropTypes.instanceOf(Date),
+  
+  // Custom validators
+  email: function(props, propName, componentName) {
+    const email = props[propName];
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return new Error(`Invalid email in ${componentName}`);
+    }
+  }
+};
+
+CompleteExample.defaultProps = {
+  isActive: false,
+  status: 'idle',
+  tags: [],
+  users: []
+};
+```
+
+---
+
+### Q3: How do PropTypes work with TypeScript? Should you use both?
+
+**Answer:**
+
+**PropTypes vs TypeScript:**
+
+```javascript
+// PropTypes (Runtime checking)
+import PropTypes from 'prop-types';
+
+function UserCard({ name, age }) {
+  return <div>{name}: {age}</div>;
+}
+
+UserCard.propTypes = {
+  name: PropTypes.string.isRequired,
+  age: PropTypes.number
+};
+
+// TypeScript (Compile-time checking)
+interface UserCardProps {
+  name: string;
+  age?: number;
+}
+
+function UserCard({ name, age }: UserCardProps) {
+  return <div>{name}: {age}</div>;
+}
+```
+
+**Comparison:**
+
+| Feature | PropTypes | TypeScript |
+|---------|-----------|------------|
+| **When checked** | Runtime (in browser) | Compile-time (during build) |
+| **Performance** | Small overhead | No runtime cost |
+| **Type safety** | Warnings only | Prevents compilation |
+| **Learning curve** | Easy | Steeper |
+| **IDE support** | Limited | Excellent (autocomplete, refactoring) |
+| **Catches errors** | During execution | Before running code |
+
+**Should You Use Both?**
+
+**In TypeScript Projects: Generally NO**
+
+```typescript
+// ❌ Redundant - both doing the same thing
+interface Props {
+  name: string;
+  age: number;
+}
+
+function Component({ name, age }: Props) {
+  return <div>{name}: {age}</div>;
+}
+
+Component.propTypes = {
+  name: PropTypes.string.isRequired, // Unnecessary with TypeScript
+  age: PropTypes.number.isRequired
+};
+
+// ✅ TypeScript alone is sufficient
+interface Props {
+  name: string;
+  age: number;
+}
+
+function Component({ name, age }: Props) {
+  return <div>{name}: {age}</div>;
+}
+```
+
+**When You Might Use Both:**
+
+1. **Migrating from JavaScript to TypeScript:**
+
+```typescript
+// During migration - PropTypes provide runtime safety
+interface Props {
+  name: string;
+  age: number;
+}
+
+function Component({ name, age }: Props) {
+  return <div>{name}: {age}</div>;
+}
+
+// Keep PropTypes temporarily for runtime validation
+Component.propTypes = {
+  name: PropTypes.string.isRequired,
+  age: PropTypes.number.isRequired
+};
+```
+
+2. **Public Component Libraries:**
+
+```typescript
+// Library consumed by both JS and TS users
+interface ButtonProps {
+  label: string;
+  onClick: () => void;
+  variant?: 'primary' | 'secondary';
+}
+
+export function Button({ label, onClick, variant = 'primary' }: ButtonProps) {
+  return <button onClick={onClick}>{label}</button>;
+}
+
+// PropTypes help JavaScript users
+Button.propTypes = {
+  label: PropTypes.string.isRequired,
+  onClick: PropTypes.func.isRequired,
+  variant: PropTypes.oneOf(['primary', 'secondary'])
+};
+```
+
+3. **Runtime Validation Needed:**
+
+```typescript
+// When props come from external source (API, config)
+interface ConfigProps {
+  apiKey: string;
+  endpoints: {
+    users: string;
+    posts: string;
+  };
+}
+
+function ApiProvider({ apiKey, endpoints }: ConfigProps) {
+  return <div>{/* ... */}</div>;
+}
+
+// Add PropTypes for extra runtime safety
+ApiProvider.propTypes = {
+  apiKey: PropTypes.string.isRequired,
+  endpoints: PropTypes.exact({
+    users: PropTypes.string.isRequired,
+    posts: PropTypes.string.isRequired
+  }).isRequired
+};
+```
+
+**Recommendation:**
+
+- **Pure TypeScript project**: Use TypeScript types only
+- **JavaScript project**: Use PropTypes
+- **Mixed or migrating**: Consider using both temporarily
+- **Component library**: Use TypeScript + PropTypes for JS consumers
+
+---
+
+### Q4: What are defaultProps and how do they work with PropTypes?
+
+**Answer:**
+
+**defaultProps** define default values for props when they're not provided.
+
+**Basic Usage:**
+
+```javascript
+import PropTypes from 'prop-types';
+
+function Button({ label, variant, size, disabled }) {
+  return (
+    <button className={`btn btn-${variant} btn-${size}`} disabled={disabled}>
+      {label}
+    </button>
+  );
+}
+
+Button.propTypes = {
+  label: PropTypes.string.isRequired,
+  variant: PropTypes.oneOf(['primary', 'secondary', 'danger']),
+  size: PropTypes.oneOf(['sm', 'md', 'lg']),
+  disabled: PropTypes.bool
+};
+
+Button.defaultProps = {
+  variant: 'primary',
+  size: 'md',
+  disabled: false
+};
+
+// Usage
+<Button label="Click me" /> 
+// variant='primary', size='md', disabled=false (defaults applied)
+
+<Button label="Click me" variant="danger" />
+// variant='danger', size='md', disabled=false
+```
+
+**Class Component Syntax:**
+
+```javascript
+class Button extends React.Component {
+  static propTypes = {
+    label: PropTypes.string.isRequired,
+    variant: PropTypes.string,
+    size: PropTypes.string
+  };
+  
+  static defaultProps = {
+    variant: 'primary',
+    size: 'md'
+  };
+  
+  render() {
+    const { label, variant, size } = this.props;
+    return <button className={`btn-${variant}-${size}`}>{label}</button>;
+  }
+}
+```
+
+**Modern Approach - Default Parameters (Preferred):**
+
+```javascript
+// Instead of defaultProps, use ES6 default parameters
+function Button({ 
+  label, 
+  variant = 'primary', 
+  size = 'md', 
+  disabled = false 
+}) {
+  return (
+    <button className={`btn btn-${variant} btn-${size}`} disabled={disabled}>
+      {label}
+    </button>
+  );
+}
+
+Button.propTypes = {
+  label: PropTypes.string.isRequired,
+  variant: PropTypes.oneOf(['primary', 'secondary', 'danger']),
+  size: PropTypes.oneOf(['sm', 'md', 'lg']),
+  disabled: PropTypes.bool
+};
+```
+
+**Object Destructuring with Defaults:**
+
+```javascript
+function UserCard({ 
+  user = {
+    name: 'Guest',
+    role: 'user',
+    avatar: '/default-avatar.png'
+  }
+}) {
+  return (
+    <div>
+      <img src={user.avatar} alt={user.name} />
+      <h3>{user.name}</h3>
+      <p>{user.role}</p>
+    </div>
+  );
+}
+
+UserCard.propTypes = {
+  user: PropTypes.shape({
+    name: PropTypes.string,
+    role: PropTypes.string,
+    avatar: PropTypes.string
+  })
+};
+```
+
+**Complex Default Values:**
+
+```javascript
+function DataTable({ 
+  data = [],
+  columns = [],
+  pagination = {
+    page: 1,
+    pageSize: 10,
+    total: 0
+  },
+  sortConfig = {
+    key: null,
+    direction: 'asc'
+  },
+  onSort = () => {},
+  onPageChange = () => {}
+}) {
+  return <table>{/* Table implementation */}</table>;
+}
+
+DataTable.propTypes = {
+  data: PropTypes.arrayOf(PropTypes.object),
+  columns: PropTypes.arrayOf(PropTypes.shape({
+    key: PropTypes.string.isRequired,
+    label: PropTypes.string.isRequired,
+    sortable: PropTypes.bool
+  })),
+  pagination: PropTypes.shape({
+    page: PropTypes.number,
+    pageSize: PropTypes.number,
+    total: PropTypes.number
+  }),
+  sortConfig: PropTypes.shape({
+    key: PropTypes.string,
+    direction: PropTypes.oneOf(['asc', 'desc'])
+  }),
+  onSort: PropTypes.func,
+  onPageChange: PropTypes.func
+};
+```
+
+**Warning About defaultProps:**
+
+```javascript
+// ⚠️ React 18.3+ deprecates defaultProps for function components
+// Prefer default parameters instead
+
+// ❌ Old way (deprecated for functions)
+function Component({ value }) {
+  return <div>{value}</div>;
+}
+Component.defaultProps = {
+  value: 'default'
+};
+
+// ✅ New way (recommended)
+function Component({ value = 'default' }) {
+  return <div>{value}</div>;
+}
+```
+
+**defaultProps Priority:**
+
+```javascript
+function Component({ value }) {
+  console.log(value);
+  return <div>{value}</div>;
+}
+
+Component.defaultProps = {
+  value: 'from defaultProps'
+};
+
+// Usage
+<Component /> 
+// Logs: "from defaultProps"
+
+<Component value="explicit value" />
+// Logs: "explicit value" (explicit prop wins)
+
+<Component value={undefined} />
+// Logs: "from defaultProps" (undefined triggers default)
+
+<Component value={null} />
+// Logs: null (null does NOT trigger default)
+```
+
+---
+
+### Q5: How do you handle PropTypes in production vs development?
+
+**Answer:**
+
+**Development vs Production Behavior:**
+
+```javascript
+// Development mode
+process.env.NODE_ENV === 'development'
+// PropTypes validation runs
+// Console warnings displayed
+// Larger bundle size
+
+// Production mode
+process.env.NODE_ENV === 'production'
+// PropTypes validation disabled
+// No console warnings
+// Smaller bundle (PropTypes code removed)
+```
+
+**Build Configuration:**
+
+```javascript
+// webpack.config.js (handled automatically by Create React App)
+module.exports = {
+  mode: process.env.NODE_ENV,
+  plugins: [
+    new webpack.DefinePlugin({
+      'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV)
+    })
+  ]
+};
+
+// In production build, this code:
+if (process.env.NODE_ENV !== 'production') {
+  Component.propTypes = {
+    name: PropTypes.string.isRequired
+  };
+}
+
+// Becomes empty (dead code elimination):
+if (false) {
+  // This entire block is removed
+}
+```
+
+**Conditional PropTypes:**
+
+```javascript
+// Only add PropTypes in development
+const UserCard = ({ name, email, age }) => {
+  return (
+    <div>
+      <h2>{name}</h2>
+      <p>{email}</p>
+      <p>Age: {age}</p>
+    </div>
+  );
+};
+
+if (process.env.NODE_ENV !== 'production') {
+  UserCard.propTypes = {
+    name: PropTypes.string.isRequired,
+    email: PropTypes.string.isRequired,
+    age: PropTypes.number
+  };
+}
+
+export default UserCard;
+```
+
+**Bundle Size Impact:**
+
+```javascript
+// Development build (~2KB for prop-types library)
+// Before tree-shaking: 100KB
+// PropTypes code: +2KB
+// Total: 102KB
+
+// Production build
+// Before tree-shaking: 100KB
+// PropTypes code removed: -2KB (if wrapped in if statement)
+// After minification: ~30KB
+```
+
+**Create React App Handling:**
+
+```bash
+# Development (PropTypes active)
+npm start
+
+# Production build (PropTypes stripped)
+npm run build
+```
+
+**Manual PropTypes Removal (Advanced):**
+
+```javascript
+// babel-plugin-transform-react-remove-prop-types
+// .babelrc
+{
+  "plugins": [
+    ["transform-react-remove-prop-types", {
+      "mode": "wrap",
+      "removeImport": true
+    }]
+  ]
+}
+
+// Before:
+import PropTypes from 'prop-types';
+
+Component.propTypes = {
+  name: PropTypes.string
+};
+
+// After (in production):
+// All PropTypes code removed, import removed
+```
+
+**Best Practices for Production:**
+
+```javascript
+// ✅ Always define PropTypes for development
+// ✅ Use proper build tools (CRA, Next.js, Vite)
+// ✅ Test in production mode before deploying
+// ✅ Don't manually strip PropTypes (let build tools handle it)
+
+// ❌ Don't do this
+const propTypes = process.env.NODE_ENV !== 'production' 
+  ? { name: PropTypes.string }
+  : undefined;
+
+Component.propTypes = propTypes;
+
+// ✅ Do this
+Component.propTypes = {
+  name: PropTypes.string
+};
+// Build tools will handle removal
+```
+
+**Monitoring PropTypes Warnings:**
+
+```javascript
+// Development error tracking
+if (process.env.NODE_ENV === 'development') {
+  const originalConsoleError = console.error;
+  
+  console.error = function(...args) {
+    // Track PropTypes warnings
+    if (args[0]?.includes('Failed prop type')) {
+      // Log to monitoring service in dev
+      trackPropTypeWarning(args.join(' '));
+    }
+    originalConsoleError.apply(console, args);
+  };
+}
+```
+
+**Testing PropTypes:**
+
+```javascript
+// Jest test for PropTypes validation
+import { checkPropTypes } from 'prop-types';
+
+describe('UserCard PropTypes', () => {
+  it('should warn if name is not a string', () => {
+    const props = { name: 123, email: 'test@example.com' };
+    
+    const result = checkPropTypes(
+      UserCard.propTypes,
+      props,
+      'prop',
+      'UserCard'
+    );
+    
+    expect(console.error).toHaveBeenCalledWith(
+      expect.stringContaining('Invalid prop `name`')
+    );
+  });
+});
+```
+
+---
+
+### Q6: Real-world PropTypes patterns and best practices
+
+**Answer:**
+
+**Pattern 1: Reusable PropType Shapes**
+
+```javascript
+// types/propTypes.js - Centralized PropTypes
+import PropTypes from 'prop-types';
+
+export const UserPropType = PropTypes.shape({
+  id: PropTypes.number.isRequired,
+  name: PropTypes.string.isRequired,
+  email: PropTypes.string.isRequired,
+  role: PropTypes.oneOf(['admin', 'user', 'guest']),
+  avatar: PropTypes.string
+});
+
+export const PostPropType = PropTypes.shape({
+  id: PropTypes.number.isRequired,
+  title: PropTypes.string.isRequired,
+  content: PropTypes.string.isRequired,
+  author: UserPropType.isRequired,
+  createdAt: PropTypes.instanceOf(Date),
+  tags: PropTypes.arrayOf(PropTypes.string)
+});
+
+// components/UserCard.js
+import { UserPropType } from '../types/propTypes';
+
+function UserCard({ user }) {
+  return <div>{user.name}</div>;
+}
+
+UserCard.propTypes = {
+  user: UserPropType.isRequired
+};
+
+// components/PostCard.js
+import { PostPropType } from '../types/propTypes';
+
+function PostCard({ post }) {
+  return <article>{post.title}</article>;
+}
+
+PostCard.propTypes = {
+  post: PostPropType.isRequired
+};
+```
+
+**Pattern 2: Higher-Order Component PropTypes**
+
+```javascript
+import PropTypes from 'prop-types';
+
+// HOC that adds loading state
+function withLoading(Component) {
+  function WithLoading({ isLoading, ...props }) {
+    if (isLoading) {
+      return <div>Loading...</div>;
+    }
+    return <Component {...props} />;
+  }
+  
+  WithLoading.propTypes = {
+    isLoading: PropTypes.bool.isRequired,
+    ...Component.propTypes // Inherit wrapped component's PropTypes
+  };
+  
+  return WithLoading;
+}
+
+// Original component
+function UserList({ users }) {
+  return <div>{users.map(u => <div key={u.id}>{u.name}</div>)}</div>;
+}
+
+UserList.propTypes = {
+  users: PropTypes.arrayOf(UserPropType).isRequired
+};
+
+// Enhanced component
+const UserListWithLoading = withLoading(UserList);
+
+// Usage
+<UserListWithLoading isLoading={loading} users={users} />
+```
+
+**Pattern 3: Render Props with PropTypes**
+
+```javascript
+function DataFetcher({ url, render, onError }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  
+  useEffect(() => {
+    fetch(url)
+      .then(r => r.json())
+      .then(setData)
+      .catch(onError)
+      .finally(() => setLoading(false));
+  }, [url]);
+  
+  return render({ data, loading });
+}
+
+DataFetcher.propTypes = {
+  url: PropTypes.string.isRequired,
+  render: PropTypes.func.isRequired, // Render prop
+  onError: PropTypes.func
+};
+
+DataFetcher.defaultProps = {
+  onError: console.error
+};
+
+// Usage
+<DataFetcher
+  url="/api/users"
+  render={({ data, loading }) => 
+    loading ? <Spinner /> : <UserList users={data} />
+  }
+/>
+```
+
+**Pattern 4: Component Composition**
+
+```javascript
+// Compound component pattern
+function Tabs({ children, defaultTab }) {
+  const [activeTab, setActiveTab] = useState(defaultTab);
+  
+  return (
+    <div className="tabs">
+      {React.Children.map(children, child =>
+        React.cloneElement(child, { activeTab, setActiveTab })
+      )}
+    </div>
+  );
+}
+
+Tabs.propTypes = {
+  children: PropTypes.node.isRequired,
+  defaultTab: PropTypes.string.isRequired
+};
+
+function Tab({ id, label, children, activeTab, setActiveTab }) {
+  return (
+    <div>
+      <button onClick={() => setActiveTab(id)}>{label}</button>
+      {activeTab === id && <div>{children}</div>}
+    </div>
+  );
+}
+
+Tab.propTypes = {
+  id: PropTypes.string.isRequired,
+  label: PropTypes.string.isRequired,
+  children: PropTypes.node.isRequired,
+  activeTab: PropTypes.string, // Injected by parent
+  setActiveTab: PropTypes.func // Injected by parent
+};
+
+// Usage
+<Tabs defaultTab="profile">
+  <Tab id="profile" label="Profile">
+    <ProfileContent />
+  </Tab>
+  <Tab id="settings" label="Settings">
+    <SettingsContent />
+  </Tab>
+</Tabs>
+```
+
+**Pattern 5: Form Component PropTypes**
+
+```javascript
+function FormInput({ 
+  name,
+  label,
+  type,
+  value,
+  onChange,
+  error,
+  required,
+  placeholder,
+  disabled
+}) {
+  return (
+    <div className="form-group">
+      <label htmlFor={name}>
+        {label}
+        {required && <span className="required">*</span>}
+      </label>
+      <input
+        id={name}
+        name={name}
+        type={type}
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        disabled={disabled}
+        className={error ? 'error' : ''}
+      />
+      {error && <span className="error-message">{error}</span>}
+    </div>
+  );
+}
+
+FormInput.propTypes = {
+  name: PropTypes.string.isRequired,
+  label: PropTypes.string.isRequired,
+  type: PropTypes.oneOf(['text', 'email', 'password', 'number', 'tel']),
+  value: PropTypes.oneOfType([
+    PropTypes.string,
+    PropTypes.number
+  ]).isRequired,
+  onChange: PropTypes.func.isRequired,
+  error: PropTypes.string,
+  required: PropTypes.bool,
+  placeholder: PropTypes.string,
+  disabled: PropTypes.bool
+};
+
+FormInput.defaultProps = {
+  type: 'text',
+  required: false,
+  disabled: false
+};
+```
+
+**Pattern 6: API Response PropTypes**
+
+```javascript
+// Validate data from API
+const ApiUserShape = PropTypes.shape({
+  id: PropTypes.number.isRequired,
+  username: PropTypes.string.isRequired,
+  email: PropTypes.string.isRequired,
+  profile: PropTypes.shape({
+    firstName: PropTypes.string,
+    lastName: PropTypes.string,
+    avatar: PropTypes.string,
+    bio: PropTypes.string
+  }),
+  settings: PropTypes.shape({
+    notifications: PropTypes.bool,
+    theme: PropTypes.oneOf(['light', 'dark']),
+    language: PropTypes.string
+  }),
+  createdAt: PropTypes.string, // ISO date string
+  updatedAt: PropTypes.string
+});
+
+function UserProfile({ user }) {
+  return <div>{/* Profile UI */}</div>;
+}
+
+UserProfile.propTypes = {
+  user: ApiUserShape.isRequired
+};
+
+// Validate API response
+async function fetchUser(id) {
+  const response = await fetch(`/api/users/${id}`);
+  const user = await response.json();
+  
+  // Validate in development
+  if (process.env.NODE_ENV !== 'production') {
+    PropTypes.checkPropTypes(
+      { user: ApiUserShape },
+      { user },
+      'property',
+      'fetchUser'
+    );
+  }
+  
+  return user;
+}
+```
+
+**Pattern 7: Theme PropTypes**
+
+```javascript
+const ThemePropType = PropTypes.shape({
+  colors: PropTypes.shape({
+    primary: PropTypes.string,
+    secondary: PropTypes.string,
+    success: PropTypes.string,
+    danger: PropTypes.string,
+    warning: PropTypes.string,
+    info: PropTypes.string,
+    text: PropTypes.string,
+    background: PropTypes.string
+  }).isRequired,
+  spacing: PropTypes.shape({
+    xs: PropTypes.string,
+    sm: PropTypes.string,
+    md: PropTypes.string,
+    lg: PropTypes.string,
+    xl: PropTypes.string
+  }).isRequired,
+  typography: PropTypes.shape({
+    fontFamily: PropTypes.string,
+    fontSize: PropTypes.shape({
+      sm: PropTypes.string,
+      md: PropTypes.string,
+      lg: PropTypes.string
+    })
+  })
+});
+
+function ThemedButton({ theme, variant, children, onClick }) {
+  return (
+    <button 
+      style={{
+        backgroundColor: theme.colors[variant],
+        padding: theme.spacing.md,
+        fontFamily: theme.typography.fontFamily
+      }}
+      onClick={onClick}
+    >
+      {children}
+    </button>
+  );
+}
+
+ThemedButton.propTypes = {
+  theme: ThemePropType.isRequired,
+  variant: PropTypes.oneOf(['primary', 'secondary', 'success', 'danger']),
+  children: PropTypes.node.isRequired,
+  onClick: PropTypes.func
+};
+```
+
+**Best Practices Summary:**
+
+```javascript
+// ✅ DO: Define PropTypes for all props
+Component.propTypes = {
+  allProps: PropTypes.any // At minimum
+};
+
+// ✅ DO: Mark required props
+propTypes = {
+  id: PropTypes.number.isRequired
+};
+
+// ✅ DO: Use specific types
+propTypes = {
+  status: PropTypes.oneOf(['active', 'inactive'])
+};
+
+// ✅ DO: Document complex shapes
+propTypes = {
+  user: PropTypes.shape({
+    id: PropTypes.number.isRequired,
+    name: PropTypes.string.isRequired
+  })
+};
+
+// ✅ DO: Provide defaults
+Component.defaultProps = {
+  variant: 'primary'
+};
+
+// ✅ DO: Reuse common PropTypes
+import { UserPropType } from './types';
+
+// ❌ DON'T: Use PropTypes.any unless necessary
+propTypes = {
+  data: PropTypes.any // Too vague
+};
+
+// ❌ DON'T: Forget .isRequired for required props
+propTypes = {
+  id: PropTypes.number // Should be .isRequired
+};
+
+// ❌ DON'T: Use PropTypes in production (let build tools strip them)
+if (process.env.NODE_ENV === 'development') {
+  // Not needed - build tools handle this
+}
+```
+
+---
+
+This comprehensive guide covers everything you need to know about React PropTypes, from basics to advanced patterns and real-world usage! 🚀
