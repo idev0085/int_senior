@@ -1812,6 +1812,219 @@ bun remove lodash         # npm uninstall lodash
 - ✅ TypeScript-first
 - ✅ Experimental features OK
 
+### Q23: What is the "overrides" field and how does it work?
+
+**Answer:**
+The `overrides` field lets you force specific versions for nested dependencies. It's useful for fixing security vulnerabilities or enforcing consistent versions across your project.
+
+**NPM Overrides (NPM 8.3+):**
+
+```json
+{
+  "name": "my-project",
+  "version": "1.0.0",
+  "dependencies": {
+    "express": "^4.18.2",
+    "lodash": "^4.17.21"
+  },
+  "overrides": {
+    "lodash": "4.17.21",  // Force exact version
+    "minimatch": "3.1.2",  // Nested dependency override
+    "express": {
+      "body-parser": "1.20.2"  // Override specific sub-dependency
+    }
+  }
+}
+```
+
+**Yarn Resolutions (Yarn equivalent):**
+
+```json
+{
+  "name": "my-project",
+  "version": "1.0.0",
+  "dependencies": {
+    "express": "^4.18.2",
+    "lodash": "^4.17.21"
+  },
+  "resolutions": {
+    "lodash": "4.17.21",
+    "minimatch": "3.1.2",
+    "express/body-parser": "1.20.2"
+  }
+}
+```
+
+**pnpm Overrides:**
+
+```json
+{
+  "name": "my-project",
+  "version": "1.0.0",
+  "dependencies": {
+    "express": "^4.18.2",
+    "lodash": "^4.17.21"
+  },
+  "pnpm": {
+    "overrides": {
+      "lodash": "4.17.21",
+      "minimatch": "3.1.2",
+      "express>body-parser": "1.20.2"
+    }
+  }
+}
+```
+
+**Real-world use cases:**
+
+**1. Security vulnerability in nested dependency:**
+```json
+{
+  "dependencies": {
+    "express": "^4.18.2"  // express depends on minimatch with vulnerability
+  },
+  "overrides": {
+    "minimatch": "3.1.2"  // Force patched version
+  }
+}
+```
+
+**2. Conflicting peer dependencies:**
+```json
+{
+  "dependencies": {
+    "react": "^18.0.0",
+    "next": "^13.0.0"
+  },
+  "overrides": {
+    "react": "18.2.0"  // Ensure all use same React version
+  }
+}
+```
+
+**3. Version standardization across project:**
+```json
+{
+  "overrides": {
+    "webpack": "5.88.0",
+    "webpack-cli": "5.1.4",
+    "lodash": "4.17.21",
+    "axios": "1.6.0"
+  }
+}
+```
+
+**Comparison:**
+
+| Feature | NPM Overrides | Yarn Resolutions | pnpm Overrides |
+|---------|---------------|------------------|----------------|
+| Syntax | JSON path | `/` separator | `>` separator |
+| Available | npm 8.3+ | All versions | All versions |
+| Nested deps | ✅ Yes | ✅ Yes | ✅ Yes |
+| Workspaces | ✅ Yes | ✅ Yes | ✅ Yes |
+| Lock file | package-lock.json | yarn.lock | pnpm-lock.yaml |
+
+**How overrides work:**
+
+1. **Resolves to specified version** when package is requested
+2. **Applies to all occurrences** in dependency tree
+3. **Doesn't change package.json** of dependencies
+4. **Recorded in lock file** for reproducibility
+
+**Advanced examples:**
+
+**NPM - Nested override:**
+```json
+{
+  "dependencies": {
+    "express": "^4.18.0",
+    "jest": "^29.0.0"
+  },
+  "overrides": {
+    "express": {
+      "body-parser": "1.20.2",
+      "qs": "6.11.0"
+    },
+    "jest": {
+      "jest-circus": "29.5.0"
+    }
+  }
+}
+```
+
+**Yarn - Using exact pattern:**
+```json
+{
+  "resolutions": {
+    "@babel/core": "7.23.0",
+    "@babel/preset-env": "7.23.0",
+    "lodash/**/minimatch": "3.1.2"  // Nested pattern
+  }
+}
+```
+
+**pnpm - Using workspace protocol:**
+```json
+{
+  "dependencies": {
+    "my-package": "workspace:*"
+  },
+  "pnpm": {
+    "overrides": {
+      "lodash": "4.17.21",
+      "my-package": "workspace:*"
+    }
+  }
+}
+```
+
+**When to use overrides:**
+
+✅ **Use when:**
+- Security vulnerability in transitive dependency
+- Peer dependency conflicts
+- Need consistent versions across large project
+- Working with monorepos
+
+❌ **Avoid when:**
+- Package maintainer can fix upstream
+- Creates security risk by blocking updates
+- Incompatible version combinations
+- Temporary workaround only
+
+**Troubleshooting:**
+
+**Check what will be overridden:**
+```bash
+# NPM
+npm ls [package-name]
+
+# Yarn
+yarn why [package-name]
+
+# pnpm
+pnpm why [package-name]
+```
+
+**Verify overrides are applied:**
+```bash
+# Check lock file
+grep -A5 "overrides" package-lock.json
+
+# Check installed version
+npm list [package-name]
+```
+
+**Remove overrides:**
+```json
+// Simply delete from overrides/resolutions field
+{
+  "overrides": {
+    // "lodash": "4.17.21"  // Removed
+  }
+}
+```
+
 ---
 
 ## Summary
