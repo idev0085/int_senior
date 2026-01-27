@@ -9791,6 +9791,1014 @@ root.render(
     <App />
   </StrictMode>
 );
+```
+
+---
+
+## Handling Backend Errors in React
+
+Proper error handling for backend API calls is crucial for building robust React applications. Here's a comprehensive guide covering various strategies and patterns.
+
+---
+
+### **1. Basic Error Handling with Try-Catch**
+
+**Async/Await Pattern:**
+```javascript
+function ProductList() {
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    async function fetchProducts() {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        const response = await fetch('/api/products');
+        
+        // Check if response is ok (status 200-299)
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        setProducts(data);
+      } catch (err) {
+        setError(err.message);
+        console.error('Failed to fetch products:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchProducts();
+  }, []);
+
+  if (loading) return <div>Loading...</div>;
+  if (error) return <div>Error: {error}</div>;
+  
+  return (
+    <div>
+      {products.map(product => (
+        <ProductCard key={product.id} product={product} />
+      ))}
+    </div>
+  );
+}
+```
+
+---
+
+### **2. Custom Hook for API Error Handling**
+
+**Reusable Error Handling Hook:**
+```javascript
+function useApi(url, options = {}) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch(url, options);
+
+      if (!response.ok) {
+        // Parse error message from response
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.message || `HTTP ${response.status}: ${response.statusText}`
+        );
+      }
+
+      const jsonData = await response.json();
+      setData(jsonData);
+      return jsonData;
+    } catch (err) {
+      const errorMessage = err.message || 'An unexpected error occurred';
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [url, JSON.stringify(options)]);
+
+  return { data, loading, error, fetchData, refetch: fetchData };
+}
+
+// Usage
+function UserProfile({ userId }) {
+  const { data: user, loading, error, refetch } = useApi(
+    `/api/users/${userId}`
+  );
+
+  useEffect(() => {
+    refetch();
+  }, [userId, refetch]);
+
+  if (loading) return <Spinner />;
+  if (error) {
+    return (
+      <ErrorMessage 
+        message={error} 
+        onRetry={refetch}
+      />
+    );
+  }
+
+  return <div>{user?.name}</div>;
+}
+```
+
+---
+
+### **3. Axios Interceptors for Global Error Handling**
+
+**Centralized Error Handling:**
+```javascript
+import axios from 'axios';
+
+// Create axios instance
+const apiClient = axios.create({
+  baseURL: process.env.REACT_APP_API_URL,
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Response interceptor for error handling
+apiClient.interceptors.response.use(
+  (response) => {
+    // Return successful responses
+    return response.data;
+  },
+  (error) => {
+    // Handle different error types
+    if (error.response) {
+      // Server responded with error status
+      const { status, data } = error.response;
+      
+      switch (status) {
+        case 400:
+          console.error('Bad Request:', data.message);
+          break;
+        case 401:
+          console.error('Unauthorized - redirecting to login');
+          // Redirect to login or refresh token
+          window.location.href = '/login';
+          break;
+        case 403:
+          console.error('Forbidden:', data.message);
+          break;
+        case 404:
+          console.error('Not Found:', data.message);
+          break;
+        case 500:
+          console.error('Server Error:', data.message);
+          break;
+        case 503:
+          console.error('Service Unavailable:', data.message);
+          break;
+        default:
+          console.error('API Error:', data.message || 'Unknown error');
+      }
+      
+      // Return structured error
+      return Promise.reject({
+        status,
+        message: data.message || 'An error occurred',
+        errors: data.errors || {},
+      });
+    } else if (error.request) {
+      // Request made but no response received (network error)
+      console.error('Network Error:', error.message);
+      return Promise.reject({
+        status: 0,
+        message: 'Network error. Please check your connection.',
+        isNetworkError: true,
+      });
+    } else {
+      // Something else happened
+      console.error('Error:', error.message);
+      return Promise.reject({
+        message: error.message || 'An unexpected error occurred',
+      });
+    }
+  }
+);
+
+// Request interceptor (for auth tokens, etc.)
+apiClient.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('authToken');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+export default apiClient;
+```
+
+**Using the API Client:**
+```javascript
+import apiClient from './apiClient';
+
+function useProducts() {
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const fetchProducts = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const data = await apiClient.get('/products');
+      setProducts(data);
+    } catch (err) {
+      setError(err.message);
+      
+      // Handle specific error types
+      if (err.isNetworkError) {
+        // Show offline notification
+        showNotification('You appear to be offline', 'error');
+      } else if (err.status === 401) {
+        // Already handled in interceptor (redirect to login)
+      } else {
+        // Show generic error
+        showNotification(err.message, 'error');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return { products, loading, error, fetchProducts };
+}
+```
+
+---
+
+### **4. Error Context for Global Error State**
+
+**Create Error Context:**
+```javascript
+import { createContext, useContext, useState, useCallback } from 'react';
+
+const ErrorContext = createContext();
+
+export function ErrorProvider({ children }) {
+  const [errors, setErrors] = useState([]);
+
+  const addError = useCallback((error) => {
+    const errorObj = {
+      id: Date.now(),
+      message: error.message || 'An error occurred',
+      status: error.status,
+      timestamp: new Date(),
+    };
+    
+    setErrors((prev) => [...prev, errorObj]);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+      removeError(errorObj.id);
+    }, 5000);
+  }, []);
+
+  const removeError = useCallback((id) => {
+    setErrors((prev) => prev.filter((err) => err.id !== id));
+  }, []);
+
+  const clearAllErrors = useCallback(() => {
+    setErrors([]);
+  }, []);
+
+  return (
+    <ErrorContext.Provider 
+      value={{ errors, addError, removeError, clearAllErrors }}
+    >
+      {children}
+    </ErrorContext.Provider>
+  );
+}
+
+export function useError() {
+  const context = useContext(ErrorContext);
+  if (!context) {
+    throw new Error('useError must be used within ErrorProvider');
+  }
+  return context;
+}
+```
+
+**Global Error Display:**
+```javascript
+function ErrorNotifications() {
+  const { errors, removeError } = useError();
+
+  return (
+    <div className="error-notifications">
+      {errors.map((error) => (
+        <div key={error.id} className="error-notification">
+          <div className="error-content">
+            <strong>Error {error.status && `(${error.status})`}</strong>
+            <p>{error.message}</p>
+          </div>
+          <button onClick={() => removeError(error.id)}>×</button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// In App.jsx
+function App() {
+  return (
+    <ErrorProvider>
+      <ErrorNotifications />
+      <Routes>
+        {/* Your routes */}
+      </Routes>
+    </ErrorProvider>
+  );
+}
+```
+
+**Using Error Context:**
+```javascript
+import apiClient from './apiClient';
+import { useError } from './ErrorContext';
+
+function ProductManager() {
+  const [products, setProducts] = useState([]);
+  const { addError } = useError();
+
+  const deleteProduct = async (id) => {
+    try {
+      await apiClient.delete(`/products/${id}`);
+      setProducts(products.filter(p => p.id !== id));
+    } catch (err) {
+      addError(err); // Shows global error notification
+    }
+  };
+
+  return (
+    <div>
+      {products.map(product => (
+        <ProductCard 
+          key={product.id}
+          product={product}
+          onDelete={() => deleteProduct(product.id)}
+        />
+      ))}
+    </div>
+  );
+}
+```
+
+---
+
+### **5. Retry Logic for Failed Requests**
+
+**Automatic Retry with Exponential Backoff:**
+```javascript
+async function fetchWithRetry(
+  url, 
+  options = {}, 
+  maxRetries = 3,
+  retryDelay = 1000
+) {
+  let lastError;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch(url, options);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      lastError = error;
+      
+      // Don't retry on client errors (4xx)
+      if (error.message.includes('4')) {
+        throw error;
+      }
+      
+      // Last attempt, throw error
+      if (attempt === maxRetries) {
+        throw error;
+      }
+      
+      // Exponential backoff: 1s, 2s, 4s
+      const delay = retryDelay * Math.pow(2, attempt);
+      console.log(`Retry attempt ${attempt + 1} after ${delay}ms`);
+      
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+
+  throw lastError;
+}
+
+// Custom hook with retry
+function useApiWithRetry(url, options = {}) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [retryCount, setRetryCount] = useState(0);
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const result = await fetchWithRetry(url, options, 3, 1000);
+      setData(result);
+      setRetryCount(0);
+    } catch (err) {
+      setError(err.message);
+      setRetryCount((prev) => prev + 1);
+    } finally {
+      setLoading(false);
+    }
+  }, [url, JSON.stringify(options)]);
+
+  return { data, loading, error, fetchData, retryCount };
+}
+
+// Usage
+function ProductList() {
+  const { data, loading, error, fetchData, retryCount } = useApiWithRetry(
+    '/api/products'
+  );
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  if (loading) return <Spinner />;
+  
+  if (error) {
+    return (
+      <ErrorMessage 
+        message={error}
+        retryCount={retryCount}
+        onRetry={fetchData}
+      />
+    );
+  }
+
+  return <div>{/* Render products */}</div>;
+}
+```
+
+---
+
+### **6. React Query for Advanced Error Handling**
+
+**Best for Server State Management:**
+```javascript
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import apiClient from './apiClient';
+
+// Fetch products with automatic retry
+function useProducts() {
+  return useQuery({
+    queryKey: ['products'],
+    queryFn: async () => {
+      const data = await apiClient.get('/products');
+      return data;
+    },
+    retry: 3, // Retry failed requests 3 times
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    onError: (error) => {
+      console.error('Failed to fetch products:', error);
+    },
+  });
+}
+
+// Mutation with error handling
+function useCreateProduct() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (newProduct) => {
+      return await apiClient.post('/products', newProduct);
+    },
+    onSuccess: () => {
+      // Invalidate and refetch
+      queryClient.invalidateQueries(['products']);
+    },
+    onError: (error) => {
+      // Handle error
+      if (error.status === 400 && error.errors) {
+        // Validation errors
+        return error.errors; // Return to component
+      }
+      // Show error notification
+      showNotification(error.message, 'error');
+    },
+  });
+}
+
+// Usage in component
+function ProductManager() {
+  const { data: products, isLoading, error, refetch } = useProducts();
+  const createProduct = useCreateProduct();
+
+  const handleSubmit = async (formData) => {
+    try {
+      await createProduct.mutateAsync(formData);
+      showNotification('Product created successfully', 'success');
+    } catch (error) {
+      // Error already handled in mutation onError
+      // Can access validation errors here if needed
+      if (error.errors) {
+        setFormErrors(error.errors);
+      }
+    }
+  };
+
+  if (isLoading) return <Spinner />;
+  
+  if (error) {
+    return (
+      <ErrorState 
+        message={error.message}
+        onRetry={refetch}
+      />
+    );
+  }
+
+  return (
+    <div>
+      <ProductForm onSubmit={handleSubmit} />
+      {products.map(product => (
+        <ProductCard key={product.id} product={product} />
+      ))}
+    </div>
+  );
+}
+```
+
+**Global Error Handler for React Query:**
+```javascript
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 3,
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+      onError: (error) => {
+        // Global error handling for all queries
+        console.error('Query error:', error);
+        
+        if (error.status === 401) {
+          // Redirect to login
+          window.location.href = '/login';
+        }
+      },
+    },
+    mutations: {
+      onError: (error) => {
+        // Global error handling for all mutations
+        console.error('Mutation error:', error);
+        showNotification(error.message, 'error');
+      },
+    },
+  },
+});
+
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      {/* Your app */}
+    </QueryClientProvider>
+  );
+}
+```
+
+---
+
+### **7. Form Validation Errors**
+
+**Handling Backend Validation Errors:**
+```javascript
+function ProductForm() {
+  const [formData, setFormData] = useState({ name: '', price: '' });
+  const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setErrors({});
+
+    try {
+      await apiClient.post('/products', formData);
+      showNotification('Product created successfully', 'success');
+      setFormData({ name: '', price: '' });
+    } catch (error) {
+      if (error.status === 400 && error.errors) {
+        // Backend returned validation errors
+        // Format: { field: 'error message' }
+        setErrors(error.errors);
+      } else {
+        // Generic error
+        showNotification(error.message, 'error');
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <div>
+        <label>Product Name</label>
+        <input
+          type="text"
+          value={formData.name}
+          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+          className={errors.name ? 'error' : ''}
+        />
+        {errors.name && <span className="error-message">{errors.name}</span>}
+      </div>
+
+      <div>
+        <label>Price</label>
+        <input
+          type="number"
+          value={formData.price}
+          onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+          className={errors.price ? 'error' : ''}
+        />
+        {errors.price && <span className="error-message">{errors.price}</span>}
+      </div>
+
+      <button type="submit" disabled={isSubmitting}>
+        {isSubmitting ? 'Creating...' : 'Create Product'}
+      </button>
+    </form>
+  );
+}
+```
+
+---
+
+### **8. Network Status Detection**
+
+**Handle Offline/Online States:**
+```javascript
+function useNetworkStatus() {
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      showNotification('Back online', 'success');
+    };
+
+    const handleOffline = () => {
+      setIsOnline(false);
+      showNotification('You are offline', 'warning');
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  return isOnline;
+}
+
+// Usage
+function App() {
+  const isOnline = useNetworkStatus();
+
+  return (
+    <div>
+      {!isOnline && (
+        <div className="offline-banner">
+          You are currently offline. Some features may not work.
+        </div>
+      )}
+      {/* Rest of app */}
+    </div>
+  );
+}
+```
+
+---
+
+### **9. Timeout Handling**
+
+**Request Timeout with AbortController:**
+```javascript
+function useFetchWithTimeout(url, options = {}, timeout = 5000) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    // Create AbortController for timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+    try {
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const jsonData = await response.json();
+      setData(jsonData);
+    } catch (err) {
+      if (err.name === 'AbortError') {
+        setError('Request timeout. Please try again.');
+      } else {
+        setError(err.message);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [url, JSON.stringify(options), timeout]);
+
+  return { data, loading, error, fetchData };
+}
+
+// Usage
+function ProductList() {
+  const { data, loading, error, fetchData } = useFetchWithTimeout(
+    '/api/products',
+    {},
+    10000 // 10 second timeout
+  );
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  if (error) return <ErrorMessage message={error} onRetry={fetchData} />;
+  // ...
+}
+```
+
+---
+
+### **10. Error Boundary for Async Errors**
+
+**Catch Errors in Async Components:**
+```javascript
+import { Component } from 'react';
+
+class AsyncErrorBoundary extends Component {
+  state = { hasError: false, error: null };
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    // Log to error reporting service
+    console.error('Async Error:', error, errorInfo);
+    logErrorToService(error, errorInfo);
+  }
+
+  resetError = () => {
+    this.setState({ hasError: false, error: null });
+  };
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="error-container">
+          <h2>Something went wrong</h2>
+          <p>{this.state.error?.message}</p>
+          <button onClick={this.resetError}>Try Again</button>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+// Usage with Suspense
+function App() {
+  return (
+    <AsyncErrorBoundary>
+      <Suspense fallback={<Spinner />}>
+        <ProductList />
+      </Suspense>
+    </AsyncErrorBoundary>
+  );
+}
+```
+
+---
+
+### **11. Error Components**
+
+**Reusable Error Display Components:**
+```javascript
+// Generic error message
+function ErrorMessage({ message, onRetry }) {
+  return (
+    <div className="error-message">
+      <div className="error-icon">⚠️</div>
+      <h3>Oops! Something went wrong</h3>
+      <p>{message}</p>
+      {onRetry && (
+        <button onClick={onRetry} className="retry-button">
+          Try Again
+        </button>
+      )}
+    </div>
+  );
+}
+
+// Network error specific
+function NetworkError({ onRetry }) {
+  return (
+    <div className="network-error">
+      <div className="error-icon">📡</div>
+      <h3>Connection Problem</h3>
+      <p>
+        Unable to connect to the server. Please check your internet connection.
+      </p>
+      <button onClick={onRetry}>Retry</button>
+    </div>
+  );
+}
+
+// 404 Not Found
+function NotFoundError({ resource = 'Resource' }) {
+  return (
+    <div className="not-found-error">
+      <div className="error-icon">🔍</div>
+      <h3>{resource} Not Found</h3>
+      <p>The {resource.toLowerCase()} you're looking for doesn't exist.</p>
+      <a href="/">Go to Homepage</a>
+    </div>
+  );
+}
+
+// Permission error
+function PermissionError() {
+  return (
+    <div className="permission-error">
+      <div className="error-icon">🔒</div>
+      <h3>Access Denied</h3>
+      <p>You don't have permission to access this resource.</p>
+      <a href="/dashboard">Go to Dashboard</a>
+    </div>
+  );
+}
+```
+
+---
+
+### **12. Error Logging Service**
+
+**Send Errors to Backend for Monitoring:**
+```javascript
+class ErrorLogger {
+  static async logError(error, context = {}) {
+    try {
+      await fetch('/api/errors/log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: error.message,
+          stack: error.stack,
+          status: error.status,
+          url: window.location.href,
+          userAgent: navigator.userAgent,
+          timestamp: new Date().toISOString(),
+          context,
+        }),
+      });
+    } catch (err) {
+      // Failed to log error, fail silently
+      console.error('Failed to log error:', err);
+    }
+  }
+}
+
+// Use in error handlers
+try {
+  await apiClient.post('/products', data);
+} catch (error) {
+  ErrorLogger.logError(error, { 
+    component: 'ProductForm',
+    action: 'create_product',
+    userId: currentUser.id,
+  });
+  
+  // Show error to user
+  showNotification(error.message, 'error');
+}
+```
+
+---
+
+### **Backend Error Handling Checklist:**
+
+✅ **Use Try-Catch** - Wrap async operations  
+✅ **Check Response Status** - Handle different HTTP codes  
+✅ **Global Error Handler** - Axios interceptors or error context  
+✅ **Retry Logic** - Auto-retry on network/server errors  
+✅ **User Feedback** - Show clear error messages  
+✅ **Validation Errors** - Display field-specific errors  
+✅ **Network Detection** - Handle offline/online states  
+✅ **Timeout Handling** - Don't wait forever  
+✅ **Error Boundaries** - Catch render errors  
+✅ **Error Logging** - Send errors to monitoring service  
+✅ **Loading States** - Show when request is in progress  
+✅ **Graceful Degradation** - App works even with errors  
+
+---
+
+### **Common Backend Error Patterns:**
+
+**Pattern 1: Loading + Error + Data States**
+```javascript
+function Component() {
+  const [state, setState] = useState({
+    data: null,
+    loading: false,
+    error: null,
+  });
+
+  // Always manage all three states together
+}
+```
+
+**Pattern 2: Optimistic Updates**
+```javascript
+const deleteProduct = async (id) => {
+  // Remove immediately (optimistic)
+  setProducts(products.filter(p => p.id !== id));
+  
+  try {
+    await apiClient.delete(`/products/${id}`);
+  } catch (error) {
+    // Revert on error
+    setProducts(originalProducts);
+    showNotification('Failed to delete product', 'error');
+  }
+};
+```
+
+**Pattern 3: Error Recovery**
+```javascript
+try {
+  await apiClient.post('/products', data);
+} catch (error) {
+  if (error.status === 401) {
+    // Try to refresh token
+    await refreshAuthToken();
+    // Retry original request
+    await apiClient.post('/products', data);
+  } else {
+    throw error;
+  }
+}
+```
+
+---
+
+**Remember**: Always provide clear feedback to users about what went wrong and how they can recover. Never leave users wondering what happened!
 // Strict Mode helps identify:
 // - Unsafe lifecycles
 // - Legacy API usage
