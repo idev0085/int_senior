@@ -74,12 +74,531 @@ Story points are a unit of measure for estimating the effort required to impleme
 ### 15. What is the purpose of timeboxing?
 Timeboxing sets a fixed time period for an activity, ensuring that work doesn't extend indefinitely and helping teams maintain focus and momentum.
 
-## Scrum Framework (16-40)
+## Types of Stories & Uses (16-25)
 
-### 16. What is Scrum?
+### 16. What are the different types of stories in Agile?
+
+**Answer:**
+
+Agile teams use several types of stories to represent different kinds of work. Each type serves a specific purpose and requires different handling.
+
+---
+
+#### **1. User Stories**
+
+**Definition:** A feature or functionality described from the end user's perspective.
+
+**Format:**
+```
+As a [type of user]
+I want [goal]
+So that [benefit]
+```
+
+**Example:**
+```
+As a customer
+I want to filter products by price
+So that I can find items within my budget
+```
+
+**Characteristics:**
+- Focused on user value
+- Small enough to complete in one sprint
+- Includes acceptance criteria
+- Typically 1-5 story points
+
+**Use Cases:**
+- New features
+- User-facing functionality
+- Customer-requested enhancements
+
+---
+
+#### **2. Technical Stories (Technical Debt/Technical Tasks)**
+
+**Definition:** Work required to improve code quality, performance, or architecture without direct user value.
+
+**Examples:**
+- Refactoring legacy code
+- Upgrading dependencies
+- Improving test coverage
+- Database optimization
+- Architectural improvements
+
+**Example:**
+```
+Technical Task: Refactor authentication module
+Description: Current auth module is tightly coupled and difficult to test.
+Refactor to use dependency injection pattern.
+
+Acceptance Criteria:
+- Module is 30% smaller
+- Unit test coverage increased to 90%
+- No behavioral changes for end users
+```
+
+**Characteristics:**
+- No direct user value
+- Improves code quality, maintainability, or performance
+- Required for long-term sustainability
+- Often deprioritized in favor of features
+
+**Challenges:**
+- Hard to justify business value
+- Often pushed to backlog
+- Can accumulate as technical debt if ignored
+
+---
+
+#### **3. Bug Stories**
+
+**Definition:** Issues or defects in existing functionality that need to be fixed.
+
+**Types of Bugs:**
+
+**Critical Bugs:**
+```
+Bug: Login button not working on mobile
+Priority: Critical
+Current Behavior: Users cannot log in on mobile devices
+Expected Behavior: Login should work seamlessly on all devices
+Steps to Reproduce: 1. Open app on iPhone, 2. Click login, 3. Button doesn't respond
+Impact: 50% of users affected
+```
+
+**Minor Bugs:**
+```
+Bug: Typo in help text
+Priority: Low
+Current Behavior: Help text says "pasword" instead of "password"
+Expected Behavior: Correct spelling
+Impact: No functional impact, minor UX issue
+```
+
+**Characteristics:**
+- Based on severity (Critical, High, Medium, Low)
+- Fixed based on priority
+- Should be prevented with better testing
+- Can be in Definition of Done (automatically fixed)
+
+**Handling Bugs:**
+```
+- CRITICAL: Fixed immediately, taken out of sprint flow
+- HIGH: Included in upcoming sprint
+- MEDIUM: Added to backlog, reviewed in refinement
+- LOW: Backlog, fixed when capacity available
+```
+
+---
+
+#### **4. Spikes (Research Stories)**
+
+**Definition:** Time-boxed investigation or research activity to answer questions or reduce risk.
+
+**Purpose:**
+- Investigate new technologies
+- Evaluate architectural approaches
+- Determine feasibility
+- Reduce uncertainty before committing to story
+
+**Example:**
+```
+Spike: Investigate real-time messaging solutions
+Duration: 3 days
+Objective: Evaluate WebSocket vs Server-Sent Events for real-time notifications
+Deliverable: Proof of concept and recommendation
+
+Questions to Answer:
+1. Which solution is more performant?
+2. Which scales better to 100k+ users?
+3. Which has better browser support?
+4. Cost comparison?
+```
+
+**Characteristics:**
+- Time-boxed (hours/days, not story points)
+- Produces knowledge, not shippable code
+- Outcome is usually a recommendation or decision
+- Reduces risk for future stories
+
+**When to Use:**
+- Unknown technologies
+- Architectural decisions
+- Performance concerns
+- Integration questions
+- Feasibility analysis
+
+---
+
+#### **5. Chores**
+
+**Definition:** Work that is necessary but not directly related to features or bugs.
+
+**Examples:**
+- Updating documentation
+- Infrastructure maintenance
+- Environment setup
+- Dependency updates
+- Security patches
+- Monitoring configuration
+
+**Example:**
+```
+Chore: Update project documentation with new API endpoints
+Description: Document 3 new endpoints added in last sprint
+Acceptance Criteria:
+- All 3 endpoints documented with examples
+- Request/response examples included
+- Error cases documented
+```
+
+**Characteristics:**
+- Necessary for project health
+- Not tied to features or bugs
+- Often overlooked but important
+- Can be grouped in sprints
+
+---
+
+#### **6. Enablers**
+
+**Definition:** Stories that enable future work or capabilities.
+
+**Examples:**
+- Setting up CI/CD pipeline
+- Creating shared libraries
+- Establishing coding standards
+- Setting up monitoring/logging
+- Performance baseline establishment
+
+**Example:**
+```
+Enabler: Establish centralized logging infrastructure
+Description: Set up ELK stack for application logging
+Benefit: Enables faster debugging and monitoring of all services
+Future Impact: 10+ upcoming features depend on this
+```
+
+---
+
+#### **7. Epic**
+
+**Definition:** Large body of work that spans multiple sprints and can be broken down into smaller user stories.
+
+**Relationship:**
+```
+Epic (Large Feature)
+├── User Story 1
+├── User Story 2
+├── User Story 3
+└── Technical Story
+```
+
+**Example:**
+```
+EPIC: Payment System Overhaul
+Description: Complete redesign of payment processing
+
+Stories:
+1. Implement Stripe integration
+2. Add card validation
+3. Create payment history UI
+4. Setup payment notifications
+5. Add refund functionality
+6. Technical: Migrate legacy payment DB
+```
+
+**Characteristics:**
+- Typically 3-6 months of work
+- Cannot be completed in single sprint
+- Broken into smaller stories
+- Guides product direction
+
+---
+
+### 17. Story Types Comparison Table
+
+| Type | Duration | User Value | Frequency | Priority | Example |
+|------|----------|-----------|-----------|----------|---------|
+| User Story | 1-2 sprints | High | Very High | High | "Add search filter" |
+| Technical Story | 1-2 sprints | Low (indirect) | Medium | Medium | "Refactor authentication" |
+| Bug (Critical) | Hours-1 day | High | Varies | Critical | "Login broken on mobile" |
+| Bug (Low) | Days-1 sprint | Low | Varies | Low | "Typo in label" |
+| Spike | 1-5 days | None (knowledge) | As needed | Medium | "Evaluate Redis vs Memcached" |
+| Chore | Hours-1 day | None (maintenance) | Medium | Low | "Update README" |
+| Enabler | 1-2 sprints | None (indirect) | Medium | Medium | "Setup monitoring" |
+
+---
+
+### 18. How to Write Effective Stories
+
+**User Story Template:**
+```
+Title: Clear, concise description
+
+User Story:
+As a [user role]
+I want [action]
+So that [benefit]
+
+Acceptance Criteria:
+- [ ] Criteria 1
+- [ ] Criteria 2
+- [ ] Criteria 3
+
+Technical Notes:
+- Any specific implementation details
+- Known limitations
+- Affected systems
+
+Definition of Done:
+- Code written and reviewed
+- Unit tests written (>80% coverage)
+- Integration tests passing
+- QA tested
+- Documentation updated
+- Deployed to staging
+```
+
+**Example - Good User Story:**
+```
+Title: Filter products by category
+
+User Story:
+As a customer
+I want to filter products by category
+So that I can quickly find items I'm interested in
+
+Acceptance Criteria:
+- Category filter appears on products page
+- Selecting a category shows only items in that category
+- Filter persists when navigating back
+- "Clear filters" button resets selection
+- Mobile friendly layout maintained
+
+Technical Notes:
+- Use existing ProductFilter component
+- Cache category list for performance
+- Add analytics tracking for filter selections
+```
+
+**Example - Poor User Story:**
+```
+Title: Fix stuff
+
+Description: Make the app better and faster
+
+Acceptance Criteria:
+- It works
+```
+
+---
+
+### 19. Story Estimation for Different Types
+
+**User Stories:** Story Points (Relative Estimation)
+```
+Small (1-3 pts): Can complete in a few hours
+Medium (5-8 pts): Complete in 1-2 days
+Large (13+ pts): Should be broken down
+```
+
+**Spikes:** Hours/Days
+```
+Quick spike: 4-8 hours
+Medium spike: 2-3 days
+Complex spike: 1 week (then usually creates 3-5 stories)
+```
+
+**Bugs:** By Severity
+```
+Critical: Fix within hours
+High: Fix in current sprint
+Medium: Next sprint
+Low: Backlog, fix when convenient
+```
+
+**Chores:** Hours/Days or included in Definition of Done
+```
+Can be batched together
+Often less than 1 story point each
+```
+
+---
+
+### 20. Story Life Cycle
+
+**1. Backlog** → Story created, not yet refined
+
+**2. Refinement** → Story discussed, clarified, estimated
+```
+- Acceptance criteria finalized
+- Questions answered
+- Estimate assigned
+- Marked as "Ready"
+```
+
+**3. Sprint Planning** → Story selected for sprint
+
+**4. In Progress** → Developer starts work
+
+**5. Review** → Code review, QA testing
+
+**6. Done** → Meets Definition of Done
+
+**7. Closed** → Released to production
+
+---
+
+### 21. Anti-patterns in Story Writing
+
+**❌ Too Big:**
+```
+Epic disguised as story
+"Build entire e-commerce system" 
+→ Break into 10-15 stories
+```
+
+**❌ Too Technical:**
+```
+"Refactor the database schema"
+→ Better: "Improve order query performance from 2s to <500ms"
+```
+
+**❌ No User Value:**
+```
+"Update dependencies"
+→ Better: "Update dependencies to fix security vulnerabilities affecting users"
+```
+
+**❌ Vague Acceptance Criteria:**
+```
+"Make it faster"
+→ Better: "Reduce page load time from 3s to <1s"
+```
+
+**❌ Missing Context:**
+```
+"Add button"
+→ Better: "Add 'Save for Later' button on product detail page so users can bookmark items"
+```
+
+---
+
+### 22. Story Management Best Practices
+
+**DO:**
+✅ Keep stories independent
+✅ Make stories testable
+✅ Include acceptance criteria
+✅ Break large stories down
+✅ Keep stories in backlog until ready
+✅ Use consistent format
+✅ Include user perspective
+✅ Estimate relative to team's baseline
+
+**DON'T:**
+❌ Mix multiple features in one story
+❌ Create stories without acceptance criteria
+❌ Make stories too small (< 1 point)
+❌ Make stories too large (> 13 points)
+❌ Include implementation details as requirements
+❌ Forget about non-functional requirements
+❌ Skip the refinement process
+❌ Use absolute time estimates instead of points
+
+---
+
+### 23. Different Story Types by Industry
+
+**E-commerce:**
+- User Story: "Add product to wishlist"
+- Technical: "Optimize product search indexing"
+- Chore: "Update payment gateway documentation"
+
+**SaaS:**
+- User Story: "Enable SSO authentication"
+- Spike: "Investigate multi-tenancy architecture"
+- Bug: "Subscription doesn't renew on time"
+
+**Mobile App:**
+- User Story: "Push notification for order status"
+- Technical: "Migrate to new analytics SDK"
+- Enabler: "Setup crash reporting"
+
+---
+
+### 24. Story Splitting Strategies
+
+**When story is too big, split by:**
+
+**1. By User Role:**
+```
+Large: "Setup user profiles and permissions"
+Split into:
+- "Admin can create user accounts"
+- "Manager can assign permissions"
+- "User can view their profile"
+```
+
+**2. By Workflow:**
+```
+Large: "Complete checkout process"
+Split into:
+- "Add items to cart"
+- "Apply coupon code"
+- "Enter shipping address"
+- "Process payment"
+- "Send order confirmation"
+```
+
+**3. By Data:**
+```
+Large: "Generate reports for all metrics"
+Split into:
+- "Generate sales report"
+- "Generate customer report"
+- "Generate inventory report"
+```
+
+**4. By Technology:**
+```
+Large: "Build real-time collaboration"
+Split into:
+- "Setup WebSocket infrastructure"
+- "Implement real-time cursor tracking"
+- "Implement real-time document sync"
+```
+
+---
+
+### 25. Story Metrics & KPIs
+
+**Track These:**
+- **Cycle Time:** Days from start to done
+- **Velocity:** Stories completed per sprint
+- **Lead Time:** Days from backlog to done
+- **Stories per Sprint:** Average number completed
+- **Rework Rate:** % of stories with bugs after completion
+- **Story Distribution:** % of features vs technical vs bugs
+
+**Example Dashboard:**
+```
+Velocity (last 4 sprints): 21, 23, 21, 22 pts
+Average Cycle Time: 5.2 days
+Story Distribution: 60% Features, 20% Technical, 20% Bugs
+Rework Rate: 8% (target: <5%)
+```
+
+---
+
+## Scrum Framework (26-50)
+
+### 26. What is Scrum?
 Scrum is an Agile framework for managing complex projects, particularly software development. It uses fixed-length iterations called sprints and emphasizes empirical process control.
 
-### 17. What are the three pillars of Scrum?
+### 27. What are the three pillars of Scrum?
 - Transparency: All aspects of the process must be visible
 - Inspection: Regularly inspect artifacts and progress
 - Adaptation: Adjust process when inspection reveals issues
@@ -396,7 +915,20 @@ When multiple team members collaborate intensely on a single item to complete it
 
 ### 100. What is the difference between Agile and agility?
 Agile (capital A) refers to specific methodologies and frameworks. Agility (lowercase a) is the mindset and ability to respond quickly to change, which is the ultimate goal.
+---
 
+## Summary - Now 125 Total Questions
+
+This expanded Agile document now covers:
+- **25 additional questions** on types of stories and uses (Q16-Q25)
+- **All core Agile concepts** from fundamentals to scaling
+- **Story types**: User stories, Technical, Bugs, Spikes, Chores, Enablers, Epics
+- **Story lifecycle**: Creation through production
+- **Writing effective stories** with proper templates
+- **Story metrics and KPIs** for tracking
+- **Advanced patterns** and anti-patterns
+
+Total coverage: **125 comprehensive Agile interview questions**
 ## Key Concepts Summary
 
 **Agile Core Values:**

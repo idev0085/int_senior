@@ -6,8 +6,9 @@
 3. [State Management](#state-management)
 4. [Architecture & Design Patterns](#architecture--design-patterns)
 5. [Advanced Hooks](#advanced-hooks)
-6. [Testing & Quality](#testing--quality)
-7. [Debugging in React](#debugging-in-react)
+6. [Hydration & Server-Side Rendering](#hydration--server-side-rendering)
+7. [Testing & Quality](#testing--quality)
+8. [Debugging in React](#debugging-in-react)
 
 ---
 
@@ -2009,6 +2010,582 @@ function cartReducer(state, action) {
 - Complex update logic
 - Next state depends on previous state
 - Testing is important (reducers are pure functions)
+
+---
+
+## Hydration & Server-Side Rendering
+
+### Q10.1: What is Hydration in React?
+
+**Answer:**
+
+Hydration is the process of attaching event listeners and state to static HTML that was rendered on the server, making it interactive on the client-side.
+
+**Think of it like this:**
+1. Server renders React components to static HTML strings
+2. Browser receives ready-made HTML (fast initial load)
+3. React loads on client-side
+4. React "hydrates" the HTML by attaching event handlers and state (makes it interactive)
+
+**Visual Timeline:**
+```
+1. Server sends HTML (e.g., <button>Click me</button>)
+2. Browser displays HTML immediately (looks ready but not interactive)
+3. JavaScript bundle loads
+4. React hydrates and attaches click handlers (now interactive)
+```
+
+**Code Example:**
+```javascript
+// Server-side (Node.js with React)
+import React from 'react';
+import ReactDOMServer from 'react-dom/server';
+import App from './App';
+
+const htmlString = ReactDOMServer.renderToString(<App />);
+
+app.get('/', (req, res) => {
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>My App</title>
+      </head>
+      <body>
+        <div id="root">${htmlString}</div>
+        <script src="/bundle.js"></script>
+      </body>
+    </html>
+  `);
+});
+
+// Client-side (Browser)
+import React from 'react';
+import ReactDOM from 'react-dom';
+import App from './App';
+
+// Hydrate instead of render
+ReactDOM.hydrateRoot(
+  document.getElementById('root'),
+  <App />
+);
+```
+
+**Key Differences: render() vs hydrateRoot()**
+```javascript
+// Client-side only (no server rendering)
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+
+// After server-side rendering
+ReactDOM.hydrateRoot(document.getElementById('root'), <App />);
+```
+
+**Why Hydration?**
+- **Fast First Contentful Paint (FCP)**: HTML ready before JS loads
+- **SEO Benefits**: Search engines can index server-rendered HTML
+- **Progressive Enhancement**: Works even if JavaScript fails to load
+- **Better User Experience**: Content visible faster
+
+---
+
+### Q10.2: What are common Hydration errors?
+
+**Answer:**
+
+**Error 1: Mismatched HTML between server and client**
+
+```javascript
+// ❌ Wrong - Date will differ on server and client
+function App() {
+  const date = new Date().toISOString(); // Different on server vs client!
+  return <p>Today: {date}</p>;
+}
+
+// ✅ Correct - Use useEffect to add client-only content
+function App() {
+  const [date, setDate] = useState(null);
+  
+  useEffect(() => {
+    setDate(new Date().toISOString());
+  }, []);
+  
+  return <p>Today: {date || 'Loading...'}</p>;
+}
+```
+
+**Error 2: Browser APIs on server**
+
+```javascript
+// ❌ Wrong - window is undefined on server
+function App() {
+  const isMobile = window.innerWidth < 768; // Crashes on server!
+  return <div>{isMobile ? <Mobile /> : <Desktop />}</div>;
+}
+
+// ✅ Correct - Check if it's browser before using window
+function App() {
+  const [isMobile, setIsMobile] = useState(false);
+  
+  useEffect(() => {
+    setIsMobile(window.innerWidth < 768);
+  }, []);
+  
+  return <div>{isMobile ? <Mobile /> : <Desktop />}</div>;
+}
+
+// Or use a helper
+function isBrowser() {
+  return typeof window !== 'undefined';
+}
+
+function App() {
+  const [isMobile, setIsMobile] = useState(false);
+  
+  useEffect(() => {
+    if (isBrowser()) {
+      setIsMobile(window.innerWidth < 768);
+    }
+  }, []);
+}
+```
+
+**Error 3: React.lazy and Suspense on server**
+
+```javascript
+// ❌ Wrong - Suspense with lazy loading breaks hydration
+const LazyComponent = React.lazy(() => import('./Heavy'));
+
+function App() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <LazyComponent />
+    </Suspense>
+  );
+}
+
+// ✅ Correct - Pre-load on server or use preloads
+import Heavy from './Heavy'; // No lazy on server
+
+function AppServer() {
+  return <Heavy />; // Server-renders directly
+}
+
+function AppClient() {
+  const LazyComponent = React.lazy(() => import('./Heavy'));
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <LazyComponent />
+    </Suspense>
+  );
+}
+
+// Or better: Use next.js with dynamic imports with ssr: false
+import dynamic from 'next/dynamic';
+
+const DynamicComponent = dynamic(
+  () => import('../components/Heavy'),
+  { ssr: false } // Only load on client
+);
+```
+
+**Error 4: Random IDs or keys**
+
+```javascript
+// ❌ Wrong - ID changes between server and client
+function App() {
+  const id = Math.random().toString(); // Different on server vs client!
+  return <div id={id}>Content</div>;
+}
+
+// ✅ Correct - Use consistent IDs
+function App() {
+  const [id, setId] = useState(null);
+  
+  useEffect(() => {
+    if (!id) setId('component-1'); // Set after hydration
+  }, [id]);
+  
+  return <div id={id}>Content</div>;
+}
+```
+
+**Error 5: Conditional rendering based on client state**
+
+```javascript
+// ❌ Wrong - Different render on server vs client
+function App() {
+  const isClient = typeof window !== 'undefined';
+  return isClient ? <ClientOnly /> : <ServerFallback />; // Mismatch!
+}
+
+// ✅ Correct - Use useEffect for client-only UI
+function App() {
+  const [mounted, setMounted] = useState(false);
+  
+  useEffect(() => {
+    setMounted(true); // Client-side only
+  }, []);
+  
+  if (!mounted) return <ServerFallback />;
+  return <ClientOnly />;
+}
+
+// Or explicitly handle with suppressHydrationWarning
+function App() {
+  return (
+    <div suppressHydrationWarning>
+      {typeof window !== 'undefined' ? <ClientUI /> : <ServerUI />}
+    </div>
+  );
+}
+```
+
+---
+
+### Q10.3: What is suppressHydrationWarning?
+
+**Answer:**
+
+`suppressHydrationWarning` tells React to skip hydration mismatch warnings for specific elements.
+
+```javascript
+// Use when you intentionally have mismatches
+function CurrentTime() {
+  const [time, setTime] = useState('');
+  
+  useEffect(() => {
+    setTime(new Date().toLocaleTimeString());
+  }, []);
+  
+  return (
+    <div suppressHydrationWarning>
+      Current time: {time}
+    </div>
+  );
+}
+
+// Or for data attributes
+function App() {
+  return (
+    <div suppressHydrationWarning data-test="value">
+      Content that might mismatch
+    </div>
+  );
+}
+```
+
+**When to use:**
+- Intentional server/client differences
+- Time-based content
+- Browser-specific features
+- Development-only attributes
+
+**Note:** Use sparingly - it masks hydration issues. Better to fix the root cause.
+
+---
+
+### Q10.4: How to implement SSR with Next.js (Modern Approach)?
+
+**Answer:**
+
+Next.js handles hydration automatically, but you need to understand the patterns.
+
+```javascript
+// pages/products.js (Next.js 12 and below with getServerSideProps)
+export async function getServerSideProps() {
+  const products = await fetch('https://api.example.com/products')
+    .then(res => res.json());
+  
+  return {
+    props: { products },
+    revalidate: 60 // ISR: revalidate every 60 seconds
+  };
+}
+
+function Products({ products }) {
+  return (
+    <div>
+      {products.map(p => (
+        <div key={p.id}>{p.name}</div>
+      ))}
+    </div>
+  );
+}
+
+export default Products;
+```
+
+**Next.js 13+ with App Router (Recommended):**
+
+```javascript
+// app/products/page.js
+import { cache } from 'react';
+
+// Server component (runs on server only)
+const getProducts = cache(async () => {
+  const res = await fetch('https://api.example.com/products', {
+    next: { revalidate: 60 } // ISR
+  });
+  return res.json();
+});
+
+export default async function ProductsPage() {
+  const products = await getProducts();
+  
+  return (
+    <div>
+      {products.map(p => (
+        <ProductCard key={p.id} product={p} />
+      ))}
+    </div>
+  );
+}
+
+// Client component for interactivity
+'use client';
+
+import { useState } from 'react';
+
+function ProductCard({ product }) {
+  const [liked, setLiked] = useState(false);
+  
+  return (
+    <div>
+      <h3>{product.name}</h3>
+      <button onClick={() => setLiked(!liked)}>
+        {liked ? '❤️' : '🤍'} Like
+      </button>
+    </div>
+  );
+}
+```
+
+**Key Patterns:**
+1. **Server Components** (default): Fetch data, no interactivity
+2. **Client Components** ('use client'): State, events, hooks
+3. **ISR (Incremental Static Regeneration)**: Cache with revalidation
+
+---
+
+### Q10.5: What is the difference between SSR, SSG, and ISR?
+
+**Answer:**
+
+**SSR (Server-Side Rendering):**
+- Render on every request
+- Fresh content each time
+- Slower response time
+- Good for: Dynamic content, personalized pages
+
+```javascript
+export async function getServerSideProps() {
+  // Runs on EVERY request
+  const data = await fetchUserData(userId);
+  return { props: { data } };
+}
+```
+
+**SSG (Static Site Generation):**
+- Render once at build time
+- Extremely fast
+- Same content for all users
+- Good for: Marketing sites, blogs, documentation
+
+```javascript
+export async function getStaticProps() {
+  // Runs once at build time
+  const posts = await getAllPosts();
+  return {
+    props: { posts },
+    revalidate: false // Never revalidate
+  };
+}
+```
+
+**ISR (Incremental Static Regeneration):**
+- Build-time rendering with periodic updates
+- Serves stale content initially
+- Revalidates in background
+- Good for: E-commerce, frequently updated content
+
+```javascript
+export async function getStaticProps() {
+  // Runs at build time and during revalidation
+  const products = await getProducts();
+  return {
+    props: { products },
+    revalidate: 3600 // Revalidate every hour
+  };
+}
+```
+
+**Comparison Table:**
+
+| Feature | SSR | SSG | ISR |
+|---------|-----|-----|-----|
+| Build time | Fast | Slow (many pages) | Medium |
+| Response time | Medium | Ultra-fast | Ultra-fast |
+| Freshness | Always fresh | Static | Periodic updates |
+| Scalability | Server-dependent | CDN | CDN + revalidation |
+| Best for | Dynamic content | Static content | Mixed |
+
+---
+
+### Q10.6: Hydration in React 18 (useTransition and Suspense)
+
+**Answer:**
+
+React 18 introduces automatic batching and Suspense for SSR, making hydration smoother.
+
+```javascript
+// React 18: Automatic batching
+import React, { startTransition } from 'react';
+
+function App() {
+  const [isPending, startTransition] = useTransition();
+  
+  const handleClick = async () => {
+    startTransition(async () => {
+      // Both updates happen in single batch
+      await fetchData();
+      setData(result);
+    });
+  };
+}
+
+// Suspense with SSR (React 18)
+function App() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <Comments />
+    </Suspense>
+  );
+}
+
+async function Comments() {
+  const comments = await fetchComments(); // Server-rendered!
+  return (
+    <div>
+      {comments.map(c => (
+        <Comment key={c.id} comment={c} />
+      ))}
+    </div>
+  );
+}
+```
+
+**Key Benefits:**
+- Faster hydration
+- Streaming HTML (send HTML chunks as they're ready)
+- Better Suspense integration
+- Reduced Time to Interactive (TTI)
+
+---
+
+### Q10.7: Best Practices for Hydration
+
+**Answer:**
+
+**1. Match Server and Client Output**
+```javascript
+// ✅ Always render identical HTML on server and client
+function SafeComponent({ userId }) {
+  return <div>User: {userId}</div>; // Same on both
+}
+
+// ❌ Avoid conditional rendering that differs
+function UnsafeComponent({ userId }) {
+  return <div>{Math.random() > 0.5 ? 'A' : 'B'}</div>; // Different!
+}
+```
+
+**2. Use useEffect for Browser-Specific Features**
+```javascript
+function LocalStorageUser() {
+  const [user, setUser] = useState(null);
+  
+  useEffect(() => {
+    // This runs ONLY on client
+    const saved = localStorage.getItem('user');
+    setUser(saved ? JSON.parse(saved) : null);
+  }, []);
+  
+  // Render placeholder until client hydration
+  if (!user) return <div>Loading...</div>;
+  return <div>Welcome, {user.name}</div>;
+}
+```
+
+**3. Preload Critical Data**
+```javascript
+// Load critical data before hydration
+async function App() {
+  const userData = await fetch('/api/user').then(r => r.json());
+  
+  return <ClientApp user={userData} />;
+}
+```
+
+**4. Use Head Elements Carefully**
+```javascript
+import Head from 'next/head';
+
+export default function Page() {
+  return (
+    <>
+      <Head>
+        {/* Safe to use in SSR */}
+        <title>Page Title</title>
+        <meta name="description" content="..." />
+      </Head>
+      <main>Content</main>
+    </>
+  );
+}
+```
+
+**5. Lazy Load Non-Critical Components**
+```javascript
+import dynamic from 'next/dynamic';
+
+const HeavyComponent = dynamic(
+  () => import('../components/Heavy'),
+  { loading: () => <div>Loading...</div>, ssr: true }
+);
+
+export default function Page() {
+  return (
+    <div>
+      <div>Critical content</div>
+      <HeavyComponent /> {/* Loaded later */}
+    </div>
+  );
+}
+```
+
+**6. Monitor Hydration Errors**
+```javascript
+// Log hydration warnings in development
+if (process.env.NODE_ENV === 'development') {
+  console.warn('Check for hydration mismatches in browser console');
+}
+```
+
+**7. Use Proper Data Fetching Strategy**
+```javascript
+// Next.js 13+ App Router
+export default async function ProductPage({ params }) {
+  // Server component - fetches data securely
+  const product = await db.products.findById(params.id);
+  
+  return (
+    <>
+      <ProductDetails product={product} /> {/* Server component */}
+      <ProductReviews productId={params.id} /> {/* Client component */}
+    </>
+  );
+}
+```
 
 ---
 
