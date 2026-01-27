@@ -6269,3 +6269,1531 @@ let strLength2: number = (<string>someValue).length;
 - Prefer union types over enums for simple cases
 - Use utility types to avoid repetition
 - Enable all strict flags in tsconfig.json
+---
+
+## Advanced TypeScript Patterns
+
+### 1. Advanced Generics
+
+#### Basic to Advanced Generic Patterns
+
+```typescript
+// 1. Basic Generic Function
+function identity<T>(arg: T): T {
+  return arg;
+}
+
+const num = identity<number>(42); // Type: number
+const str = identity("hello"); // Type inference: string
+
+// 2. Generic Constraints
+interface Lengthwise {
+  length: number;
+}
+
+function logLength<T extends Lengthwise>(arg: T): T {
+  console.log(arg.length);
+  return arg;
+}
+
+logLength("hello"); // ✅ string has length
+logLength([1, 2, 3]); // ✅ array has length
+logLength({ length: 10, value: "test" }); // ✅ object has length
+// logLength(42); // ❌ Error: number doesn't have length
+
+// 3. Multiple Type Parameters
+function map<T, U>(array: T[], fn: (item: T) => U): U[] {
+  return array.map(fn);
+}
+
+const numbers = [1, 2, 3];
+const strings = map(numbers, (n) => n.toString()); // string[]
+const doubled = map(numbers, (n) => n * 2); // number[]
+
+// 4. Generic Classes
+class GenericNumber<T> {
+  zeroValue: T;
+  add: (x: T, y: T) => T;
+  
+  constructor(zeroValue: T, add: (x: T, y: T) => T) {
+    this.zeroValue = zeroValue;
+    this.add = add;
+  }
+}
+
+const numberCalc = new GenericNumber<number>(0, (x, y) => x + y);
+const stringCalc = new GenericNumber<string>("", (x, y) => x + y);
+
+console.log(numberCalc.add(5, 10)); // 15
+console.log(stringCalc.add("Hello ", "World")); // "Hello World"
+
+// 5. Generic Interface
+interface Repository<T> {
+  get(id: string): Promise<T>;
+  getAll(): Promise<T[]>;
+  create(item: T): Promise<T>;
+  update(id: string, item: Partial<T>): Promise<T>;
+  delete(id: string): Promise<void>;
+}
+
+interface User {
+  id: string;
+  name: string;
+  email: string;
+}
+
+class UserRepository implements Repository<User> {
+  async get(id: string): Promise<User> {
+    // Fetch user
+    return { id, name: "John", email: "john@example.com" };
+  }
+  
+  async getAll(): Promise<User[]> {
+    // Fetch all users
+    return [];
+  }
+  
+  async create(user: User): Promise<User> {
+    // Create user
+    return user;
+  }
+  
+  async update(id: string, user: Partial<User>): Promise<User> {
+    // Update user
+    return { id, name: "Updated", email: "updated@example.com" };
+  }
+  
+  async delete(id: string): Promise<void> {
+    // Delete user
+  }
+}
+
+// 6. Generic Constraints with keyof
+function getProperty<T, K extends keyof T>(obj: T, key: K): T[K] {
+  return obj[key];
+}
+
+const person = { name: "John", age: 30, email: "john@example.com" };
+const name = getProperty(person, "name"); // Type: string
+const age = getProperty(person, "age"); // Type: number
+// const invalid = getProperty(person, "invalid"); // ❌ Error
+
+// 7. Generic Type Factory
+type Constructor<T = {}> = new (...args: any[]) => T;
+
+function createInstance<T>(ctor: Constructor<T>, ...args: any[]): T {
+  return new ctor(...args);
+}
+
+class Product {
+  constructor(public name: string, public price: number) {}
+}
+
+const product = createInstance(Product, "Laptop", 999); // Type: Product
+
+// 8. Recursive Generic Types
+type DeepPartial<T> = {
+  [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
+};
+
+interface Config {
+  server: {
+    host: string;
+    port: number;
+    ssl: {
+      enabled: boolean;
+      cert: string;
+    };
+  };
+  database: {
+    url: string;
+    poolSize: number;
+  };
+}
+
+// All properties optional at any depth
+const partialConfig: DeepPartial<Config> = {
+  server: {
+    port: 3000,
+    ssl: {
+      enabled: true
+      // cert is optional
+    }
+    // host is optional
+  }
+  // database is optional
+};
+
+// 9. Generic Type Guards
+function isArray<T>(value: T | T[]): value is T[] {
+  return Array.isArray(value);
+}
+
+function processValue<T>(value: T | T[]) {
+  if (isArray(value)) {
+    // TypeScript knows value is T[]
+    value.forEach((item) => console.log(item));
+  } else {
+    // TypeScript knows value is T
+    console.log(value);
+  }
+}
+
+// 10. Variadic Tuple Types (Advanced)
+type Prepend<T extends any[], U> = [U, ...T];
+type Append<T extends any[], U> = [...T, U];
+
+type Result1 = Prepend<[2, 3], 1>; // [1, 2, 3]
+type Result2 = Append<[1, 2], 3>; // [1, 2, 3]
+
+// Function overloads with generics
+function concat<T extends any[], U extends any[]>(
+  arr1: T,
+  arr2: U
+): [...T, ...U] {
+  return [...arr1, ...arr2] as [...T, ...U];
+}
+
+const result = concat([1, 2], ["a", "b"]); // Type: [number, number, string, string]
+```
+
+---
+
+### 2. Conditional Types - Complete Guide
+
+```typescript
+// 1. Basic Conditional Type
+type IsString<T> = T extends string ? true : false;
+
+type A = IsString<string>; // true
+type B = IsString<number>; // false
+type C = IsString<"hello">; // true
+
+// 2. Conditional Types with Generics
+type NonNullable<T> = T extends null | undefined ? never : T;
+
+type D = NonNullable<string | null>; // string
+type E = NonNullable<number | undefined>; // number
+type F = NonNullable<boolean | null | undefined>; // boolean
+
+// 3. Inferring Types in Conditional Types
+type ReturnType<T> = T extends (...args: any[]) => infer R ? R : never;
+
+type G = ReturnType<() => string>; // string
+type H = ReturnType<(x: number) => boolean>; // boolean
+type I = ReturnType<typeof Math.random>; // number
+
+// 4. Extract Function Parameters
+type Parameters<T> = T extends (...args: infer P) => any ? P : never;
+
+function exampleFunc(a: string, b: number, c: boolean) {
+  return { a, b, c };
+}
+
+type Params = Parameters<typeof exampleFunc>; // [string, number, boolean]
+
+// 5. Unwrap Promise Type
+type Awaited<T> = T extends Promise<infer U> ? U : T;
+
+type J = Awaited<Promise<string>>; // string
+type K = Awaited<Promise<Promise<number>>>; // Promise<number>
+
+// Deep unwrap
+type DeepAwaited<T> = T extends Promise<infer U>
+  ? DeepAwaited<U>
+  : T;
+
+type L = DeepAwaited<Promise<Promise<Promise<boolean>>>>; // boolean
+
+// 6. Distributive Conditional Types
+type ToArray<T> = T extends any ? T[] : never;
+
+type M = ToArray<string | number>; // string[] | number[] (distributed)
+
+// Non-distributive version
+type ToArrayNonDist<T> = [T] extends [any] ? T[] : never;
+
+type N = ToArrayNonDist<string | number>; // (string | number)[]
+
+// 7. Exclude and Extract Utility Types
+type Exclude<T, U> = T extends U ? never : T;
+type Extract<T, U> = T extends U ? T : never;
+
+type O = Exclude<"a" | "b" | "c", "a" | "b">; // "c"
+type P = Extract<"a" | "b" | "c", "a" | "b">; // "a" | "b"
+
+// 8. Complex Conditional Type - Function Type Checker
+type IsFunction<T> = T extends (...args: any[]) => any ? true : false;
+
+type Q = IsFunction<() => void>; // true
+type R = IsFunction<string>; // false
+type S = IsFunction<{ (): void }>; // true (callable object)
+
+// 9. Nested Conditional Types
+type TypeName<T> = T extends string
+  ? "string"
+  : T extends number
+  ? "number"
+  : T extends boolean
+  ? "boolean"
+  : T extends undefined
+  ? "undefined"
+  : T extends Function
+  ? "function"
+  : "object";
+
+type T1 = TypeName<string>; // "string"
+type T2 = TypeName<42>; // "number"
+type T3 = TypeName<() => void>; // "function"
+
+// 10. Conditional Types with Multiple Inferences
+type UnpackArray<T> = T extends (infer U)[] ? U : T;
+
+type U1 = UnpackArray<number[]>; // number
+type U2 = UnpackArray<string>; // string
+
+// 11. Conditional Type Constraints
+type Flatten<T> = T extends Array<infer U>
+  ? U extends Array<any>
+    ? Flatten<U>
+    : U
+  : T;
+
+type V1 = Flatten<number[]>; // number
+type V2 = Flatten<number[][]>; // number
+type V3 = Flatten<number[][][]>; // number
+
+// 12. Real-world Example: API Response Handler
+type ApiResponse<T> = 
+  | { status: 'success'; data: T }
+  | { status: 'error'; error: string };
+
+type ExtractData<T> = T extends { status: 'success'; data: infer D }
+  ? D
+  : never;
+
+type UserResponse = ApiResponse<{ id: string; name: string }>;
+type UserData = ExtractData<UserResponse>; // { id: string; name: string }
+
+// 13. Advanced: Recursive Conditional Types
+type Paths<T> = T extends object
+  ? {
+      [K in keyof T]: K extends string
+        ? T[K] extends object
+          ? K | `${K}.${Paths<T[K]>}`
+          : K
+        : never;
+    }[keyof T]
+  : never;
+
+interface NestedObject {
+  user: {
+    profile: {
+      name: string;
+      age: number;
+    };
+    settings: {
+      theme: string;
+    };
+  };
+  posts: Array<{ title: string }>;
+}
+
+type AllPaths = Paths<NestedObject>;
+// "user" | "posts" | "user.profile" | "user.settings" | "user.profile.name" | "user.profile.age" | "user.settings.theme"
+
+// 14. Conditional Types for Safe Property Access
+type GetFieldType<T, Path extends string> = Path extends keyof T
+  ? T[Path]
+  : Path extends `${infer K}.${infer Rest}`
+  ? K extends keyof T
+    ? GetFieldType<T[K], Rest>
+    : never
+  : never;
+
+type ProfileName = GetFieldType<NestedObject, "user.profile.name">; // string
+type Theme = GetFieldType<NestedObject, "user.settings.theme">; // string
+
+// 15. Conditional Types for Validation
+type ValidateShape<T, Shape> = T extends Shape
+  ? T
+  : { error: "Type does not match shape"; expected: Shape; received: T };
+
+interface ExpectedUser {
+  id: string;
+  name: string;
+}
+
+type Valid = ValidateShape<{ id: string; name: string }, ExpectedUser>; // { id: string; name: string }
+type Invalid = ValidateShape<{ id: number }, ExpectedUser>; // { error: ..., expected: ..., received: ... }
+```
+
+---
+
+### 3. Utility Types - Complete Arsenal
+
+```typescript
+// 1. Partial<T> - Make all properties optional
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  age: number;
+}
+
+type PartialUser = Partial<User>;
+// { id?: string; name?: string; email?: string; age?: number }
+
+const updateUser = (id: string, updates: Partial<User>) => {
+  // Can pass any subset of User properties
+};
+
+updateUser("123", { name: "John" }); // ✅
+updateUser("123", { email: "john@example.com", age: 30 }); // ✅
+
+// 2. Required<T> - Make all properties required
+interface Config {
+  host?: string;
+  port?: number;
+  ssl?: boolean;
+}
+
+type RequiredConfig = Required<Config>;
+// { host: string; port: number; ssl: boolean }
+
+// 3. Readonly<T> - Make all properties readonly
+interface MutableUser {
+  id: string;
+  name: string;
+}
+
+type ImmutableUser = Readonly<MutableUser>;
+// { readonly id: string; readonly name: string }
+
+const user: ImmutableUser = { id: "1", name: "John" };
+// user.name = "Jane"; // ❌ Error: Cannot assign to 'name' because it is a read-only property
+
+// 4. Pick<T, K> - Pick specific properties
+type UserPreview = Pick<User, "id" | "name">;
+// { id: string; name: string }
+
+// 5. Omit<T, K> - Omit specific properties
+type UserWithoutId = Omit<User, "id">;
+// { name: string; email: string; age: number }
+
+type UserPublic = Omit<User, "email" | "age">;
+// { id: string; name: string }
+
+// 6. Record<K, T> - Create object type with specific keys and value types
+type UserRoles = Record<string, string[]>;
+// { [key: string]: string[] }
+
+const roles: UserRoles = {
+  admin: ["read", "write", "delete"],
+  user: ["read"],
+  guest: []
+};
+
+type Page = "home" | "about" | "contact";
+type PageInfo = Record<Page, { title: string; content: string }>;
+
+const pages: PageInfo = {
+  home: { title: "Home", content: "Welcome" },
+  about: { title: "About", content: "About us" },
+  contact: { title: "Contact", content: "Get in touch" }
+};
+
+// 7. Exclude<T, U> - Exclude types from union
+type T1 = Exclude<"a" | "b" | "c", "a">; // "b" | "c"
+type T2 = Exclude<string | number | boolean, string>; // number | boolean
+
+// 8. Extract<T, U> - Extract types from union
+type T3 = Extract<"a" | "b" | "c", "a" | "b">; // "a" | "b"
+type T4 = Extract<string | number | boolean, string | number>; // string | number
+
+// 9. NonNullable<T> - Remove null and undefined
+type T5 = NonNullable<string | null | undefined>; // string
+type T6 = NonNullable<number | null>; // number
+
+// 10. ReturnType<T> - Get function return type
+function getUser() {
+  return { id: "1", name: "John", age: 30 };
+}
+
+type UserReturn = ReturnType<typeof getUser>;
+// { id: string; name: string; age: number }
+
+// 11. Parameters<T> - Get function parameter types
+function createUser(name: string, age: number, isAdmin: boolean) {
+  return { name, age, isAdmin };
+}
+
+type CreateUserParams = Parameters<typeof createUser>;
+// [string, number, boolean]
+
+// 12. ConstructorParameters<T> - Get constructor parameter types
+class Product {
+  constructor(public name: string, public price: number) {}
+}
+
+type ProductParams = ConstructorParameters<typeof Product>;
+// [string, number]
+
+// 13. InstanceType<T> - Get instance type of constructor
+type ProductInstance = InstanceType<typeof Product>;
+// Product
+
+// 14. ThisParameterType<T> - Extract 'this' parameter type
+function greet(this: User, message: string) {
+  console.log(`${this.name}: ${message}`);
+}
+
+type GreetThis = ThisParameterType<typeof greet>; // User
+
+// 15. OmitThisParameter<T> - Remove 'this' parameter
+type GreetWithoutThis = OmitThisParameter<typeof greet>;
+// (message: string) => void
+
+// 16. Awaited<T> - Get Promise resolved type
+type T7 = Awaited<Promise<string>>; // string
+type T8 = Awaited<Promise<Promise<number>>>; // number
+
+// Custom Utility Types
+
+// 17. DeepReadonly - Make all properties deeply readonly
+type DeepReadonly<T> = {
+  readonly [P in keyof T]: T[P] extends object
+    ? DeepReadonly<T[P]>
+    : T[P];
+};
+
+interface MutableConfig {
+  server: {
+    host: string;
+    port: number;
+  };
+  database: {
+    url: string;
+  };
+}
+
+type ImmutableConfig = DeepReadonly<MutableConfig>;
+// All nested properties are readonly
+
+// 18. DeepRequired - Make all properties deeply required
+type DeepRequired<T> = {
+  [P in keyof T]-?: T[P] extends object | undefined
+    ? DeepRequired<NonNullable<T[P]>>
+    : T[P];
+};
+
+interface OptionalNested {
+  a?: {
+    b?: {
+      c?: string;
+    };
+  };
+}
+
+type RequiredNested = DeepRequired<OptionalNested>;
+// { a: { b: { c: string } } }
+
+// 19. Mutable - Remove readonly modifier
+type Mutable<T> = {
+  -readonly [P in keyof T]: T[P];
+};
+
+type ReadonlyUser = Readonly<User>;
+type MutableUser = Mutable<ReadonlyUser>;
+// Back to mutable User type
+
+// 20. PickByType - Pick properties by their type
+type PickByType<T, U> = {
+  [P in keyof T as T[P] extends U ? P : never]: T[P];
+};
+
+interface Mixed {
+  id: string;
+  name: string;
+  age: number;
+  score: number;
+  isActive: boolean;
+}
+
+type StringProps = PickByType<Mixed, string>; // { id: string; name: string }
+type NumberProps = PickByType<Mixed, number>; // { age: number; score: number }
+
+// 21. OmitByType - Omit properties by their type
+type OmitByType<T, U> = {
+  [P in keyof T as T[P] extends U ? never : P]: T[P];
+};
+
+type NonStringProps = OmitByType<Mixed, string>;
+// { age: number; score: number; isActive: boolean }
+
+// 22. Nullable - Make properties nullable
+type Nullable<T> = {
+  [P in keyof T]: T[P] | null;
+};
+
+type NullableUser = Nullable<User>;
+// { id: string | null; name: string | null; email: string | null; age: number | null }
+
+// 23. Optional - Make specific properties optional
+type Optional<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>;
+
+type UserWithOptionalEmail = Optional<User, "email">;
+// { id: string; name: string; email?: string; age: number }
+
+// 24. RequireAtLeastOne - Require at least one property
+type RequireAtLeastOne<T, Keys extends keyof T = keyof T> = Pick<
+  T,
+  Exclude<keyof T, Keys>
+> &
+  {
+    [K in Keys]-?: Required<Pick<T, K>> & Partial<Pick<T, Exclude<Keys, K>>>;
+  }[Keys];
+
+interface SearchFilters {
+  name: string;
+  email: string;
+  age: number;
+}
+
+type SearchWithAtLeastOne = RequireAtLeastOne<SearchFilters>;
+// Must have at least one property set
+
+// 25. UnionToIntersection - Convert union to intersection
+type UnionToIntersection<U> = (
+  U extends any ? (k: U) => void : never
+) extends (k: infer I) => void
+  ? I
+  : never;
+
+type U1 = { a: string } | { b: number };
+type I1 = UnionToIntersection<U1>; // { a: string } & { b: number }
+
+// 26. Prettify - Make complex types readable
+type Prettify<T> = {
+  [K in keyof T]: T[K];
+} & {};
+
+type Complex = Omit<User, "id"> & { userId: string };
+type PrettyComplex = Prettify<Complex>;
+// Clean, readable type
+
+// 27. ValueOf - Get all value types from object
+type ValueOf<T> = T[keyof T];
+
+type UserValues = ValueOf<User>; // string | number
+
+// 28. Entries - Get [key, value] tuples
+type Entries<T> = {
+  [K in keyof T]: [K, T[K]];
+}[keyof T];
+
+type UserEntries = Entries<User>;
+// ["id", string] | ["name", string] | ["email", string] | ["age", number]
+
+// 29. FunctionKeys - Get only function property keys
+type FunctionKeys<T> = {
+  [K in keyof T]: T[K] extends Function ? K : never;
+}[keyof T];
+
+interface Service {
+  data: string;
+  count: number;
+  getData(): string;
+  setData(value: string): void;
+  increment(): void;
+}
+
+type ServiceFunctions = FunctionKeys<Service>;
+// "getData" | "setData" | "increment"
+
+// 30. PromiseType - Extract promise value type
+type PromiseType<T> = T extends Promise<infer U> ? U : never;
+
+type T9 = PromiseType<Promise<string>>; // string
+type T10 = PromiseType<Promise<User>>; // User
+```
+
+---
+
+### 4. Type-Safe Component APIs (React)
+
+```typescript
+import { ReactNode, ComponentProps, JSXElementConstructor } from 'react';
+
+// 1. Basic Typed Component
+interface ButtonProps {
+  variant: 'primary' | 'secondary' | 'danger';
+  size: 'sm' | 'md' | 'lg';
+  children: ReactNode;
+  onClick?: () => void;
+  disabled?: boolean;
+}
+
+function Button({ variant, size, children, onClick, disabled }: ButtonProps) {
+  return (
+    <button
+      className={`btn-${variant} btn-${size}`}
+      onClick={onClick}
+      disabled={disabled}
+    >
+      {children}
+    </button>
+  );
+}
+
+// Usage
+<Button variant="primary" size="md">Click me</Button>
+
+// 2. Component with Generic Props
+interface SelectProps<T> {
+  options: T[];
+  value: T;
+  onChange: (value: T) => void;
+  getLabel: (option: T) => string;
+  getValue: (option: T) => string;
+}
+
+function Select<T>({ options, value, onChange, getLabel, getValue }: SelectProps<T>) {
+  return (
+    <select
+      value={getValue(value)}
+      onChange={(e) => {
+        const selected = options.find((opt) => getValue(opt) === e.target.value);
+        if (selected) onChange(selected);
+      }}
+    >
+      {options.map((option) => (
+        <option key={getValue(option)} value={getValue(option)}>
+          {getLabel(option)}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+// Usage with full type safety
+interface User {
+  id: string;
+  name: string;
+}
+
+const users: User[] = [
+  { id: '1', name: 'John' },
+  { id: '2', name: 'Jane' }
+];
+
+<Select
+  options={users}
+  value={users[0]}
+  onChange={(user) => console.log(user.name)} // Type: User
+  getLabel={(user) => user.name} // Autocomplete works!
+  getValue={(user) => user.id}
+/>
+
+// 3. Discriminated Union Props
+type ButtonProps =
+  | {
+      variant: 'link';
+      href: string;
+      target?: '_blank' | '_self';
+      onClick?: never;
+    }
+  | {
+      variant: 'button';
+      onClick: () => void;
+      href?: never;
+      target?: never;
+    };
+
+function SmartButton(props: ButtonProps) {
+  if (props.variant === 'link') {
+    // TypeScript knows: href exists, onClick doesn't
+    return <a href={props.href} target={props.target}>Link</a>;
+  } else {
+    // TypeScript knows: onClick exists, href doesn't
+    return <button onClick={props.onClick}>Button</button>;
+  }
+}
+
+// 4. Polymorphic Components
+type PolymorphicProps<E extends React.ElementType> = {
+  as?: E;
+  children: ReactNode;
+} & Omit<ComponentProps<E>, 'as'>;
+
+function Box<E extends React.ElementType = 'div'>({
+  as,
+  children,
+  ...props
+}: PolymorphicProps<E>) {
+  const Component = as || 'div';
+  return <Component {...props}>{children}</Component>;
+}
+
+// Usage with full type safety for each element
+<Box>Default div</Box>
+<Box as="button" onClick={() => console.log('clicked')}>Button</Box>
+<Box as="a" href="/home">Link</Box>
+<Box as="input" type="text" value="test" onChange={(e) => console.log(e)} />
+
+// 5. Render Props with Type Safety
+interface RenderProps<T> {
+  data: T[];
+  loading: boolean;
+  error: Error | null;
+  render: (data: T[]) => ReactNode;
+  renderLoading?: () => ReactNode;
+  renderError?: (error: Error) => ReactNode;
+}
+
+function DataLoader<T>({
+  data,
+  loading,
+  error,
+  render,
+  renderLoading,
+  renderError
+}: RenderProps<T>) {
+  if (loading) return renderLoading?.() || <div>Loading...</div>;
+  if (error) return renderError?.(error) || <div>Error: {error.message}</div>;
+  return <>{render(data)}</>;
+}
+
+// Usage
+<DataLoader
+  data={users}
+  loading={false}
+  error={null}
+  render={(users) => (
+    <ul>
+      {users.map((user) => (
+        <li key={user.id}>{user.name}</li>
+      ))}
+    </ul>
+  )}
+/>
+
+// 6. HOC with Type Safety
+type WithLoading<P> = P & {
+  loading: boolean;
+};
+
+function withLoading<P extends object>(
+  Component: React.ComponentType<P>
+): React.FC<WithLoading<P>> {
+  return ({ loading, ...props }: WithLoading<P>) => {
+    if (loading) return <div>Loading...</div>;
+    return <Component {...(props as P)} />;
+  };
+}
+
+// Usage
+interface UserListProps {
+  users: User[];
+  onSelect: (user: User) => void;
+}
+
+function UserList({ users, onSelect }: UserListProps) {
+  return (
+    <ul>
+      {users.map((user) => (
+        <li key={user.id} onClick={() => onSelect(user)}>
+          {user.name}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+const UserListWithLoading = withLoading(UserList);
+
+// Props are correctly typed!
+<UserListWithLoading
+  loading={isLoading}
+  users={users}
+  onSelect={(user) => console.log(user)}
+/>
+
+// 7. Forwarded Ref with Generic Types
+import { forwardRef, useRef } from 'react';
+
+interface InputProps {
+  label: string;
+  error?: string;
+}
+
+const Input = forwardRef<HTMLInputElement, InputProps>(
+  ({ label, error, ...props }, ref) => {
+    return (
+      <div>
+        <label>{label}</label>
+        <input ref={ref} {...props} />
+        {error && <span className="error">{error}</span>}
+      </div>
+    );
+  }
+);
+
+// Usage
+function Form() {
+  const inputRef = useRef<HTMLInputElement>(null);
+  
+  const focusInput = () => {
+    inputRef.current?.focus(); // Type-safe!
+  };
+  
+  return <Input ref={inputRef} label="Name" />;
+}
+
+// 8. Compound Components with Context
+interface TabsContextValue {
+  activeTab: string;
+  setActiveTab: (id: string) => void;
+}
+
+const TabsContext = React.createContext<TabsContextValue | null>(null);
+
+function useTabs() {
+  const context = React.useContext(TabsContext);
+  if (!context) {
+    throw new Error('useTabs must be used within Tabs');
+  }
+  return context;
+}
+
+interface TabsProps {
+  defaultTab: string;
+  children: ReactNode;
+}
+
+function Tabs({ defaultTab, children }: TabsProps) {
+  const [activeTab, setActiveTab] = React.useState(defaultTab);
+  
+  return (
+    <TabsContext.Provider value={{ activeTab, setActiveTab }}>
+      <div className="tabs">{children}</div>
+    </TabsContext.Provider>
+  );
+}
+
+interface TabListProps {
+  children: ReactNode;
+}
+
+function TabList({ children }: TabListProps) {
+  return <div className="tab-list">{children}</div>;
+}
+
+interface TabProps {
+  id: string;
+  children: ReactNode;
+}
+
+function Tab({ id, children }: TabProps) {
+  const { activeTab, setActiveTab } = useTabs();
+  
+  return (
+    <button
+      className={activeTab === id ? 'active' : ''}
+      onClick={() => setActiveTab(id)}
+    >
+      {children}
+    </button>
+  );
+}
+
+interface TabPanelProps {
+  id: string;
+  children: ReactNode;
+}
+
+function TabPanel({ id, children }: TabPanelProps) {
+  const { activeTab } = useTabs();
+  
+  if (activeTab !== id) return null;
+  
+  return <div className="tab-panel">{children}</div>;
+}
+
+// Export as compound component
+Tabs.List = TabList;
+Tabs.Tab = Tab;
+Tabs.Panel = TabPanel;
+
+// Usage with full type safety
+<Tabs defaultTab="home">
+  <Tabs.List>
+    <Tabs.Tab id="home">Home</Tabs.Tab>
+    <Tabs.Tab id="profile">Profile</Tabs.Tab>
+    <Tabs.Tab id="settings">Settings</Tabs.Tab>
+  </Tabs.List>
+  
+  <Tabs.Panel id="home">Home Content</Tabs.Panel>
+  <Tabs.Panel id="profile">Profile Content</Tabs.Panel>
+  <Tabs.Panel id="settings">Settings Content</Tabs.Panel>
+</Tabs>
+
+// 9. Type-Safe Event Handlers
+interface FormData {
+  username: string;
+  email: string;
+  password: string;
+}
+
+type FormField = keyof FormData;
+
+interface FormProps {
+  initialData: FormData;
+  onSubmit: (data: FormData) => void;
+}
+
+function TypedForm({ initialData, onSubmit }: FormProps) {
+  const [formData, setFormData] = React.useState<FormData>(initialData);
+  
+  // Type-safe field updater
+  const handleChange = <K extends FormField>(
+    field: K,
+    value: FormData[K]
+  ) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+  
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSubmit(formData);
+  };
+  
+  return (
+    <form onSubmit={handleSubmit}>
+      <input
+        type="text"
+        value={formData.username}
+        onChange={(e) => handleChange('username', e.target.value)}
+      />
+      <input
+        type="email"
+        value={formData.email}
+        onChange={(e) => handleChange('email', e.target.value)}
+      />
+      <input
+        type="password"
+        value={formData.password}
+        onChange={(e) => handleChange('password', e.target.value)}
+      />
+      <button type="submit">Submit</button>
+    </form>
+  );
+}
+
+// 10. Strictly Typed Children
+interface ListProps<T> {
+  items: T[];
+  renderItem: (item: T, index: number) => ReactNode;
+  keyExtractor: (item: T) => string | number;
+}
+
+function List<T>({ items, renderItem, keyExtractor }: ListProps<T>) {
+  return (
+    <ul>
+      {items.map((item, index) => (
+        <li key={keyExtractor(item)}>{renderItem(item, index)}</li>
+      ))}
+    </ul>
+  );
+}
+
+// Usage
+interface Product {
+  id: string;
+  name: string;
+  price: number;
+}
+
+const products: Product[] = [
+  { id: '1', name: 'Laptop', price: 999 },
+  { id: '2', name: 'Phone', price: 699 }
+];
+
+<List
+  items={products}
+  renderItem={(product, index) => (
+    <div>
+      {index + 1}. {product.name} - ${product.price}
+    </div>
+  )}
+  keyExtractor={(product) => product.id}
+/>
+```
+
+---
+
+### 5. Complex Type Definition Practice
+
+```typescript
+// Challenge 1: Deep Path Type
+// Create a type that generates all possible paths in a nested object
+
+type PathImpl<T, Key extends keyof T> = Key extends string
+  ? T[Key] extends Record<string, any>
+    ?
+        | `${Key}.${PathImpl<T[Key], Exclude<keyof T[Key], keyof any[]>> & string}`
+        | `${Key}.${Exclude<keyof T[Key], keyof any[]> & string}`
+    : never
+  : never;
+
+type Path<T> = PathImpl<T, keyof T> | keyof T;
+
+type PathValue<T, P extends Path<T>> = P extends `${infer Key}.${infer Rest}`
+  ? Key extends keyof T
+    ? Rest extends Path<T[Key]>
+      ? PathValue<T[Key], Rest>
+      : never
+    : never
+  : P extends keyof T
+  ? T[P]
+  : never;
+
+// Example usage
+interface Schema {
+  user: {
+    profile: {
+      name: string;
+      age: number;
+      address: {
+        street: string;
+        city: string;
+        country: string;
+      };
+    };
+    settings: {
+      theme: 'light' | 'dark';
+      notifications: boolean;
+    };
+  };
+  posts: {
+    title: string;
+    content: string;
+  }[];
+}
+
+type ValidPaths = Path<Schema>;
+// "user" | "posts" | "user.profile" | "user.settings" | "user.profile.name" | ...
+
+function getValue<T, P extends Path<T>>(obj: T, path: P): PathValue<T, P> {
+  const keys = (path as string).split('.');
+  let result: any = obj;
+  for (const key of keys) {
+    result = result[key];
+  }
+  return result;
+}
+
+// Type-safe usage
+declare const schema: Schema;
+const userName = getValue(schema, 'user.profile.name'); // Type: string
+const userAge = getValue(schema, 'user.profile.age'); // Type: number
+const theme = getValue(schema, 'user.settings.theme'); // Type: 'light' | 'dark'
+
+// Challenge 2: Type-Safe Query Builder
+type QueryOperator = 'eq' | 'ne' | 'gt' | 'lt' | 'gte' | 'lte' | 'in' | 'contains';
+
+type QueryCondition<T> = {
+  [K in keyof T]?: T[K] extends string
+    ? { [O in QueryOperator]?: O extends 'in' ? string[] : string }
+    : T[K] extends number
+    ? { [O in QueryOperator]?: O extends 'in' ? number[] : number }
+    : T[K] extends boolean
+    ? { eq?: boolean; ne?: boolean }
+    : never;
+};
+
+type QueryOptions<T> = {
+  where?: QueryCondition<T>;
+  orderBy?: {
+    [K in keyof T]?: 'asc' | 'desc';
+  };
+  limit?: number;
+  offset?: number;
+};
+
+class QueryBuilder<T> {
+  private options: QueryOptions<T> = {};
+  
+  where(condition: QueryCondition<T>): this {
+    this.options.where = condition;
+    return this;
+  }
+  
+  orderBy(field: keyof T, direction: 'asc' | 'desc'): this {
+    this.options.orderBy = { [field]: direction } as any;
+    return this;
+  }
+  
+  limit(count: number): this {
+    this.options.limit = count;
+    return this;
+  }
+  
+  offset(count: number): this {
+    this.options.offset = count;
+    return this;
+  }
+  
+  build(): QueryOptions<T> {
+    return this.options;
+  }
+}
+
+// Usage with full type safety
+interface Product {
+  id: string;
+  name: string;
+  price: number;
+  inStock: boolean;
+}
+
+const query = new QueryBuilder<Product>()
+  .where({
+    price: { gte: 100, lte: 1000 },
+    name: { contains: 'laptop' },
+    inStock: { eq: true }
+  })
+  .orderBy('price', 'asc')
+  .limit(10)
+  .build();
+
+// Challenge 3: Type-Safe State Machine
+type State = {
+  name: string;
+  on: Record<string, string>;
+};
+
+type StateMachine<S extends Record<string, State>> = {
+  initial: keyof S;
+  states: S;
+};
+
+type ExtractEvents<S extends Record<string, State>> = {
+  [K in keyof S]: keyof S[K]['on'];
+}[keyof S];
+
+type GetNextState<
+  S extends Record<string, State>,
+  Current extends keyof S,
+  Event extends string
+> = Event extends keyof S[Current]['on']
+  ? S[Current]['on'][Event]
+  : never;
+
+// Define state machine
+const trafficLightMachine = {
+  initial: 'red',
+  states: {
+    red: {
+      name: 'Red Light',
+      on: {
+        TIMER: 'green'
+      }
+    },
+    yellow: {
+      name: 'Yellow Light',
+      on: {
+        TIMER: 'red'
+      }
+    },
+    green: {
+      name: 'Green Light',
+      on: {
+        TIMER: 'yellow'
+      }
+    }
+  }
+} as const;
+
+type TrafficLightMachine = typeof trafficLightMachine;
+type TrafficLightState = keyof TrafficLightMachine['states'];
+type TrafficLightEvent = ExtractEvents<TrafficLightMachine['states']>;
+
+class StateMachineRunner<S extends Record<string, State>> {
+  private currentState: keyof S;
+  
+  constructor(private machine: StateMachine<S>) {
+    this.currentState = machine.initial;
+  }
+  
+  send<E extends ExtractEvents<S>>(event: E): void {
+    const current = this.machine.states[this.currentState];
+    const nextState = current.on[event as string];
+    
+    if (nextState && nextState in this.machine.states) {
+      this.currentState = nextState as keyof S;
+      console.log(`Transitioned to: ${String(this.currentState)}`);
+    }
+  }
+  
+  getState(): keyof S {
+    return this.currentState;
+  }
+}
+
+// Usage
+const runner = new StateMachineRunner(trafficLightMachine);
+runner.send('TIMER'); // Type-safe events
+console.log(runner.getState()); // 'green'
+
+// Challenge 4: Type-Safe Event Emitter
+type EventMap = Record<string, any>;
+
+type EventKey<T extends EventMap> = string & keyof T;
+type EventReceiver<T> = (params: T) => void;
+
+class TypedEventEmitter<T extends EventMap> {
+  private listeners: {
+    [K in keyof T]?: Array<(p: T[K]) => void>;
+  } = {};
+  
+  on<K extends EventKey<T>>(eventName: K, fn: EventReceiver<T[K]>): void {
+    if (!this.listeners[eventName]) {
+      this.listeners[eventName] = [];
+    }
+    this.listeners[eventName]!.push(fn);
+  }
+  
+  off<K extends EventKey<T>>(eventName: K, fn: EventReceiver<T[K]>): void {
+    const listeners = this.listeners[eventName];
+    if (listeners) {
+      const index = listeners.indexOf(fn);
+      if (index > -1) {
+        listeners.splice(index, 1);
+      }
+    }
+  }
+  
+  emit<K extends EventKey<T>>(eventName: K, params: T[K]): void {
+    const listeners = this.listeners[eventName];
+    if (listeners) {
+      listeners.forEach((fn) => fn(params));
+    }
+  }
+}
+
+// Define events with their payload types
+interface AppEvents {
+  'user:login': { userId: string; timestamp: Date };
+  'user:logout': { userId: string };
+  'message:received': { from: string; content: string; timestamp: Date };
+  'error': { code: number; message: string };
+}
+
+const emitter = new TypedEventEmitter<AppEvents>();
+
+// Type-safe usage
+emitter.on('user:login', (data) => {
+  console.log(data.userId, data.timestamp); // Autocomplete works!
+});
+
+emitter.emit('user:login', {
+  userId: '123',
+  timestamp: new Date()
+});
+
+// emitter.emit('user:login', { userId: 123 }); // ❌ Type error!
+
+// Challenge 5: Type-Safe Form Validation
+type ValidationRule<T> = {
+  validate: (value: T) => boolean;
+  message: string;
+};
+
+type ValidationSchema<T> = {
+  [K in keyof T]?: ValidationRule<T[K]>[];
+};
+
+type ValidationErrors<T> = {
+  [K in keyof T]?: string[];
+};
+
+class FormValidator<T extends Record<string, any>> {
+  constructor(private schema: ValidationSchema<T>) {}
+  
+  validate(data: T): ValidationErrors<T> {
+    const errors: ValidationErrors<T> = {};
+    
+    for (const field in this.schema) {
+      const rules = this.schema[field];
+      const value = data[field];
+      
+      if (rules) {
+        const fieldErrors: string[] = [];
+        
+        for (const rule of rules) {
+          if (!rule.validate(value)) {
+            fieldErrors.push(rule.message);
+          }
+        }
+        
+        if (fieldErrors.length > 0) {
+          errors[field] = fieldErrors;
+        }
+      }
+    }
+    
+    return errors;
+  }
+  
+  isValid(data: T): boolean {
+    return Object.keys(this.validate(data)).length === 0;
+  }
+}
+
+// Usage
+interface SignupForm {
+  username: string;
+  email: string;
+  password: string;
+  age: number;
+}
+
+const signupValidator = new FormValidator<SignupForm>({
+  username: [
+    {
+      validate: (value) => value.length >= 3,
+      message: 'Username must be at least 3 characters'
+    },
+    {
+      validate: (value) => /^[a-zA-Z0-9_]+$/.test(value),
+      message: 'Username can only contain letters, numbers, and underscores'
+    }
+  ],
+  email: [
+    {
+      validate: (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value),
+      message: 'Invalid email format'
+    }
+  ],
+  password: [
+    {
+      validate: (value) => value.length >= 8,
+      message: 'Password must be at least 8 characters'
+    },
+    {
+      validate: (value) => /[A-Z]/.test(value),
+      message: 'Password must contain an uppercase letter'
+    },
+    {
+      validate: (value) => /[0-9]/.test(value),
+      message: 'Password must contain a number'
+    }
+  ],
+  age: [
+    {
+      validate: (value) => value >= 18,
+      message: 'Must be at least 18 years old'
+    }
+  ]
+});
+
+// Validate form data
+const formData: SignupForm = {
+  username: 'ab',
+  email: 'invalid-email',
+  password: 'weak',
+  age: 16
+};
+
+const errors = signupValidator.validate(formData);
+console.log(errors);
+// {
+//   username: ['Username must be at least 3 characters'],
+//   email: ['Invalid email format'],
+//   password: ['Password must be at least 8 characters', 'Password must contain an uppercase letter', 'Password must contain a number'],
+//   age: ['Must be at least 18 years old']
+// }
+
+// Challenge 6: Advanced Type Guards
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function hasProperty<K extends string>(
+  obj: unknown,
+  key: K
+): obj is Record<K, unknown> {
+  return isObject(obj) && key in obj;
+}
+
+function hasProperties<K extends string>(
+  obj: unknown,
+  keys: K[]
+): obj is Record<K, unknown> {
+  return isObject(obj) && keys.every((key) => key in obj);
+}
+
+function isOfType<T>(
+  value: unknown,
+  validator: (val: unknown) => val is T
+): value is T {
+  return validator(value);
+}
+
+// Usage
+interface User {
+  id: string;
+  name: string;
+  email: string;
+}
+
+function isUser(value: unknown): value is User {
+  return (
+    hasProperties(value, ['id', 'name', 'email']) &&
+    typeof value.id === 'string' &&
+    typeof value.name === 'string' &&
+    typeof value.email === 'string'
+  );
+}
+
+function processData(data: unknown) {
+  if (isUser(data)) {
+    // TypeScript knows data is User
+    console.log(data.id, data.name, data.email);
+  }
+}
+```
+
+---
+
+### Key Takeaways
+
+**Generics:**
+- Use constraints (`extends`) to restrict type parameters
+- Combine with `keyof` for type-safe property access
+- Create reusable, type-safe data structures and functions
+
+**Conditional Types:**
+- Pattern: `T extends U ? X : Y`
+- Use `infer` to extract types
+- Great for building utility types and type transformations
+
+**Utility Types:**
+- Master built-in utilities: `Partial`, `Required`, `Pick`, `Omit`, `Record`
+- Create custom utilities for your use cases
+- Combine utilities for complex transformations
+
+**Type-Safe APIs:**
+- Use discriminated unions for variant props
+- Leverage generics for reusable components
+- Create polymorphic components with type safety
+- Use conditional types for dynamic prop types
+
+**Complex Types:**
+- Build recursive types for deep operations
+- Create type-safe builders and APIs
+- Use template literal types for path operations
+- Implement runtime validation that matches compile-time types
+
+Practice these patterns to master TypeScript! 🚀

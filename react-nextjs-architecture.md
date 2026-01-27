@@ -3374,5 +3374,2999 @@ function Component() {
 
 ---
 
-(Continuing with remaining sections in next message due to length...)
+## Whiteboarding Scenarios - System Design
+
+### Scenario 1: Real-Time Notification System
+
+**Problem Statement:**
+Design a scalable real-time notification system for a web application that supports 100k+ concurrent users. The system should handle various notification types (messages, alerts, updates) with proper delivery guarantees and user preferences.
+
+**Requirements:**
+- Real-time delivery (< 1 second latency)
+- Support for multiple notification channels (in-app, email, push)
+- User preferences (mute, do-not-disturb, channel preferences)
+- Notification history and read/unread status
+- Scalability for 100k+ concurrent users
+- Offline support (queue notifications when offline)
+
+---
+
+#### Architecture Diagram
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        Frontend Layer                        │
+├──────────────┬──────────────┬──────────────┬────────────────┤
+│   React UI   │  WebSocket   │  Service     │  IndexedDB     │
+│  Components  │   Client     │   Worker     │   (Offline)    │
+└──────┬───────┴──────┬───────┴──────┬───────┴────────┬───────┘
+       │              │               │                │
+       │              │               │                │
+       ▼              ▼               ▼                ▼
+┌─────────────────────────────────────────────────────────────┐
+│                         API Gateway                          │
+│                    (WebSocket + REST)                        │
+└──────────────────────────┬──────────────────────────────────┘
+                           │
+       ┌───────────────────┼───────────────────┐
+       │                   │                   │
+       ▼                   ▼                   ▼
+┌─────────────┐  ┌──────────────────┐  ┌──────────────┐
+│  WebSocket  │  │  Notification    │  │  User Prefs  │
+│   Server    │  │   Service        │  │   Service    │
+│  (Socket.io)│  │  (Pub/Sub)       │  │              │
+└──────┬──────┘  └────────┬─────────┘  └──────┬───────┘
+       │                  │                    │
+       │                  │                    │
+       ▼                  ▼                    ▼
+┌─────────────┐  ┌──────────────────┐  ┌──────────────┐
+│   Redis     │  │   Message Queue  │  │  PostgreSQL  │
+│  (Session)  │  │   (RabbitMQ)     │  │   (Prefs)    │
+└─────────────┘  └──────────────────┘  └──────────────┘
+```
+
+---
+
+#### Implementation
+
+**1. Frontend - React WebSocket Hook**
+
+```typescript
+// hooks/useNotifications.ts
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { io, Socket } from 'socket.io-client';
+
+export interface Notification {
+  id: string;
+  type: 'message' | 'alert' | 'update';
+  title: string;
+  body: string;
+  priority: 'low' | 'medium' | 'high';
+  timestamp: string;
+  read: boolean;
+  actionUrl?: string;
+  metadata?: Record<string, any>;
+}
+
+interface UseNotificationsOptions {
+  userId: string;
+  onNotification?: (notification: Notification) => void;
+  reconnectAttempts?: number;
+  reconnectDelay?: number;
+}
+
+export function useNotifications({
+  userId,
+  onNotification,
+  reconnectAttempts = 5,
+  reconnectDelay = 3000
+}: UseNotificationsOptions) {
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [connected, setConnected] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
+  const socketRef = useRef<Socket | null>(null);
+  const reconnectAttemptsRef = useRef(0);
+  const queuedNotificationsRef = useRef<Notification[]>([]);
+
+  // Initialize WebSocket connection
+  useEffect(() => {
+    if (!userId) return;
+
+    const socket = io(process.env.NEXT_PUBLIC_WS_URL!, {
+      auth: { userId },
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionAttempts,
+      reconnectionDelay
+    });
+
+    socketRef.current = socket;
+
+    // Connection events
+    socket.on('connect', () => {
+      console.log('WebSocket connected');
+      setConnected(true);
+      setError(null);
+      reconnectAttemptsRef.current = 0;
+
+      // Send queued notifications from offline mode
+      if (queuedNotificationsRef.current.length > 0) {
+        queuedNotificationsRef.current.forEach(notification => {
+          socket.emit('notification:ack', { notificationId: notification.id });
+        });
+        queuedNotificationsRef.current = [];
+      }
+    });
+
+    socket.on('disconnect', (reason) => {
+      console.log('WebSocket disconnected:', reason);
+      setConnected(false);
+      
+      if (reason === 'io server disconnect') {
+        // Server initiated disconnect - try to reconnect
+        socket.connect();
+      }
+    });
+
+    socket.on('connect_error', (err) => {
+      console.error('Connection error:', err);
+      reconnectAttemptsRef.current += 1;
+      
+      if (reconnectAttemptsRef.current >= reconnectAttempts) {
+        setError('Failed to connect to notification service');
+      }
+    });
+
+    // Notification events
+    socket.on('notification', (notification: Notification) => {
+      handleNewNotification(notification);
+    });
+
+    socket.on('notification:read', (notificationId: string) => {
+      markAsRead(notificationId);
+    });
+
+    socket.on('notification:read_all', () => {
+      markAllAsRead();
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [userId, reconnectAttempts, reconnectDelay]);
+
+  const handleNewNotification = useCallback((notification: Notification) => {
+    // Add to state
+    setNotifications(prev => [notification, ...prev]);
+    setUnreadCount(prev => prev + 1);
+
+    // Store in IndexedDB for offline support
+    if ('indexedDB' in window) {
+      storeNotificationOffline(notification);
+    }
+
+    // Queue if offline
+    if (!socketRef.current?.connected) {
+      queuedNotificationsRef.current.push(notification);
+    } else {
+      // Send acknowledgment
+      socketRef.current?.emit('notification:ack', {
+        notificationId: notification.id
+      });
+    }
+
+    // Call custom handler
+    onNotification?.(notification);
+
+    // Show browser notification if permitted
+    if (notification.priority === 'high' && 'Notification' in window) {
+      if (Notification.permission === 'granted') {
+        new Notification(notification.title, {
+          body: notification.body,
+          icon: '/notification-icon.png',
+          tag: notification.id
+        });
+      }
+    }
+
+    // Play sound for high priority
+    if (notification.priority === 'high') {
+      playNotificationSound();
+    }
+  }, [onNotification]);
+
+  const markAsRead = useCallback((notificationId: string) => {
+    setNotifications(prev =>
+      prev.map(n => n.id === notificationId ? { ...n, read: true } : n)
+    );
+    setUnreadCount(prev => Math.max(0, prev - 1));
+
+    socketRef.current?.emit('notification:mark_read', { notificationId });
+  }, []);
+
+  const markAllAsRead = useCallback(() => {
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    setUnreadCount(0);
+
+    socketRef.current?.emit('notification:mark_all_read');
+  }, []);
+
+  const deleteNotification = useCallback((notificationId: string) => {
+    setNotifications(prev => prev.filter(n => n.id !== notificationId));
+    
+    socketRef.current?.emit('notification:delete', { notificationId });
+  }, []);
+
+  const clearAll = useCallback(() => {
+    setNotifications([]);
+    setUnreadCount(0);
+
+    socketRef.current?.emit('notification:clear_all');
+  }, []);
+
+  return {
+    notifications,
+    unreadCount,
+    connected,
+    error,
+    markAsRead,
+    markAllAsRead,
+    deleteNotification,
+    clearAll
+  };
+}
+
+// Helper functions
+async function storeNotificationOffline(notification: Notification) {
+  const db = await openDB();
+  const tx = db.transaction('notifications', 'readwrite');
+  await tx.store.add(notification);
+}
+
+function playNotificationSound() {
+  const audio = new Audio('/notification-sound.mp3');
+  audio.volume = 0.5;
+  audio.play().catch(console.error);
+}
+
+async function openDB(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open('NotificationsDB', 1);
+    
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result);
+    
+    request.onupgradeneeded = (event) => {
+      const db = (event.target as IDBOpenDBRequest).result;
+      if (!db.objectStoreNames.contains('notifications')) {
+        db.createObjectStore('notifications', { keyPath: 'id' });
+      }
+    };
+  });
+}
+```
+
+**2. Notification UI Component**
+
+```typescript
+// components/NotificationCenter.tsx
+import { useState } from 'react';
+import { useNotifications } from '@/hooks/useNotifications';
+import { formatDistanceToNow } from 'date-fns';
+
+export function NotificationCenter({ userId }: { userId: string }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [filter, setFilter] = useState<'all' | 'unread'>('all');
+  
+  const {
+    notifications,
+    unreadCount,
+    connected,
+    error,
+    markAsRead,
+    markAllAsRead,
+    deleteNotification,
+    clearAll
+  } = useNotifications({
+    userId,
+    onNotification: (notification) => {
+      // Show toast for high priority
+      if (notification.priority === 'high') {
+        toast.info(notification.title);
+      }
+    }
+  });
+
+  const filteredNotifications = filter === 'unread'
+    ? notifications.filter(n => !n.read)
+    : notifications;
+
+  return (
+    <div className="relative">
+      {/* Bell Icon with Badge */}
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="relative p-2 rounded-full hover:bg-gray-100"
+        aria-label="Notifications"
+      >
+        <BellIcon className="w-6 h-6" />
+        {unreadCount > 0 && (
+          <span className="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </span>
+        )}
+        {!connected && (
+          <span className="absolute bottom-0 right-0 w-2 h-2 bg-yellow-500 rounded-full" />
+        )}
+      </button>
+
+      {/* Notification Panel */}
+      {isOpen && (
+        <div className="absolute right-0 mt-2 w-96 bg-white rounded-lg shadow-xl z-50 max-h-[600px] flex flex-col">
+          {/* Header */}
+          <div className="p-4 border-b">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-semibold text-lg">Notifications</h3>
+              <button
+                onClick={() => setIsOpen(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <XIcon className="w-5 h-5" />
+              </button>
+            </div>
+            
+            {/* Connection Status */}
+            {error && (
+              <div className="text-sm text-red-600 mb-2">
+                {error}
+              </div>
+            )}
+            {!connected && !error && (
+              <div className="text-sm text-yellow-600 mb-2">
+                Reconnecting...
+              </div>
+            )}
+
+            {/* Filters */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => setFilter('all')}
+                className={`px-3 py-1 rounded ${
+                  filter === 'all'
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-gray-100 text-gray-700'
+                }`}
+              >
+                All
+              </button>
+              <button
+                onClick={() => setFilter('unread')}
+                className={`px-3 py-1 rounded ${
+                  filter === 'unread'
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-gray-100 text-gray-700'
+                }`}
+              >
+                Unread ({unreadCount})
+              </button>
+              
+              {unreadCount > 0 && (
+                <button
+                  onClick={markAllAsRead}
+                  className="ml-auto text-sm text-blue-600 hover:text-blue-700"
+                >
+                  Mark all read
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Notification List */}
+          <div className="flex-1 overflow-y-auto">
+            {filteredNotifications.length === 0 ? (
+              <div className="p-8 text-center text-gray-500">
+                No notifications
+              </div>
+            ) : (
+              <div className="divide-y">
+                {filteredNotifications.map(notification => (
+                  <NotificationItem
+                    key={notification.id}
+                    notification={notification}
+                    onRead={markAsRead}
+                    onDelete={deleteNotification}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Footer */}
+          {notifications.length > 0 && (
+            <div className="p-3 border-t">
+              <button
+                onClick={clearAll}
+                className="w-full text-center text-sm text-red-600 hover:text-red-700"
+              >
+                Clear all notifications
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function NotificationItem({
+  notification,
+  onRead,
+  onDelete
+}: {
+  notification: Notification;
+  onRead: (id: string) => void;
+  onDelete: (id: string) => void;
+}) {
+  return (
+    <div
+      className={`p-4 hover:bg-gray-50 cursor-pointer ${
+        !notification.read ? 'bg-blue-50' : ''
+      }`}
+      onClick={() => !notification.read && onRead(notification.id)}
+    >
+      <div className="flex items-start gap-3">
+        {/* Icon based on type */}
+        <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${
+          notification.priority === 'high' ? 'bg-red-100' :
+          notification.priority === 'medium' ? 'bg-yellow-100' :
+          'bg-blue-100'
+        }`}>
+          {notification.type === 'message' && <MessageIcon className="w-5 h-5" />}
+          {notification.type === 'alert' && <AlertIcon className="w-5 h-5" />}
+          {notification.type === 'update' && <UpdateIcon className="w-5 h-5" />}
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between">
+            <div>
+              <h4 className="font-medium text-sm">{notification.title}</h4>
+              <p className="text-sm text-gray-600 mt-1">{notification.body}</p>
+              <span className="text-xs text-gray-400 mt-1">
+                {formatDistanceToNow(new Date(notification.timestamp), { addSuffix: true })}
+              </span>
+            </div>
+            
+            {!notification.read && (
+              <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 ml-2" />
+            )}
+          </div>
+
+          {/* Action Button */}
+          {notification.actionUrl && (
+            <a
+              href={notification.actionUrl}
+              className="text-sm text-blue-600 hover:text-blue-700 mt-2 inline-block"
+            >
+              View →
+            </a>
+          )}
+        </div>
+
+        {/* Delete Button */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete(notification.id);
+          }}
+          className="text-gray-400 hover:text-gray-600"
+        >
+          <TrashIcon className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  );
+}
+```
+
+**3. Backend - WebSocket Server (Node.js + Socket.io)**
+
+```typescript
+// server/notifications.ts
+import { Server } from 'socket.io';
+import { createClient } from 'redis';
+import amqp from 'amqplib';
+
+interface NotificationPayload {
+  userId: string;
+  notification: Notification;
+}
+
+export class NotificationServer {
+  private io: Server;
+  private redisClient: any;
+  private rabbitConnection: amqp.Connection | null = null;
+  private rabbitChannel: amqp.Channel | null = null;
+
+  constructor(io: Server) {
+    this.io = io;
+    this.setupRedis();
+    this.setupRabbitMQ();
+    this.setupSocketHandlers();
+  }
+
+  private async setupRedis() {
+    this.redisClient = createClient({
+      url: process.env.REDIS_URL
+    });
+    
+    await this.redisClient.connect();
+    
+    // Subscribe to notification channel
+    const subscriber = this.redisClient.duplicate();
+    await subscriber.connect();
+    
+    await subscriber.subscribe('notifications', (message) => {
+      const payload: NotificationPayload = JSON.parse(message);
+      this.sendNotificationToUser(payload.userId, payload.notification);
+    });
+  }
+
+  private async setupRabbitMQ() {
+    try {
+      this.rabbitConnection = await amqp.connect(process.env.RABBITMQ_URL!);
+      this.rabbitChannel = await this.rabbitConnection.createChannel();
+      
+      await this.rabbitChannel.assertQueue('notifications', { durable: true });
+      
+      // Consume notifications from queue
+      this.rabbitChannel.consume('notifications', (msg) => {
+        if (msg) {
+          const payload: NotificationPayload = JSON.parse(msg.content.toString());
+          this.sendNotificationToUser(payload.userId, payload.notification);
+          this.rabbitChannel?.ack(msg);
+        }
+      });
+    } catch (error) {
+      console.error('RabbitMQ setup error:', error);
+    }
+  }
+
+  private setupSocketHandlers() {
+    this.io.on('connection', async (socket) => {
+      const userId = socket.handshake.auth.userId;
+      
+      if (!userId) {
+        socket.disconnect();
+        return;
+      }
+
+      console.log(`User ${userId} connected`);
+
+      // Join user's personal room
+      socket.join(`user:${userId}`);
+
+      // Store socket ID in Redis for tracking
+      await this.redisClient.set(
+        `socket:${userId}`,
+        socket.id,
+        { EX: 3600 } // 1 hour expiry
+      );
+
+      // Send unread count on connection
+      const unreadCount = await this.getUnreadCount(userId);
+      socket.emit('unread_count', unreadCount);
+
+      // Handle acknowledgments
+      socket.on('notification:ack', async ({ notificationId }) => {
+        await this.markAsDelivered(notificationId, userId);
+      });
+
+      // Handle mark as read
+      socket.on('notification:mark_read', async ({ notificationId }) => {
+        await this.markAsRead(notificationId, userId);
+        socket.emit('notification:read', notificationId);
+      });
+
+      // Handle mark all as read
+      socket.on('notification:mark_all_read', async () => {
+        await this.markAllAsRead(userId);
+        socket.emit('notification:read_all');
+      });
+
+      // Handle delete
+      socket.on('notification:delete', async ({ notificationId }) => {
+        await this.deleteNotification(notificationId, userId);
+      });
+
+      // Handle clear all
+      socket.on('notification:clear_all', async () => {
+        await this.clearAllNotifications(userId);
+      });
+
+      // Handle disconnect
+      socket.on('disconnect', async () => {
+        console.log(`User ${userId} disconnected`);
+        await this.redisClient.del(`socket:${userId}`);
+      });
+    });
+  }
+
+  private async sendNotificationToUser(userId: string, notification: Notification) {
+    // Store in database
+    await this.storeNotification(userId, notification);
+
+    // Send via WebSocket if user is connected
+    this.io.to(`user:${userId}`).emit('notification', notification);
+
+    // If user is not connected, queue for later delivery
+    const socketId = await this.redisClient.get(`socket:${userId}`);
+    if (!socketId) {
+      await this.queueForLaterDelivery(userId, notification);
+    }
+  }
+
+  private async storeNotification(userId: string, notification: Notification) {
+    // Store in PostgreSQL
+    await db.notification.create({
+      data: {
+        id: notification.id,
+        userId,
+        type: notification.type,
+        title: notification.title,
+        body: notification.body,
+        priority: notification.priority,
+        read: false,
+        delivered: false,
+        metadata: notification.metadata
+      }
+    });
+  }
+
+  private async queueForLaterDelivery(userId: string, notification: Notification) {
+    // Store in Redis list for later delivery
+    await this.redisClient.rPush(
+      `queue:${userId}`,
+      JSON.stringify(notification)
+    );
+  }
+
+  private async getUnreadCount(userId: string): Promise<number> {
+    return await db.notification.count({
+      where: { userId, read: false }
+    });
+  }
+
+  private async markAsDelivered(notificationId: string, userId: string) {
+    await db.notification.update({
+      where: { id: notificationId, userId },
+      data: { delivered: true }
+    });
+  }
+
+  private async markAsRead(notificationId: string, userId: string) {
+    await db.notification.update({
+      where: { id: notificationId, userId },
+      data: { read: true, readAt: new Date() }
+    });
+  }
+
+  private async markAllAsRead(userId: string) {
+    await db.notification.updateMany({
+      where: { userId, read: false },
+      data: { read: true, readAt: new Date() }
+    });
+  }
+
+  private async deleteNotification(notificationId: string, userId: string) {
+    await db.notification.delete({
+      where: { id: notificationId, userId }
+    });
+  }
+
+  private async clearAllNotifications(userId: string) {
+    await db.notification.deleteMany({
+      where: { userId }
+    });
+  }
+}
+```
+
+**4. Notification Service (Pub/Sub Pattern)**
+
+```typescript
+// services/NotificationService.ts
+import { createClient } from 'redis';
+import amqp from 'amqplib';
+
+export class NotificationService {
+  private redisClient: any;
+  private rabbitChannel: amqp.Channel | null = null;
+
+  async sendNotification(
+    userId: string,
+    notification: Omit<Notification, 'id' | 'timestamp' | 'read'>
+  ) {
+    const fullNotification: Notification = {
+      id: generateId(),
+      timestamp: new Date().toISOString(),
+      read: false,
+      ...notification
+    };
+
+    // Check user preferences
+    const preferences = await this.getUserPreferences(userId);
+    
+    if (!this.shouldSendNotification(preferences, notification)) {
+      return;
+    }
+
+    // Publish to Redis (for WebSocket servers)
+    await this.publishToRedis(userId, fullNotification);
+
+    // Queue in RabbitMQ (for reliability)
+    await this.queueInRabbitMQ(userId, fullNotification);
+
+    // Send to other channels based on preferences
+    if (preferences.emailEnabled && notification.priority === 'high') {
+      await this.sendEmail(userId, fullNotification);
+    }
+
+    if (preferences.pushEnabled) {
+      await this.sendPushNotification(userId, fullNotification);
+    }
+  }
+
+  private async publishToRedis(userId: string, notification: Notification) {
+    const publisher = this.redisClient.duplicate();
+    await publisher.connect();
+    
+    await publisher.publish(
+      'notifications',
+      JSON.stringify({ userId, notification })
+    );
+    
+    await publisher.quit();
+  }
+
+  private async queueInRabbitMQ(userId: string, notification: Notification) {
+    if (!this.rabbitChannel) return;
+
+    await this.rabbitChannel.sendToQueue(
+      'notifications',
+      Buffer.from(JSON.stringify({ userId, notification })),
+      { persistent: true }
+    );
+  }
+
+  private async getUserPreferences(userId: string) {
+    return await db.notificationPreferences.findUnique({
+      where: { userId }
+    }) || defaultPreferences;
+  }
+
+  private shouldSendNotification(
+    preferences: NotificationPreferences,
+    notification: any
+  ): boolean {
+    // Check do-not-disturb
+    if (preferences.doNotDisturb) {
+      return notification.priority === 'high';
+    }
+
+    // Check type preferences
+    if (!preferences.notificationTypes[notification.type]) {
+      return false;
+    }
+
+    // Check quiet hours
+    if (this.isInQuietHours(preferences.quietHours)) {
+      return notification.priority === 'high';
+    }
+
+    return true;
+  }
+
+  private isInQuietHours(quietHours: { start: string; end: string }): boolean {
+    const now = new Date();
+    const currentHour = now.getHours();
+    
+    const startHour = parseInt(quietHours.start.split(':')[0]);
+    const endHour = parseInt(quietHours.end.split(':')[0]);
+
+    if (startHour <= endHour) {
+      return currentHour >= startHour && currentHour < endHour;
+    } else {
+      return currentHour >= startHour || currentHour < endHour;
+    }
+  }
+}
+```
+
+**Trade-offs & Considerations:**
+
+1. **WebSocket vs Server-Sent Events (SSE)**
+   - ✅ WebSocket: Bi-directional, better for interactive apps
+   - ✅ SSE: Simpler, automatic reconnection, works through proxies
+   - Decision: WebSocket for rich interactions
+
+2. **Redis Pub/Sub vs Message Queue**
+   - Redis: Fast, but no message persistence
+   - RabbitMQ: Reliable delivery, message persistence
+   - Decision: Use both - Redis for real-time, RabbitMQ for reliability
+
+3. **Horizontal Scaling**
+   - Use Redis for session persistence
+   - Sticky sessions with load balancer
+   - Multiple WebSocket servers with shared Redis
+
+4. **Offline Support**
+   - IndexedDB for local storage
+   - Service Worker for background sync
+   - Queue notifications when reconnecting
+
+---
+
+### Scenario 2: Multi-Tenant Application Architecture
+
+**Problem Statement:**
+Design a SaaS application that supports multiple tenants (organizations) with complete data isolation, custom branding, feature flags, and per-tenant billing. System should support 10k+ tenants efficiently.
+
+**Requirements:**
+- Complete data isolation between tenants
+- Custom branding (logo, colors, domain)
+- Feature flags per tenant
+- Row-level security
+- Tenant-specific configurations
+- Performance isolation
+- Efficient resource utilization
+
+---
+
+#### Architecture Strategy
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     Tenant Resolution                        │
+│  (Domain/Subdomain → Tenant ID → Context)                   │
+└────────────────────────┬────────────────────────────────────┘
+                         │
+                         ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    Next.js Middleware                        │
+│          (Extract tenant, inject context)                   │
+└────────────────────────┬────────────────────────────────────┘
+                         │
+       ┌─────────────────┼─────────────────┐
+       │                 │                 │
+       ▼                 ▼                 ▼
+┌──────────────┐  ┌──────────────┐  ┌──────────────┐
+│   Tenant     │  │   Features   │  │   Branding   │
+│   Context    │  │   Service    │  │   Service    │
+└──────┬───────┘  └──────┬───────┘  └──────┬───────┘
+       │                 │                 │
+       └─────────────────┼─────────────────┘
+                         │
+                         ▼
+┌─────────────────────────────────────────────────────────────┐
+│                   Database Layer                             │
+│  Schema: tenant_id + data (Row Level Security)              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+#### Implementation
+
+**1. Multi-Tenant Data Models**
+
+```typescript
+// prisma/schema.prisma
+model Tenant {
+  id            String   @id @default(cuid())
+  name          String
+  slug          String   @unique
+  domain        String?  @unique
+  plan          Plan     @default(FREE)
+  status        TenantStatus @default(ACTIVE)
+  
+  // Branding
+  logo          String?
+  primaryColor  String   @default("#3b82f6")
+  accentColor   String   @default("#8b5cf6")
+  
+  // Settings
+  settings      Json     @default("{}")
+  features      String[] // Feature flags
+  
+  // Limits
+  maxUsers      Int      @default(10)
+  maxStorage    Int      @default(1000) // MB
+  
+  // Relationships
+  users         User[]
+  projects      Project[]
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String
+  name      String
+  role      Role     @default(MEMBER)
+  
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  // Ensure email is unique per tenant
+  @@unique([email, tenantId])
+  @@index([tenantId])
+}
+
+model Project {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  ownerId     String
+  owner       User     @relation(fields: [ownerId], references: [id])
+  
+  @@index([tenantId])
+  @@index([ownerId])
+}
+
+enum Plan {
+  FREE
+  STARTER
+  PROFESSIONAL
+  ENTERPRISE
+}
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+  TRIAL
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+```
+
+**2. Tenant Resolution Middleware**
+
+```typescript
+// middleware.ts
+import { NextRequest, NextResponse } from 'next/server';
+import { getTenantByDomain, getTenantBySlug } from '@/lib/tenant';
+
+export async function middleware(request: NextRequest) {
+  const { pathname, hostname } = request.nextUrl;
+
+  // Skip for API routes, static files, etc.
+  if (
+    pathname.startsWith('/api') ||
+    pathname.startsWith('/_next') ||
+    pathname.startsWith('/static')
+  ) {
+    return NextResponse.next();
+  }
+
+  let tenant;
+
+  // Strategy 1: Custom domain (app.customer.com)
+  if (hostname !== process.env.NEXT_PUBLIC_APP_DOMAIN) {
+    tenant = await getTenantByDomain(hostname);
+  }
+  
+  // Strategy 2: Subdomain (customer.myapp.com)
+  else {
+    const subdomain = hostname.split('.')[0];
+    if (subdomain !== 'www' && subdomain !== 'myapp') {
+      tenant = await getTenantBySlug(subdomain);
+    }
+  }
+
+  // Strategy 3: Path-based (/t/customer-slug)
+  if (!tenant && pathname.startsWith('/t/')) {
+    const slug = pathname.split('/')[2];
+    if (slug) {
+      tenant = await getTenantBySlug(slug);
+    }
+  }
+
+  if (!tenant) {
+    // Redirect to tenant selection or error page
+    return NextResponse.redirect(new URL('/select-tenant', request.url));
+  }
+
+  // Check tenant status
+  if (tenant.status === 'SUSPENDED') {
+    return NextResponse.redirect(new URL('/suspended', request.url));
+  }
+
+  // Inject tenant context into headers
+  const response = NextResponse.next();
+  response.headers.set('X-Tenant-ID', tenant.id);
+  response.headers.set('X-Tenant-Slug', tenant.slug);
+  response.headers.set('X-Tenant-Plan', tenant.plan);
+  
+  // Set cookie for client-side access
+  response.cookies.set('tenant-id', tenant.id, {
+    httpOnly: false,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax'
+  });
+
+  return response;
+}
+
+export const config = {
+  matcher: [
+    /*
+     * Match all request paths except:
+     * - api (API routes)
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     */
+    '/((?!api|_next/static|_next/image|favicon.ico).*)',
+  ],
+};
+```
+
+**3. Tenant Context Provider**
+
+```typescript
+// contexts/TenantContext.tsx
+import { createContext, useContext, useEffect, useState } from 'react';
+import { useRouter } from 'next/router';
+
+interface Tenant {
+  id: string;
+  name: string;
+  slug: string;
+  logo?: string;
+  primaryColor: string;
+  accentColor: string;
+  features: string[];
+  plan: string;
+  settings: Record<string, any>;
+}
+
+interface TenantContextValue {
+  tenant: Tenant | null;
+  loading: boolean;
+  hasFeature: (feature: string) => boolean;
+  canAccess: (resource: string, action: string) => boolean;
+  refreshTenant: () => Promise<void>;
+}
+
+const TenantContext = createContext<TenantContextValue | null>(null);
+
+export function TenantProvider({ children, initialTenant }: {
+  children: React.ReactNode;
+  initialTenant?: Tenant;
+}) {
+  const [tenant, setTenant] = useState<Tenant | null>(initialTenant || null);
+  const [loading, setLoading] = useState(!initialTenant);
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!initialTenant) {
+      loadTenant();
+    }
+  }, [initialTenant]);
+
+  const loadTenant = async () => {
+    try {
+      const response = await fetch('/api/tenant/current');
+      const data = await response.json();
+      setTenant(data.tenant);
+    } catch (error) {
+      console.error('Failed to load tenant:', error);
+      router.push('/select-tenant');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const hasFeature = (feature: string): boolean => {
+    if (!tenant) return false;
+    return tenant.features.includes(feature);
+  };
+
+  const canAccess = (resource: string, action: string): boolean => {
+    if (!tenant) return false;
+
+    // Plan-based access control
+    const accessMatrix: Record<string, string[]> = {
+      FREE: ['projects:read', 'projects:create:limited'],
+      STARTER: ['projects:read', 'projects:create', 'projects:update'],
+      PROFESSIONAL: ['projects:*', 'analytics:read', 'api:access'],
+      ENTERPRISE: ['*']
+    };
+
+    const allowedActions = accessMatrix[tenant.plan] || [];
+    
+    return allowedActions.some(allowed => {
+      if (allowed === '*') return true;
+      if (allowed === `${resource}:*`) return true;
+      return allowed === `${resource}:${action}`;
+    });
+  };
+
+  const refreshTenant = async () => {
+    await loadTenant();
+  };
+
+  return (
+    <TenantContext.Provider
+      value={{ tenant, loading, hasFeature, canAccess, refreshTenant }}
+    >
+      {children}
+    </TenantContext.Provider>
+  );
+}
+
+export function useTenant() {
+  const context = useContext(TenantContext);
+  if (!context) {
+    throw new Error('useTenant must be used within TenantProvider');
+  }
+  return context;
+}
+
+// Feature flag hook
+export function useFeature(feature: string): boolean {
+  const { hasFeature } = useTenant();
+  return hasFeature(feature);
+}
+
+// Permission hook
+export function usePermission(resource: string, action: string): boolean {
+  const { canAccess } = useTenant();
+  return canAccess(resource, action);
+}
+```
+
+**4. Tenant-Aware Database Queries**
+
+```typescript
+// lib/db.ts
+import { PrismaClient } from '@prisma/client';
+import { headers } from 'next/headers';
+
+export class TenantAwareDB {
+  private prisma: PrismaClient;
+
+  constructor() {
+    this.prisma = new PrismaClient();
+  }
+
+  private getTenantId(): string {
+    const headersList = headers();
+    const tenantId = headersList.get('X-Tenant-ID');
+    
+    if (!tenantId) {
+      throw new Error('Tenant context not found');
+    }
+    
+    return tenantId;
+  }
+
+  // Tenant-scoped queries
+  async findManyProjects(where?: any) {
+    const tenantId = this.getTenantId();
+    
+    return this.prisma.project.findMany({
+      where: {
+        tenantId,
+        ...where
+      }
+    });
+  }
+
+  async createProject(data: any) {
+    const tenantId = this.getTenantId();
+    
+    return this.prisma.project.create({
+      data: {
+        ...data,
+        tenantId
+      }
+    });
+  }
+
+  async updateProject(id: string, data: any) {
+    const tenantId = this.getTenantId();
+    
+    // Ensure project belongs to tenant
+    const project = await this.prisma.project.findFirst({
+      where: { id, tenantId }
+    });
+    
+    if (!project) {
+      throw new Error('Project not found or access denied');
+    }
+    
+    return this.prisma.project.update({
+      where: { id },
+      data
+    });
+  }
+
+  async deleteProject(id: string) {
+    const tenantId = this.getTenantId();
+    
+    return this.prisma.project.delete({
+      where: {
+        id,
+        tenantId
+      }
+    });
+  }
+
+  // User management with tenant scope
+  async findManyUsers(where?: any) {
+    const tenantId = this.getTenantId();
+    
+    return this.prisma.user.findMany({
+      where: {
+        tenantId,
+        ...where
+      }
+    });
+  }
+
+  async createUser(data: any) {
+    const tenantId = this.getTenantId();
+    
+    // Check tenant limits
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      include: { _count: { select: { users: true } } }
+    });
+    
+    if (tenant && tenant._count.users >= tenant.maxUsers) {
+      throw new Error('User limit reached for this plan');
+    }
+    
+    return this.prisma.user.create({
+      data: {
+        ...data,
+        tenantId
+      }
+    });
+  }
+}
+
+export const db = new TenantAwareDB();
+```
+
+**5. Tenant Branding & Theming**
+
+```typescript
+// components/TenantThemeProvider.tsx
+import { useTenant } from '@/contexts/TenantContext';
+import { useEffect } from 'react';
+
+export function TenantThemeProvider({ children }: { children: React.ReactNode }) {
+  const { tenant } = useTenant();
+
+  useEffect(() => {
+    if (!tenant) return;
+
+    // Apply custom colors
+    document.documentElement.style.setProperty('--color-primary', tenant.primaryColor);
+    document.documentElement.style.setProperty('--color-accent', tenant.accentColor);
+
+    // Apply custom logo
+    const favicon = document.querySelector('link[rel="icon"]') as HTMLLinkElement;
+    if (favicon && tenant.logo) {
+      favicon.href = tenant.logo;
+    }
+
+    // Update page title
+    document.title = `${tenant.name} - Dashboard`;
+  }, [tenant]);
+
+  if (!tenant) {
+    return <div>Loading...</div>;
+  }
+
+  return (
+    <div className="tenant-theme" data-tenant={tenant.slug}>
+      {children}
+    </div>
+  );
+}
+
+// Usage in _app.tsx
+export default function App({ Component, pageProps }: AppProps) {
+  return (
+    <TenantProvider initialTenant={pageProps.tenant}>
+      <TenantThemeProvider>
+        <Component {...pageProps} />
+      </TenantThemeProvider>
+    </TenantProvider>
+  );
+}
+```
+
+**6. Row-Level Security (PostgreSQL)**
+
+```sql
+-- Enable Row Level Security
+ALTER TABLE projects ENABLE ROW LEVEL SECURITY;
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+
+-- Create policy for tenant isolation
+CREATE POLICY tenant_isolation_policy ON projects
+  USING (tenant_id = current_setting('app.current_tenant_id')::text);
+
+CREATE POLICY tenant_isolation_policy ON users
+  USING (tenant_id = current_setting('app.current_tenant_id')::text);
+
+-- In Prisma, set tenant context before queries
+-- prisma/middleware.ts
+prisma.$use(async (params, next) => {
+  if (params.model) {
+    // Set tenant context
+    await prisma.$executeRaw`
+      SET LOCAL app.current_tenant_id = ${tenantId}
+    `;
+  }
+  
+  return next(params);
+});
+```
+
+**Trade-offs & Decisions:**
+
+1. **Database Strategy**
+   - Option A: Separate database per tenant (max isolation, complex)
+   - Option B: Shared database with tenant_id column (efficient, simpler)
+   - Option C: Separate schema per tenant (middle ground)
+   - **Decision**: Shared database with RLS for < 10k tenants
+
+2. **Tenant Resolution**
+   - Custom domains (best UX, SSL complexity)
+   - Subdomains (good UX, wildcard SSL)
+   - Path-based (simplest, worse UX)
+   - **Decision**: Support all three with priority order
+
+3. **Feature Flags**
+   - Database array (simple, tenant-specific)
+   - External service (LaunchDarkly - powerful, cost)
+   - **Decision**: Database for tenant features, external for app features
+
+4. **Performance**
+   - Connection pooling per tenant vs shared pool
+   - Caching strategy (tenant-specific cache keys)
+   - Query optimization with proper indexing
+
+---
+
+### Scenario 3: Design System / Component Library Structure
+
+**Problem Statement:**
+Design a scalable design system and component library for a large organization that supports multiple products, maintains consistency, allows customization, and has clear documentation. The system should serve 50+ developers across 10+ products.
+
+**Requirements:**
+- Consistent design language
+- Reusable components
+- Theme customization
+- Accessibility (WCAG 2.1 AA)
+- Documentation with live examples
+- Version control
+- TypeScript support
+- Multiple frameworks (React, Vue, Angular)
+- Icon system
+- Design tokens
+
+---
+
+#### Architecture
+
+```
+design-system/
+├── packages/
+│   ├── tokens/           # Design tokens (colors, spacing, typography)
+│   ├── core/            # Core utilities, hooks, context
+│   ├── icons/           # Icon library
+│   ├── react/           # React components
+│   ├── vue/             # Vue components (optional)
+│   └── docs/            # Documentation site
+├── apps/
+│   └── storybook/       # Component playground
+├── tools/
+│   └── figma-sync/      # Sync from Figma
+└── examples/
+    ├── react-app/
+    └── nextjs-app/
+```
+
+---
+
+#### Implementation
+
+**1. Design Tokens Package**
+
+```typescript
+// packages/tokens/src/colors.ts
+export const colors = {
+  // Brand colors
+  brand: {
+    50: '#eff6ff',
+    100: '#dbeafe',
+    200: '#bfdbfe',
+    300: '#93c5fd',
+    400: '#60a5fa',
+    500: '#3b82f6', // Primary
+    600: '#2563eb',
+    700: '#1d4ed8',
+    800: '#1e40af',
+    900: '#1e3a8a',
+  },
+  
+  // Semantic colors
+  semantic: {
+    success: {
+      light: '#d1fae5',
+      base: '#10b981',
+      dark: '#047857',
+    },
+    warning: {
+      light: '#fef3c7',
+      base: '#f59e0b',
+      dark: '#d97706',
+    },
+    error: {
+      light: '#fee2e2',
+      base: '#ef4444',
+      dark: '#dc2626',
+    },
+    info: {
+      light: '#dbeafe',
+      base: '#3b82f6',
+      dark: '#1d4ed8',
+    },
+  },
+  
+  // Neutral colors
+  neutral: {
+    0: '#ffffff',
+    50: '#f9fafb',
+    100: '#f3f4f6',
+    200: '#e5e7eb',
+    300: '#d1d5db',
+    400: '#9ca3af',
+    500: '#6b7280',
+    600: '#4b5563',
+    700: '#374151',
+    800: '#1f2937',
+    900: '#111827',
+    1000: '#000000',
+  },
+} as const;
+
+// packages/tokens/src/typography.ts
+export const typography = {
+  fontFamily: {
+    sans: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    mono: 'JetBrains Mono, Consolas, Monaco, monospace',
+  },
+  
+  fontSize: {
+    xs: '0.75rem',    // 12px
+    sm: '0.875rem',   // 14px
+    base: '1rem',     // 16px
+    lg: '1.125rem',   // 18px
+    xl: '1.25rem',    // 20px
+    '2xl': '1.5rem',  // 24px
+    '3xl': '1.875rem', // 30px
+    '4xl': '2.25rem', // 36px
+    '5xl': '3rem',    // 48px
+  },
+  
+  fontWeight: {
+    light: 300,
+    normal: 400,
+    medium: 500,
+    semibold: 600,
+    bold: 700,
+  },
+  
+  lineHeight: {
+    tight: 1.25,
+    normal: 1.5,
+    relaxed: 1.75,
+  },
+} as const;
+
+// packages/tokens/src/spacing.ts
+export const spacing = {
+  0: '0',
+  1: '0.25rem',  // 4px
+  2: '0.5rem',   // 8px
+  3: '0.75rem',  // 12px
+  4: '1rem',     // 16px
+  5: '1.25rem',  // 20px
+  6: '1.5rem',   // 24px
+  8: '2rem',     // 32px
+  10: '2.5rem',  // 40px
+  12: '3rem',    // 48px
+  16: '4rem',    // 64px
+  20: '5rem',    // 80px
+  24: '6rem',    // 96px
+} as const;
+
+// packages/tokens/src/index.ts
+export * from './colors';
+export * from './typography';
+export * from './spacing';
+export * from './shadows';
+export * from './borders';
+export * from './transitions';
+```
+
+**2. Core Package (Utilities & Hooks)**
+
+```typescript
+// packages/core/src/theme/ThemeProvider.tsx
+import { createContext, useContext, useMemo } from 'react';
+import { colors, typography, spacing } from '@design-system/tokens';
+
+export interface Theme {
+  colors: typeof colors;
+  typography: typeof typography;
+  spacing: typeof spacing;
+  mode: 'light' | 'dark';
+  customizations?: Partial<Theme>;
+}
+
+const ThemeContext = createContext<Theme | null>(null);
+
+export function ThemeProvider({
+  children,
+  theme,
+  customizations
+}: {
+  children: React.ReactNode;
+  theme?: Partial<Theme>;
+  customizations?: Partial<Theme>;
+}) {
+  const defaultTheme: Theme = {
+    colors,
+    typography,
+    spacing,
+    mode: 'light',
+  };
+
+  const mergedTheme = useMemo(
+    () => ({
+      ...defaultTheme,
+      ...theme,
+      ...customizations,
+    }),
+    [theme, customizations]
+  );
+
+  return (
+    <ThemeContext.Provider value={mergedTheme}>
+      {children}
+    </ThemeContext.Provider>
+  );
+}
+
+export function useTheme() {
+  const context = useContext(ThemeContext);
+  if (!context) {
+    throw new Error('useTheme must be used within ThemeProvider');
+  }
+  return context;
+}
+
+// packages/core/src/hooks/useMediaQuery.ts
+export function useMediaQuery(query: string): boolean {
+  const [matches, setMatches] = useState(false);
+
+  useEffect(() => {
+    const media = window.matchMedia(query);
+    
+    if (media.matches !== matches) {
+      setMatches(media.matches);
+    }
+
+    const listener = () => setMatches(media.matches);
+    media.addEventListener('change', listener);
+    
+    return () => media.removeEventListener('change', listener);
+  }, [matches, query]);
+
+  return matches;
+}
+
+// packages/core/src/hooks/useBreakpoint.ts
+export function useBreakpoint() {
+  const isSm = useMediaQuery('(min-width: 640px)');
+  const isMd = useMediaQuery('(min-width: 768px)');
+  const isLg = useMediaQuery('(min-width: 1024px)');
+  const isXl = useMediaQuery('(min-width: 1280px)');
+  const is2Xl = useMediaQuery('(min-width: 1536px)');
+
+  return {
+    isSm,
+    isMd,
+    isLg,
+    isXl,
+    is2Xl,
+    current:
+      is2Xl ? '2xl' :
+      isXl ? 'xl' :
+      isLg ? 'lg' :
+      isMd ? 'md' :
+      isSm ? 'sm' : 'xs'
+  };
+}
+```
+
+**3. Component Package Structure**
+
+```typescript
+// packages/react/src/Button/Button.tsx
+import { forwardRef, ButtonHTMLAttributes } from 'react';
+import { cva, type VariantProps } from 'class-variance-authority';
+
+const buttonVariants = cva(
+  // Base styles
+  'inline-flex items-center justify-center rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50',
+  {
+    variants: {
+      variant: {
+        primary: 'bg-brand-500 text-white hover:bg-brand-600 focus-visible:ring-brand-500',
+        secondary: 'bg-neutral-100 text-neutral-900 hover:bg-neutral-200 focus-visible:ring-neutral-500',
+        outline: 'border-2 border-brand-500 text-brand-500 hover:bg-brand-50 focus-visible:ring-brand-500',
+        ghost: 'hover:bg-neutral-100 text-neutral-700 focus-visible:ring-neutral-500',
+        danger: 'bg-error-500 text-white hover:bg-error-600 focus-visible:ring-error-500',
+        link: 'text-brand-500 underline-offset-4 hover:underline',
+      },
+      size: {
+        sm: 'h-8 px-3 text-sm',
+        md: 'h-10 px-4 text-base',
+        lg: 'h-12 px-6 text-lg',
+        xl: 'h-14 px-8 text-xl',
+      },
+      fullWidth: {
+        true: 'w-full',
+      },
+    },
+    defaultVariants: {
+      variant: 'primary',
+      size: 'md',
+    },
+  }
+);
+
+export interface ButtonProps
+  extends ButtonHTMLAttributes<HTMLButtonElement>,
+    VariantProps<typeof buttonVariants> {
+  loading?: boolean;
+  leftIcon?: React.ReactNode;
+  rightIcon?: React.ReactNode;
+}
+
+export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
+  (
+    {
+      className,
+      variant,
+      size,
+      fullWidth,
+      loading,
+      disabled,
+      leftIcon,
+      rightIcon,
+      children,
+      ...props
+    },
+    ref
+  ) => {
+    return (
+      <button
+        ref={ref}
+        className={buttonVariants({ variant, size, fullWidth, className })}
+        disabled={disabled || loading}
+        aria-busy={loading}
+        {...props}
+      >
+        {loading && (
+          <svg
+            className="mr-2 h-4 w-4 animate-spin"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            />
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+            />
+          </svg>
+        )}
+        {!loading && leftIcon && <span className="mr-2">{leftIcon}</span>}
+        {children}
+        {!loading && rightIcon && <span className="ml-2">{rightIcon}</span>}
+      </button>
+    );
+  }
+);
+
+Button.displayName = 'Button';
+
+// packages/react/src/Button/Button.stories.tsx
+import type { Meta, StoryObj } from '@storybook/react';
+import { Button } from './Button';
+
+const meta: Meta<typeof Button> = {
+  title: 'Components/Button',
+  component: Button,
+  tags: ['autodocs'],
+  argTypes: {
+    variant: {
+      control: 'select',
+      options: ['primary', 'secondary', 'outline', 'ghost', 'danger', 'link'],
+    },
+    size: {
+      control: 'select',
+      options: ['sm', 'md', 'lg', 'xl'],
+    },
+    loading: {
+      control: 'boolean',
+    },
+    disabled: {
+      control: 'boolean',
+    },
+  },
+};
+
+export default meta;
+type Story = StoryObj<typeof Button>;
+
+export const Primary: Story = {
+  args: {
+    variant: 'primary',
+    children: 'Button',
+  },
+};
+
+export const Secondary: Story = {
+  args: {
+    variant: 'secondary',
+    children: 'Button',
+  },
+};
+
+export const AllVariants: Story = {
+  render: () => (
+    <div className="flex flex-col gap-4">
+      <div className="flex gap-4">
+        <Button variant="primary">Primary</Button>
+        <Button variant="secondary">Secondary</Button>
+        <Button variant="outline">Outline</Button>
+        <Button variant="ghost">Ghost</Button>
+        <Button variant="danger">Danger</Button>
+        <Button variant="link">Link</Button>
+      </div>
+    </div>
+  ),
+};
+
+export const AllSizes: Story = {
+  render: () => (
+    <div className="flex items-center gap-4">
+      <Button size="sm">Small</Button>
+      <Button size="md">Medium</Button>
+      <Button size="lg">Large</Button>
+      <Button size="xl">Extra Large</Button>
+    </div>
+  ),
+};
+
+export const WithIcons: Story = {
+  render: () => (
+    <div className="flex gap-4">
+      <Button leftIcon={<span>→</span>}>With Left Icon</Button>
+      <Button rightIcon={<span>←</span>}>With Right Icon</Button>
+      <Button leftIcon={<span>→</span>} rightIcon={<span>←</span>}>
+        Both Icons
+      </Button>
+    </div>
+  ),
+};
+
+export const Loading: Story = {
+  args: {
+    loading: true,
+    children: 'Loading...',
+  },
+};
+```
+
+**4. Composite Components**
+
+```typescript
+// packages/react/src/Card/Card.tsx
+export interface CardProps {
+  children: React.ReactNode;
+  variant?: 'elevated' | 'outlined' | 'filled';
+  padding?: keyof typeof spacing;
+  hoverable?: boolean;
+  clickable?: boolean;
+  onClick?: () => void;
+}
+
+export function Card({
+  children,
+  variant = 'elevated',
+  padding = 4,
+  hoverable,
+  clickable,
+  onClick,
+}: CardProps) {
+  const variants = {
+    elevated: 'bg-white shadow-lg',
+    outlined: 'bg-white border-2 border-neutral-200',
+    filled: 'bg-neutral-50',
+  };
+
+  const interactiveClasses = 
+    (hoverable || clickable) &&
+    'transition-transform hover:scale-[1.02] hover:shadow-xl';
+  
+  const clickableClasses = 
+    clickable && 'cursor-pointer';
+
+  return (
+    <div
+      className={cn(
+        'rounded-lg',
+        variants[variant],
+        `p-${padding}`,
+        interactiveClasses,
+        clickableClasses
+      )}
+      onClick={clickable ? onClick : undefined}
+      role={clickable ? 'button' : undefined}
+      tabIndex={clickable ? 0 : undefined}
+    >
+      {children}
+    </div>
+  );
+}
+
+// Compound components
+Card.Header = function CardHeader({ children }: { children: React.ReactNode }) {
+  return <div className="mb-4 pb-4 border-b border-neutral-200">{children}</div>;
+};
+
+Card.Title = function CardTitle({ children }: { children: React.ReactNode }) {
+  return <h3 className="text-xl font-semibold text-neutral-900">{children}</h3>;
+};
+
+Card.Body = function CardBody({ children }: { children: React.ReactNode }) {
+  return <div className="text-neutral-700">{children}</div>;
+};
+
+Card.Footer = function CardFooter({ children }: { children: React.ReactNode }) {
+  return <div className="mt-4 pt-4 border-t border-neutral-200">{children}</div>;
+};
+
+// Usage
+<Card variant="elevated" hoverable>
+  <Card.Header>
+    <Card.Title>Card Title</Card.Title>
+  </Card.Header>
+  <Card.Body>
+    Card content goes here
+  </Card.Body>
+  <Card.Footer>
+    <Button>Action</Button>
+  </Card.Footer>
+</Card>
+```
+
+**5. Documentation Structure**
+
+```markdown
+# Component Documentation Template
+
+## Button
+
+A versatile button component with multiple variants and states.
+
+### Import
+
+\```tsx
+import { Button } from '@design-system/react';
+\```
+
+### Usage
+
+\```tsx
+<Button variant="primary" size="md">
+  Click me
+</Button>
+\```
+
+### Props
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| variant | 'primary' \| 'secondary' \| 'outline' \| 'ghost' \| 'danger' \| 'link' | 'primary' | Visual style variant |
+| size | 'sm' \| 'md' \| 'lg' \| 'xl' | 'md' | Button size |
+| fullWidth | boolean | false | Makes button full width |
+| loading | boolean | false | Shows loading spinner |
+| disabled | boolean | false | Disables the button |
+| leftIcon | ReactNode | - | Icon to show on the left |
+| rightIcon | ReactNode | - | Icon to show on the right |
+
+### Accessibility
+
+- Uses semantic `<button>` element
+- Proper ARIA attributes (`aria-busy`, `aria-disabled`)
+- Keyboard accessible
+- Focus visible styles
+- Screen reader friendly
+
+### Examples
+
+#### Variants
+[Interactive example here]
+
+#### With Icons
+[Interactive example here]
+
+#### Loading State
+[Interactive example here]
+
+### Design Tokens
+
+\```ts
+// Colors used
+colors.brand[500] // Primary
+colors.neutral[100] // Secondary
+colors.error[500] // Danger
+
+// Spacing
+spacing[3] // sm padding
+spacing[4] // md padding
+spacing[6] // lg padding
+\```
+
+### Related Components
+
+- [IconButton](#iconbutton)
+- [ButtonGroup](#buttongroup)
+- [Link](#link)
+```
+
+**6. Version Management & Release Process**
+
+```json
+// packages/react/package.json
+{
+  "name": "@design-system/react",
+  "version": "2.1.0",
+  "description": "React components for Design System",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "require": "./dist/index.js",
+      "import": "./dist/index.mjs",
+      "types": "./dist/index.d.ts"
+    },
+    "./Button": {
+      "require": "./dist/Button/index.js",
+      "import": "./dist/Button/index.mjs",
+      "types": "./dist/Button/index.d.ts"
+    }
+  },
+  "sideEffects": false,
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts",
+    "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
+    "lint": "eslint src/",
+    "type-check": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "react": ">=18.0.0",
+    "react-dom": ">=18.0.0"
+  },
+  "dependencies": {
+    "@design-system/tokens": "workspace:*",
+    "@design-system/core": "workspace:*",
+    "class-variance-authority": "^0.7.0",
+    "clsx": "^2.0.0"
+  }
+}
+```
+
+**Trade-offs & Best Practices:**
+
+1. **Monorepo vs Multi-repo**
+   - Monorepo: Easier coordination, shared tooling
+   - Multi-repo: Independent versioning, slower sync
+   - **Decision**: Monorepo with Turborepo
+
+2. **Component API Design**
+   - Compound components for flexibility
+   - Render props for customization
+   - Polymorphic components (`as` prop)
+   - Controlled vs uncontrolled patterns
+
+3. **Styling Approach**
+   - CSS-in-JS (runtime cost, dynamic)
+   - Utility-first (Tailwind - fast, consistent)
+   - CSS Modules (scoped, traditional)
+   - **Decision**: Tailwind + CVA for variants
+
+4. **Documentation**
+   - Storybook for component playground
+   - MDX for rich documentation
+   - Auto-generated API docs from TypeScript
+   - Live code examples
+
+5. **Testing Strategy**
+   - Unit tests (Jest + Testing Library)
+   - Visual regression (Chromatic)
+   - Accessibility tests (jest-axe)
+   - Integration tests (Playwright)
+
+---
+
+## Monorepo Architecture
+
+### Turborepo Setup
+
+**Why Monorepo?**
+- Shared code and dependencies
+- Atomic changes across packages
+- Simplified dependency management
+- Consistent tooling and configs
+- Easier refactoring
+
+**Structure:**
+
+```
+monorepo/
+├── apps/
+│   ├── web/              # Main application
+│   ├── admin/            # Admin dashboard
+│   ├── mobile/           # React Native app
+│   └── docs/             # Documentation site
+├── packages/
+│   ├── ui/               # Shared UI components
+│   ├── config/           # Shared configs (ESLint, TS, etc.)
+│   ├── utils/            # Shared utilities
+│   ├── api-client/       # API client
+│   └── types/            # Shared TypeScript types
+├── tools/
+│   └── generators/       # Code generators
+├── turbo.json            # Turborepo configuration
+├── package.json          # Root package.json
+└── pnpm-workspace.yaml   # Workspace configuration
+```
+
+---
+
+#### Implementation
+
+**1. Root Configuration**
+
+```json
+// package.json
+{
+  "name": "monorepo",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "clean": "turbo run clean && rm -rf node_modules",
+    "format": "prettier --write \"**/*.{ts,tsx,md}\""
+  },
+  "devDependencies": {
+    "@turbo/gen": "^1.10.0",
+    "eslint": "^8.48.0",
+    "prettier": "^3.0.0",
+    "turbo": "^1.10.0",
+    "typescript": "^5.2.0"
+  },
+  "packageManager": "pnpm@8.6.0"
+}
+
+// turbo.json
+{
+  "$schema": "https://turbo.build/schema.json",
+  "globalDependencies": ["**/.env.*local"],
+  "pipeline": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": [".next/**", "dist/**", "build/**"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "lint": {
+      "dependsOn": ["^lint"]
+    },
+    "test": {
+      "dependsOn": ["^build"],
+      "outputs": ["coverage/**"]
+    },
+    "deploy": {
+      "dependsOn": ["build", "test", "lint"]
+    }
+  }
+}
+
+// pnpm-workspace.yaml
+packages:
+  - 'apps/*'
+  - 'packages/*'
+```
+
+**2. Shared Package Example**
+
+```typescript
+// packages/ui/package.json
+{
+  "name": "@repo/ui",
+  "version": "0.0.0",
+  "private": true,
+  "exports": {
+    "./button": "./src/button.tsx",
+    "./card": "./src/card.tsx"
+  },
+  "scripts": {
+    "lint": "eslint src/",
+    "type-check": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "react": "^18.2.0"
+  },
+  "devDependencies": {
+    "@repo/typescript-config": "workspace:*",
+    "@types/react": "^18.2.0",
+    "typescript": "^5.2.0"
+  }
+}
+
+// packages/ui/src/button.tsx
+export interface ButtonProps {
+  children: React.ReactNode;
+  variant?: 'primary' | 'secondary';
+  onClick?: () => void;
+}
+
+export function Button({ children, variant = 'primary', onClick }: ButtonProps) {
+  return (
+    <button
+      className={`btn btn-${variant}`}
+      onClick={onClick}
+    >
+      {children}
+    </button>
+  );
+}
+```
+
+**3. App Using Shared Packages**
+
+```typescript
+// apps/web/package.json
+{
+  "name": "web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@repo/ui": "workspace:*",
+    "@repo/utils": "workspace:*",
+    "@repo/types": "workspace:*",
+    "next": "14.0.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@repo/typescript-config": "workspace:*",
+    "@repo/eslint-config": "workspace:*"
+  }
+}
+
+// apps/web/app/page.tsx
+import { Button } from '@repo/ui/button';
+import { Card } from '@repo/ui/card';
+
+export default function Page() {
+  return (
+    <div>
+      <Card>
+        <h1>Welcome</h1>
+        <Button variant="primary">Get Started</Button>
+      </Card>
+    </div>
+  );
+}
+```
+
+**4. Remote Caching**
+
+```bash
+# .turbo/config.json
+{
+  "teamId": "team_xxx",
+  "apiUrl": "https://api.vercel.com"
+}
+
+# Enable remote caching
+turbo login
+turbo link
+
+# Now builds are cached remotely
+turbo run build
+```
+
+---
+
+### Nx Workspace
+
+**Nx vs Turborepo:**
+- Nx: More features, generators, dependency graph
+- Turborepo: Simpler, faster, better for simple setups
+- Both support remote caching
+
+**Nx Setup:**
+
+```bash
+npx create-nx-workspace@latest myorg
+
+# Choose: apps, integrated monorepo, React
+```
+
+**Structure:**
+
+```
+nx-monorepo/
+├── apps/
+│   ├── web/
+│   ├── admin/
+│   └── mobile/
+├── libs/
+│   ├── ui/
+│   ├── data-access/
+│   ├── feature-auth/
+│   └── util-formatting/
+├── tools/
+└── nx.json
+```
+
+**Key Features:**
+
+```json
+// nx.json
+{
+  "tasksRunnerOptions": {
+    "default": {
+      "runner": "nx/tasks-runners/default",
+      "options": {
+        "cacheableOperations": ["build", "test", "lint"],
+        "parallel": 3,
+        "cacheDirectory": "tmp/nx-cache"
+      }
+    }
+  },
+  "targetDefaults": {
+    "build": {
+      "dependsOn": ["^build"],
+      "inputs": ["production", "^production"],
+      "outputs": ["{projectRoot}/dist"]
+    }
+  }
+}
+
+// Affected commands (only test/build what changed)
+nx affected:test
+nx affected:build
+nx affected:lint
+
+// Dependency graph
+nx graph
+
+// Generate new library
+nx g @nx/react:library my-lib
+
+// Generate new component
+nx g @nx/react:component my-component --project=ui
+```
+
+---
+
+## Micro-Frontends
+
+### Module Federation (Webpack 5)
+
+**Architecture:**
+
+```
+┌─────────────────────────────────────────────┐
+│           Shell / Host Application          │
+│         (Header, Nav, Auth, Routing)        │
+└──────────┬──────────────┬──────────────┬────┘
+           │              │              │
+           │              │              │
+           ▼              ▼              ▼
+    ┌──────────┐   ┌──────────┐   ┌──────────┐
+    │  Remote  │   │  Remote  │   │  Remote  │
+    │ Product  │   │   Cart   │   │ Checkout │
+    └──────────┘   └──────────┘   └──────────┘
+```
+
+**Implementation:**
+
+```typescript
+// apps/shell/next.config.js
+const { NextFederationPlugin } = require('@module-federation/nextjs-mf');
+
+module.exports = {
+  webpack(config, options) {
+    if (!options.isServer) {
+      config.plugins.push(
+        new NextFederationPlugin({
+          name: 'shell',
+          filename: 'static/chunks/remoteEntry.js',
+          remotes: {
+            product: `product@http://localhost:3001/_next/static/chunks/remoteEntry.js`,
+            cart: `cart@http://localhost:3002/_next/static/chunks/remoteEntry.js`,
+            checkout: `checkout@http://localhost:3003/_next/static/chunks/remoteEntry.js`,
+          },
+          shared: {
+            react: { singleton: true, eager: true },
+            'react-dom': { singleton: true, eager: true },
+          },
+        })
+      );
+    }
+    return config;
+  },
+};
+
+// apps/product/next.config.js
+module.exports = {
+  webpack(config, options) {
+    if (!options.isServer) {
+      config.plugins.push(
+        new NextFederationPlugin({
+          name: 'product',
+          filename: 'static/chunks/remoteEntry.js',
+          exposes: {
+            './ProductList': './components/ProductList',
+            './ProductDetail': './components/ProductDetail',
+          },
+          shared: {
+            react: { singleton: true, eager: true },
+            'react-dom': { singleton: true, eager: true },
+          },
+        })
+      );
+    }
+    return config;
+  },
+};
+
+// apps/shell/components/DynamicRemote.tsx
+import dynamic from 'next/dynamic';
+import { Suspense } from 'react';
+
+const ProductList = dynamic(
+  () => import('product/ProductList').then(mod => mod.ProductList),
+  {
+    ssr: false,
+    loading: () => <div>Loading products...</div>,
+  }
+);
+
+export function ShopPage() {
+  return (
+    <div>
+      <h1>Shop</h1>
+      <Suspense fallback={<div>Loading...</div>}>
+        <ProductList />
+      </Suspense>
+    </div>
+  );
+}
+```
+
+**Communication Between Micro-Frontends:**
+
+```typescript
+// Shared event bus
+class EventBus {
+  private events: Map<string, Function[]> = new Map();
+
+  subscribe(event: string, callback: Function) {
+    if (!this.events.has(event)) {
+      this.events.set(event, []);
+    }
+    this.events.get(event)!.push(callback);
+    
+    return () => {
+      const callbacks = this.events.get(event);
+      if (callbacks) {
+        const index = callbacks.indexOf(callback);
+        if (index > -1) {
+          callbacks.splice(index, 1);
+        }
+      }
+    };
+  }
+
+  publish(event: string, data?: any) {
+    const callbacks = this.events.get(event);
+    if (callbacks) {
+      callbacks.forEach(callback => callback(data));
+    }
+  }
+}
+
+export const eventBus = new EventBus();
+
+// Product remote
+eventBus.publish('product:added', { productId: '123', quantity: 1 });
+
+// Cart remote
+eventBus.subscribe('product:added', (data) => {
+  addToCart(data.productId, data.quantity);
+});
+```
+
+**Trade-offs:**
+
+1. **Pros:**
+   - Independent deployment
+   - Team autonomy
+   - Technology diversity possible
+   - Scalable architecture
+
+2. **Cons:**
+   - Complex setup
+   - Shared dependency management
+   - Version conflicts
+   - Performance overhead
+   - Debugging complexity
+
+3. **When to Use:**
+   - Large teams (50+ developers)
+   - Multiple products/domains
+   - Need independent deployments
+   - Long-term product
+
+4. **When NOT to Use:**
+   - Small team (< 10 developers)
+   - Single product
+   - Tight coupling required
+   - Performance critical
+
+---
+
+## Architectural Decision Records (ADRs)
+
+### ADR Template
+
+```markdown
+# ADR-001: Choose State Management Solution
+
+## Status
+Accepted
+
+## Context
+We need to select a state management solution for our Next.js application that:
+- Handles server state (API data)
+- Manages client state (UI state)
+- Supports 10k+ users
+- Provides good developer experience
+- Has minimal bundle impact
+
+Our application has:
+- 50+ API endpoints
+- Real-time features (WebSocket)
+- Complex forms
+- User preferences
+- Shopping cart
+
+## Decision
+We will use a combination of:
+1. **React Query** for server state
+2. **Zustand** for client state
+3. **URL params** for shareable state
+
+## Rationale
+
+### Why React Query?
+- ✅ Built-in caching, refetching, pagination
+- ✅ Automatic background updates
+- ✅ Request deduplication
+- ✅ Optimistic updates support
+- ✅ 13KB gzipped
+- ✅ Excellent TypeScript support
+
+### Why Zustand?
+- ✅ Minimal boilerplate (vs Redux)
+- ✅ 3KB gzipped
+- ✅ Simple API
+- ✅ Good DevTools
+- ✅ No provider needed
+
+### Why URL params?
+- ✅ Shareable state (filters, pagination)
+- ✅ Deep linking support
+- ✅ Browser back/forward works
+- ✅ SEO benefits
+
+### Alternatives Considered
+
+**Redux Toolkit:**
+- ❌ 11KB gzipped (larger)
+- ❌ More boilerplate
+- ❌ Overkill for server state
+- ✅ Good for complex state logic
+- ✅ Excellent DevTools
+
+**Jotai:**
+- ✅ 3KB gzipped
+- ✅ Atomic state
+- ❌ Less mature ecosystem
+- ❌ Learning curve
+
+**SWR:**
+- ✅ Similar to React Query
+- ❌ Less features
+- ❌ Smaller community
+
+## Consequences
+
+### Positive
+- Reduced API calls due to caching
+- Better UX with optimistic updates
+- Smaller bundle size
+- Faster development
+- Better testing (mock stores easily)
+
+### Negative
+- Learning curve for team
+- Two state systems to learn
+- Need to decide: server vs client state
+- Migration cost from current Redux
+
+### Mitigation
+- Training sessions for team
+- Documentation with examples
+- Gradual migration (coexist with Redux)
+- Clear guidelines: when to use what
+
+## Implementation Plan
+
+1. Week 1: Setup React Query + Zustand
+2. Week 2: Migrate auth state to Zustand
+3. Week 3: Migrate user data to React Query
+4. Week 4: Migrate products to React Query
+5. Week 5: Remove Redux dependencies
+
+## Metrics
+- Bundle size: Target < 500KB
+- Time to Interactive: < 3s
+- API calls: Reduce by 40%
+- Developer velocity: 20% faster
+
+## References
+- [React Query Docs](https://tanstack.com/query)
+- [Zustand Docs](https://zustand-demo.pmnd.rs/)
+- [State Management Comparison](#)
+
+## Date
+2024-01-15
+
+## Authors
+- @john-doe (Tech Lead)
+- @jane-smith (Senior Engineer)
+```
+
+---
+
+### ADR-002: Database Strategy for Multi-Tenant Application
+
+```markdown
+# ADR-002: Multi-Tenant Database Strategy
+
+## Status
+Accepted
+
+## Context
+We're building a B2B SaaS platform with:
+- 10,000+ expected tenants
+- Strong data isolation requirements
+- Compliance: GDPR, SOC2
+- Performance: < 200ms response time
+- Cost: Budget for infrastructure
+
+Need to decide on database architecture:
+1. Separate database per tenant
+2. Separate schema per tenant
+3. Shared database with tenant_id column
+
+## Decision
+**Shared database with tenant_id column + Row Level Security (RLS)**
+
+## Rationale
+
+### Approach 1: Separate Database
+```
+Pros:
+✅ Maximum isolation
+✅ Easy backups per tenant
+✅ Custom optimizations per tenant
+
+Cons:
+❌ 10,000 databases = management nightmare
+❌ Connection pool per DB
+❌ Expensive ($$$)
+❌ Difficult migrations
+❌ Hard to aggregate data
+```
+
+### Approach 2: Separate Schema
+```
+Pros:
+✅ Good isolation
+✅ Simpler than separate DB
+
+Cons:
+❌ 10,000 schemas
+❌ Still complex management
+❌ Connection overhead
+❌ Expensive ($$)
+```
+
+### Approach 3: Shared DB with RLS (CHOSEN)
+```
+Pros:
+✅ Simple management
+✅ One connection pool
+✅ Cost effective ($)
+✅ Easy migrations
+✅ Easy analytics
+✅ PostgreSQL RLS for security
+
+Cons:
+❌ Need careful query design
+❌ Risk of data leakage (mitigated by RLS)
+❌ One tenant can impact others
+```
+
+## Implementation
+
+### Database Schema
+```sql
+-- Enable RLS
+ALTER TABLE projects ENABLE ROW LEVEL SECURITY;
+
+-- Policy
+CREATE POLICY tenant_isolation ON projects
+  USING (tenant_id = current_setting('app.tenant_id')::uuid);
+
+-- Set context per request
+SET LOCAL app.tenant_id = 'tenant-uuid';
+```
+
+### Application Layer
+```typescript
+// Middleware sets tenant context
+async function middleware(req, res, next) {
+  const tenantId = req.headers['x-tenant-id'];
+  
+  await prisma.$executeRaw`
+    SET LOCAL app.tenant_id = ${tenantId}
+  `;
+  
+  next();
+}
+
+// All queries automatically filtered
+const projects = await prisma.project.findMany();
+// Only returns projects for current tenant
+```
+
+### Safety Measures
+1. **RLS Policies**: Database-level enforcement
+2. **Middleware**: Application-level checks
+3. **Testing**: Tenant isolation tests
+4. **Monitoring**: Alert on cross-tenant queries
+5. **Auditing**: Log all data access
+
+## Consequences
+
+### Positive
+- $50K/year savings vs separate databases
+- Faster migrations (1 DB vs 10,000)
+- Easier monitoring
+- Better resource utilization
+
+### Negative
+- Must enforce tenant_id in all queries
+- Potential noisy neighbor
+- Single point of failure (mitigated by replicas)
+
+### Mitigation Strategies
+1. **Connection Pooling**: PgBouncer with transaction mode
+2. **Query Optimization**: Indexes on tenant_id
+3. **Resource Isolation**: 
+   - CPU/Memory limits per tenant
+   - Rate limiting
+4. **Monitoring**:
+   - Query performance per tenant
+   - Alert on slow queries
+5. **Backups**:
+   - Point-in-time recovery
+   - Per-tenant restore capability
+
+## Rollback Plan
+If issues arise:
+1. Create separate schema for problematic tenants
+2. Move data using pg_dump/restore
+3. Update routing logic
+4. Gradual migration if needed
+
+## Metrics
+- Query performance: < 200ms p95
+- Resource usage: < 70% CPU
+- Cost: $5,000/month (vs $55,000 separate DBs)
+- Incident rate: < 1 per month
+
+## Decision Drivers
+1. Cost: 90% savings
+2. Simplicity: 1 DB vs 10,000
+3. Performance: Adequate with optimization
+4. Security: RLS provides strong isolation
+5. Scale: Proven at 10k+ tenants (Slack, GitHub)
+
+## Validation
+After 6 months, review:
+- Performance metrics
+- Security incidents
+- Cost savings
+- Developer feedback
+
+If metrics don't meet goals, revisit decision.
+
+## References
+- [PostgreSQL RLS Documentation](#)
+- [Multi-Tenant Architecture Patterns](#)
+- [Case Study: How Segment Does Multi-Tenancy](#)
+
+## Date
+2024-01-20
+
+## Authors
+- @john-doe (Tech Lead)
+- @sarah-wilson (DBA)
+- @mike-jones (Security Lead)
+```
+
+---
+
+### ADR-003: Choose Monorepo Tool
+
+```markdown
+# ADR-003: Monorepo Tooling Selection
+
+## Status
+Accepted
+
+## Context
+We have:
+- 5 Next.js applications
+- 15 shared packages
+- 30 developers
+- CI/CD pipeline
+- Need for remote caching
+
+Options:
+1. Turborepo
+2. Nx
+3. Lerna
+4. Rush
+5. No tool (just pnpm workspaces)
+
+## Decision
+**Turborepo** for our monorepo
+
+## Comparison Matrix
+
+| Feature | Turborepo | Nx | Lerna | Rush |
+|---------|-----------|----|----|------|
+| Speed | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐ | ⭐⭐⭐ |
+| Caching | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐ | ⭐⭐⭐⭐ |
+| Remote Cache | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ❌ | ⭐⭐⭐ |
+| Simplicity | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐ |
+| Features | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐ | ⭐⭐⭐ |
+| Learning Curve | Easy | Medium | Easy | Hard |
+| Community | Large | Large | Medium | Small |
+
+## Rationale
+
+### Why Turborepo?
+✅ **Speed**: 85% faster builds (benchmark)
+✅ **Simple**: Minimal config (turbo.json)
+✅ **Remote Caching**: Free with Vercel
+✅ **Dev Experience**: Excellent error messages
+✅ **Integration**: Works great with Next.js
+✅ **Cost**: Free remote cache (vs Nx Cloud $$$)
+
+### Why NOT Nx?
+❌ More complex (generators, plugins)
+❌ Steeper learning curve
+❌ Nx Cloud costs $25/dev/month
+✅ More features (if needed later, can migrate)
+
+### Why NOT Lerna?
+❌ Maintenance mode (less active)
+❌ No remote caching
+❌ Slower than modern tools
+
+## Implementation
+
+```json
+// turbo.json
+{
+  "pipeline": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": [".next/**", "dist/**"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "lint": {},
+    "test": {
+      "dependsOn": ["^build"],
+      "outputs": ["coverage/**"]
+    }
+  }
+}
+```
+
+```bash
+# Commands
+turbo run build --filter=web
+turbo run test --filter=...web
+turbo run dev --parallel
+```
+
+## Consequences
+
+### Positive
+- 85% faster CI builds (cached)
+- $300/month savings (vs Nx Cloud)
+- Easy onboarding (simple config)
+- Great Vercel integration
+
+### Negative
+- Fewer features than Nx
+- No built-in generators
+- Less mature plugin ecosystem
+
+### Mitigation
+- Create custom generators as needed
+- Use Nx if we need advanced features
+- Document patterns for common tasks
+
+## Metrics (After 3 Months)
+- CI build time: 15min → 3min (80% reduction)
+- Cache hit rate: 75%
+- Developer satisfaction: 9/10
+- Cost: $0 (Vercel Free tier)
+
+## Migration Path to Nx (If Needed)
+1. Keep package structure
+2. Add nx.json
+3. Run both tools in parallel
+4. Gradual migration
+5. Remove Turborepo config
+
+## References
+- [Turborepo Docs](https://turbo.build)
+- [Monorepo Comparison](https://monorepo.tools)
+- [Vercel Remote Cache](https://vercel.com/docs/monorepos/remote-caching)
+
+## Date
+2024-02-01
+
+## Authors
+- @tech-lead
+- @senior-dev
+```
+
+---
+
+### How to Write Good ADRs
+
+**1. Keep It Concise**
+- Max 2-3 pages
+- Focus on the decision
+- Link to detailed docs
+
+**2. Be Specific**
+- Include numbers, metrics
+- Concrete examples
+- Real constraints
+
+**3. Show Alternatives**
+- What else was considered?
+- Why were they rejected?
+- Comparison matrix
+
+**4. Explain Trade-offs**
+- Nothing is perfect
+- What are we giving up?
+- How do we mitigate?
+
+**5. Make It Actionable**
+- Implementation plan
+- Success metrics
+- Review timeline
+
+**6. Update Status**
+- Draft → Proposed → Accepted → Superseded
+- Link to related ADRs
+- Note if deprecated
+
+---
+
+This comprehensive guide covers whiteboarding scenarios, monorepo architecture, micro-frontends, and ADRs with real-world examples and trade-off analysis! 🚀
 

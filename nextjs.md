@@ -20318,6 +20318,2299 @@ module.exports = withBundleAnalyzer({
 
 ---
 
-## Beginner Level Questions
+## Advanced Topics - Deep Dive
+
+### Deep Dive: App Router vs Pages Router - Complete Comparison
+
+#### Architectural Differences
+
+**Pages Router (Legacy):**
+```
+pages/
+├── _app.js                    # Global app wrapper
+├── _document.js               # HTML document structure
+├── _error.js                  # Error page
+├── api/                       # API routes
+│   └── users.js              → /api/users
+├── index.js                   → /
+├── about.js                   → /about
+└── blog/
+    ├── [slug].js             → /blog/:slug
+    └── index.js              → /blog
+
+Features:
+- Client-side components by default
+- getServerSideProps for SSR
+- getStaticProps for SSG
+- getStaticPaths for dynamic routes
+- Manual layout composition
+```
+
+**App Router (Modern):**
+```
+app/
+├── layout.js                  # Root layout (required)
+├── page.js                    → /
+├── loading.js                 # Loading UI
+├── error.js                   # Error boundary
+├── not-found.js               # 404 page
+├── template.js                # Re-rendered layout
+├── api/
+│   └── users/
+│       └── route.js          → /api/users
+├── about/
+│   └── page.js               → /about
+└── blog/
+    ├── [slug]/
+    │   ├── page.js           → /blog/:slug
+    │   ├── loading.js        # Route-specific loading
+    │   └── error.js          # Route-specific error
+    └── page.js               → /blog
+
+Features:
+- Server components by default
+- Async components (no data fetching methods)
+- Nested layouts
+- Automatic loading/error states
+- Streaming and Suspense
+- Colocation of components
+```
+
+---
+
+#### Server Components vs Client Components - Complete Guide
+
+**Server Components (Default in App Router):**
+
+```typescript
+// app/dashboard/page.tsx
+// NO 'use client' = Server Component
+
+import { db } from '@/lib/database';
+import { redis } from '@/lib/redis';
+import fs from 'fs';
+
+export default async function DashboardPage() {
+  // ✅ Direct database access
+  const users = await db.user.findMany();
+  
+  // ✅ Direct Redis access
+  const cachedData = await redis.get('stats');
+  
+  // ✅ File system access
+  const config = JSON.parse(fs.readFileSync('./config.json', 'utf8'));
+  
+  // ✅ Environment variables (private)
+  const apiKey = process.env.SECRET_API_KEY;
+  
+  // ✅ Heavy computations (on server)
+  const processedData = users.map(user => ({
+    ...user,
+    summary: generateExpensiveSummary(user)
+  }));
+  
+  return (
+    <div>
+      <h1>Dashboard</h1>
+      <UserList users={processedData} />
+    </div>
+  );
+}
+
+// Benefits:
+// - Zero JavaScript sent to client
+// - Direct backend access
+// - Secure (secrets stay on server)
+// - Better performance (heavy work on server)
+```
+
+**What Server Components CANNOT do:**
+
+```typescript
+// ❌ Cannot use React hooks
+const [state, setState] = useState(); // Error!
+useEffect(() => {}, []); // Error!
+const context = useContext(MyContext); // Error!
+
+// ❌ Cannot use browser APIs
+localStorage.setItem('key', 'value'); // Error!
+window.addEventListener('scroll', handler); // Error!
+document.getElementById('id'); // Error!
+
+// ❌ Cannot have event handlers
+<button onClick={handleClick}>Click</button> // Error!
+<input onChange={handleChange} /> // Error!
+
+// ❌ Cannot use browser-only libraries
+import moment from 'moment'; // Works (Node.js compatible)
+import anime from 'animejs'; // Error! (requires window)
+```
+
+**Client Components:**
+
+```typescript
+// app/components/InteractiveForm.tsx
+'use client'; // REQUIRED marker
+
+import { useState, useEffect, useContext } from 'react';
+import { useRouter } from 'next/navigation';
+
+export default function InteractiveForm() {
+  // ✅ React hooks work
+  const [formData, setFormData] = useState({ name: '', email: '' });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const router = useRouter();
+  
+  // ✅ Browser APIs work
+  useEffect(() => {
+    const saved = localStorage.getItem('formDraft');
+    if (saved) setFormData(JSON.parse(saved));
+    
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (formData.name || formData.email) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [formData]);
+  
+  // ✅ Event handlers work
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    
+    await fetch('/api/submit', {
+      method: 'POST',
+      body: JSON.stringify(formData)
+    });
+    
+    setIsSubmitting(false);
+    router.push('/success');
+  };
+  
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newData = { ...formData, [e.target.name]: e.target.value };
+    setFormData(newData);
+    localStorage.setItem('formDraft', JSON.stringify(newData));
+  };
+  
+  return (
+    <form onSubmit={handleSubmit}>
+      <input
+        name="name"
+        value={formData.name}
+        onChange={handleChange}
+        required
+      />
+      <input
+        type="email"
+        name="email"
+        value={formData.email}
+        onChange={handleChange}
+        required
+      />
+      <button type="submit" disabled={isSubmitting}>
+        {isSubmitting ? 'Submitting...' : 'Submit'}
+      </button>
+    </form>
+  );
+}
+```
+
+**Composition Pattern - Server + Client:**
+
+```typescript
+// app/product/[id]/page.tsx (Server Component)
+import { db } from '@/lib/database';
+import { AddToCartButton } from './AddToCartButton'; // Client
+import { ProductReviews } from './ProductReviews'; // Client
+import { RelatedProducts } from './RelatedProducts'; // Server
+
+export default async function ProductPage({ 
+  params 
+}: { 
+  params: { id: string } 
+}) {
+  // Server: Fetch data (no client-side loading state needed)
+  const product = await db.product.findUnique({
+    where: { id: params.id },
+    include: { category: true, variants: true }
+  });
+  
+  const relatedProducts = await db.product.findMany({
+    where: { categoryId: product.categoryId },
+    take: 4
+  });
+  
+  if (!product) {
+    notFound(); // Built-in 404
+  }
+  
+  return (
+    <div className="product-page">
+      {/* Server Component - Static content */}
+      <div className="product-info">
+        <h1>{product.name}</h1>
+        <p className="price">${product.price}</p>
+        <p className="description">{product.description}</p>
+      </div>
+      
+      {/* Client Component - Interactive */}
+      <AddToCartButton 
+        productId={product.id}
+        price={product.price}
+        availableStock={product.stock}
+      />
+      
+      {/* Client Component - Interactive with initial data */}
+      <ProductReviews 
+        productId={product.id}
+        initialReviews={product.reviews}
+      />
+      
+      {/* Server Component - Static related products */}
+      <RelatedProducts products={relatedProducts} />
+    </div>
+  );
+}
+
+// AddToCartButton.tsx (Client Component)
+'use client';
+
+import { useState } from 'react';
+import { useCart } from '@/hooks/useCart';
+
+export function AddToCartButton({ 
+  productId, 
+  price, 
+  availableStock 
+}: {
+  productId: string;
+  price: number;
+  availableStock: number;
+}) {
+  const [quantity, setQuantity] = useState(1);
+  const { addItem, isAdding } = useCart();
+  
+  const handleAddToCart = async () => {
+    await addItem({ productId, quantity, price });
+  };
+  
+  return (
+    <div className="add-to-cart">
+      <input
+        type="number"
+        min="1"
+        max={availableStock}
+        value={quantity}
+        onChange={(e) => setQuantity(Number(e.target.value))}
+      />
+      <button 
+        onClick={handleAddToCart}
+        disabled={isAdding || quantity > availableStock}
+      >
+        {isAdding ? 'Adding...' : 'Add to Cart'}
+      </button>
+      <p className="stock-info">{availableStock} in stock</p>
+    </div>
+  );
+}
+```
+
+---
+
+#### Streaming and Suspense - Deep Dive
+
+**What is Streaming?**
+
+Traditional SSR (Pages Router):
+```
+Request → Server fetches ALL data → Server renders COMPLETE HTML → Send to client
+                     ↓ User waits here (blank screen)
+```
+
+Streaming SSR (App Router):
+```
+Request → Server starts rendering → Send HTML chunks as ready → Client shows progressively
+          ↓ Fast parts show immediately
+          ↓ Slow parts stream in
+```
+
+**Implementation:**
+
+```typescript
+// app/dashboard/page.tsx
+import { Suspense } from 'react';
+
+// Fast component - renders immediately
+async function UserInfo({ userId }: { userId: string }) {
+  // Fast: cached or in-memory
+  const user = await getUserFromCache(userId);
+  
+  return (
+    <div className="user-info">
+      <h1>Welcome, {user.name}!</h1>
+      <p>Email: {user.email}</p>
+    </div>
+  );
+}
+
+// Slow component - streams later
+async function RecentOrders({ userId }: { userId: string }) {
+  // Slow: complex database query
+  await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate
+  const orders = await db.order.findMany({
+    where: { userId },
+    include: { items: true },
+    orderBy: { createdAt: 'desc' },
+    take: 10
+  });
+  
+  return (
+    <div className="recent-orders">
+      <h2>Recent Orders</h2>
+      <ul>
+        {orders.map(order => (
+          <li key={order.id}>
+            Order #{order.id} - ${order.total}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+// Another slow component
+async function Analytics({ userId }: { userId: string }) {
+  // Slow: analytics API call
+  await new Promise(resolve => setTimeout(resolve, 3000));
+  const stats = await fetchAnalytics(userId);
+  
+  return (
+    <div className="analytics">
+      <h2>Your Stats</h2>
+      <p>Total Spent: ${stats.totalSpent}</p>
+      <p>Orders This Month: {stats.ordersThisMonth}</p>
+    </div>
+  );
+}
+
+// Main page with streaming
+export default function DashboardPage({ 
+  params 
+}: { 
+  params: { userId: string } 
+}) {
+  return (
+    <div className="dashboard">
+      {/* Shows immediately (no Suspense needed for fast data) */}
+      <UserInfo userId={params.userId} />
+      
+      {/* Streams in when ready - shows skeleton while loading */}
+      <Suspense fallback={<OrdersSkeleton />}>
+        <RecentOrders userId={params.userId} />
+      </Suspense>
+      
+      {/* Streams in independently - shows spinner while loading */}
+      <Suspense fallback={<div className="spinner">Loading analytics...</div>}>
+        <Analytics userId={params.userId} />
+      </Suspense>
+      
+      {/* Multiple slow components in one boundary */}
+      <Suspense fallback={<div>Loading recommendations...</div>}>
+        <Recommendations userId={params.userId} />
+        <TrendingProducts />
+      </Suspense>
+    </div>
+  );
+}
+
+// Loading skeleton component
+function OrdersSkeleton() {
+  return (
+    <div className="skeleton recent-orders">
+      <h2>Recent Orders</h2>
+      <div className="skeleton-item" />
+      <div className="skeleton-item" />
+      <div className="skeleton-item" />
+    </div>
+  );
+}
+```
+
+**Loading States with loading.js:**
+
+```typescript
+// app/dashboard/loading.tsx
+export default function Loading() {
+  return (
+    <div className="loading-dashboard">
+      <div className="skeleton-header" />
+      <div className="skeleton-content">
+        <div className="skeleton-card" />
+        <div className="skeleton-card" />
+        <div className="skeleton-card" />
+      </div>
+    </div>
+  );
+}
+
+// This shows while the entire page is loading
+// More granular control with Suspense boundaries
+```
+
+**Nested Suspense for Progressive Enhancement:**
+
+```typescript
+// app/products/page.tsx
+import { Suspense } from 'react';
+
+export default function ProductsPage() {
+  return (
+    <div>
+      {/* Hero loads fast */}
+      <Hero />
+      
+      {/* Product grid with nested suspense */}
+      <Suspense fallback={<GridSkeleton />}>
+        <ProductGrid>
+          {/* Each product card can load independently */}
+          <Suspense fallback={<CardSkeleton />}>
+            <ProductCard id="1" />
+          </Suspense>
+          <Suspense fallback={<CardSkeleton />}>
+            <ProductCard id="2" />
+          </Suspense>
+          <Suspense fallback={<CardSkeleton />}>
+            <ProductCard id="3" />
+          </Suspense>
+        </ProductGrid>
+      </Suspense>
+      
+      {/* Sidebar loads separately */}
+      <Suspense fallback={<SidebarSkeleton />}>
+        <Sidebar />
+      </Suspense>
+    </div>
+  );
+}
+```
+
+---
+
+#### All 4 Caching Layers - Complete Deep Dive
+
+Next.js has 4 distinct caching mechanisms working together:
+
+**1. Request Memoization (Automatic Deduplication)**
+
+```typescript
+// How it works: Same fetch() in one render = deduplicated automatically
+
+// app/page.tsx
+async function Header() {
+  // First call - actually fetches
+  const user = await fetch('https://api.example.com/user/123').then(r => r.json());
+  return <header>Welcome, {user.name}</header>;
+}
+
+async function Sidebar() {
+  // Second call - reuses result from Header (no network request!)
+  const user = await fetch('https://api.example.com/user/123').then(r => r.json());
+  return <nav>Role: {user.role}</nav>;
+}
+
+async function Footer() {
+  // Third call - still reuses result
+  const user = await fetch('https://api.example.com/user/123').then(r => r.json());
+  return <footer>{user.email}</footer>;
+}
+
+export default function Page() {
+  return (
+    <>
+      <Header />  {/* Fetches user */}
+      <Sidebar /> {/* Reuses user */}
+      <Footer />  {/* Reuses user */}
+    </>
+  );
+}
+
+// Result: Only 1 network request, 3 components get data
+// Duration: Lasts for the duration of one server render
+// Location: Server memory
+// Can't be disabled
+```
+
+**Manual deduplication with React cache():**
+
+```typescript
+import { cache } from 'react';
+
+// Create memoized function
+const getUser = cache(async (id: string) => {
+  console.log('Fetching user:', id); // Only logs once per render
+  const res = await fetch(`https://api.example.com/users/${id}`);
+  return res.json();
+});
+
+// Use in multiple components
+async function Header({ userId }: { userId: string }) {
+  const user = await getUser(userId); // First call
+  return <header>{user.name}</header>;
+}
+
+async function Profile({ userId }: { userId: string }) {
+  const user = await getUser(userId); // Reuses result
+  return <div>{user.bio}</div>;
+}
+
+// Also works with non-fetch functions
+const getExpensiveData = cache(async (id: string) => {
+  // Complex database query or computation
+  const data = await db.query.complex({ id });
+  const processed = expensiveProcessing(data);
+  return processed;
+});
+```
+
+---
+
+**2. Data Cache (Persistent Across Requests)**
+
+```typescript
+// Default behavior: fetch() is cached forever
+const data = await fetch('https://api.example.com/data');
+// Cached until manual revalidation or rebuild
+
+// Time-based revalidation
+const data = await fetch('https://api.example.com/products', {
+  next: { revalidate: 3600 } // Revalidate every 1 hour
+});
+
+// No caching (always fresh)
+const data = await fetch('https://api.example.com/live-data', {
+  cache: 'no-store' // Bypass cache completely
+});
+
+// Force cache (even POST requests)
+const data = await fetch('https://api.example.com/data', {
+  cache: 'force-cache' // Cache forever (default for GET)
+});
+
+// Tag-based revalidation
+const data = await fetch('https://api.example.com/products', {
+  next: { tags: ['products'] }
+});
+
+// Later, revalidate by tag
+// app/api/revalidate/route.ts
+import { revalidateTag } from 'next/cache';
+
+export async function POST(request: Request) {
+  const { tag } = await request.json();
+  revalidateTag(tag); // Invalidate all fetches with this tag
+  return Response.json({ revalidated: true });
+}
+
+// Path-based revalidation
+import { revalidatePath } from 'next/cache';
+
+export async function POST() {
+  revalidatePath('/products'); // Revalidate specific path
+  revalidatePath('/products/[id]', 'page'); // Revalidate dynamic route
+  revalidatePath('/blog/[slug]', 'layout'); // Revalidate layout
+  return Response.json({ revalidated: true });
+}
+```
+
+**Caching non-fetch requests:**
+
+```typescript
+import { unstable_cache } from 'next/cache';
+
+// Cache database queries
+const getCachedUser = unstable_cache(
+  async (id: string) => {
+    return await db.user.findUnique({ where: { id } });
+  },
+  ['user'], // Cache key
+  {
+    revalidate: 3600, // 1 hour
+    tags: ['user-data'] // For tag-based revalidation
+  }
+);
+
+// Usage
+export default async function UserProfile({ userId }: { userId: string }) {
+  const user = await getCachedUser(userId);
+  return <div>{user.name}</div>;
+}
+```
+
+**Per-route cache configuration:**
+
+```typescript
+// app/products/page.tsx
+// Opt out of caching for this entire route
+export const dynamic = 'force-dynamic'; // No caching
+export const revalidate = 0; // No caching
+
+// Or set revalidation time for entire route
+export const revalidate = 3600; // 1 hour
+
+export default async function ProductsPage() {
+  // All fetches inherit route settings unless overridden
+  const products = await fetch('https://api.example.com/products').then(r => r.json());
+  return <ProductList products={products} />;
+}
+```
+
+---
+
+**3. Full Route Cache (Build-time Pre-rendering)**
+
+```typescript
+// Static route - cached at build time
+// app/blog/[slug]/page.tsx
+
+// Generate static pages at build time
+export async function generateStaticParams() {
+  const posts = await fetch('https://api.example.com/posts').then(r => r.json());
+  
+  return posts.map((post: any) => ({
+    slug: post.slug
+  }));
+}
+
+export default async function BlogPost({ 
+  params 
+}: { 
+  params: { slug: string } 
+}) {
+  // Cached at build time
+  const post = await fetch(`https://api.example.com/posts/${params.slug}`, {
+    next: { revalidate: 3600 } // ISR: regenerate after 1 hour
+  }).then(r => r.json());
+  
+  return (
+    <article>
+      <h1>{post.title}</h1>
+      <div dangerouslySetInnerHTML={{ __html: post.content }} />
+    </article>
+  );
+}
+
+// Build output:
+// ○ /blog/first-post (ISR: 3600 Seconds)
+// ○ /blog/second-post (ISR: 3600 Seconds)
+// ○ = Static at build time, revalidates periodically
+```
+
+**Dynamic route - not cached:**
+
+```typescript
+// app/dashboard/page.tsx
+export const dynamic = 'force-dynamic'; // Force dynamic rendering
+
+export default async function Dashboard() {
+  // Rendered on every request (not cached)
+  const user = await getCurrentUser();
+  const stats = await fetchUserStats(user.id);
+  
+  return (
+    <div>
+      <h1>Welcome, {user.name}</h1>
+      <Stats data={stats} />
+    </div>
+  );
+}
+
+// Build output:
+// ƒ /dashboard (Dynamic)
+// ƒ = Dynamic (rendered on-demand)
+```
+
+**Mixing static and dynamic:**
+
+```typescript
+// app/products/[id]/page.tsx
+export const revalidate = 3600; // ISR: 1 hour
+
+export async function generateStaticParams() {
+  // Pre-render popular products
+  const popularProducts = await db.product.findMany({
+    where: { views: { gte: 1000 } },
+    select: { id: true }
+  });
+  
+  return popularProducts.map(product => ({
+    id: product.id
+  }));
+}
+
+export default async function ProductPage({ 
+  params 
+}: { 
+  params: { id: string } 
+}) {
+  // Static at build for popular products
+  // On-demand for others (fallback: 'blocking')
+  const product = await db.product.findUnique({
+    where: { id: params.id }
+  });
+  
+  return <ProductDetail product={product} />;
+}
+
+// fallback behavior (implicit in App Router)
+// - Pre-rendered pages: served from cache
+// - Other pages: rendered on first request, then cached
+```
+
+---
+
+**4. Router Cache (Client-side Navigation Cache)**
+
+```typescript
+// Automatic client-side caching when using <Link> or router.push()
+
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+
+export default function Navigation() {
+  const router = useRouter();
+  
+  return (
+    <>
+      {/* Link prefetches and caches */}
+      <Link href="/products">Products</Link> {/* Cached for 30s (dynamic) or 5m (static) */}
+      <Link href="/about" prefetch={false}>About</Link> {/* No prefetch */}
+      
+      {/* Programmatic navigation */}
+      <button onClick={() => router.push('/cart')}>
+        Go to Cart {/* Cached after first visit */}
+      </button>
+      
+      {/* Refresh current route */}
+      <button onClick={() => router.refresh()}>
+        Refresh {/* Invalidates cache for current route */}
+      </button>
+    </>
+  );
+}
+
+// Cache duration:
+// - Static routes: 5 minutes
+// - Dynamic routes: 30 seconds
+// - Can't be configured (automatic)
+```
+
+**Disabling Router Cache:**
+
+```typescript
+// Can't be fully disabled, but can control prefetching
+<Link href="/products" prefetch={false}>Products</Link>
+
+// Or disable in layout
+// app/layout.tsx
+export const dynamic = 'force-dynamic'; // Reduces cache duration
+```
+
+---
+
+**Cache Hierarchy Summary:**
+
+```
+Request Flow:
+1. Browser → Router Cache (client-side)
+   └─ Cache miss → Server request
+   
+2. Server → Full Route Cache
+   └─ Cache miss → Render
+   
+3. Render → Request Memoization (dedupe in render)
+   └─ Multiple components requesting same data
+   
+4. Fetch → Data Cache
+   └─ Cache miss → External API/Database
+
+Cache Durations:
+┌─────────────────────┬──────────────┬────────────────┐
+│ Cache Type          │ Duration     │ Invalidation   │
+├─────────────────────┼──────────────┼────────────────┤
+│ Request Memoization │ 1 render     │ Automatic      │
+│ Data Cache          │ Forever*     │ Manual/Time    │
+│ Full Route Cache    │ Forever*     │ Manual/Rebuild │
+│ Router Cache        │ 30s-5m       │ Automatic      │
+└─────────────────────┴──────────────┴────────────────┘
+* Unless revalidation configured
+```
+
+**Real-world caching strategy:**
+
+```typescript
+// E-commerce site example
+
+// Homepage - Static with ISR
+// app/page.tsx
+export const revalidate = 300; // 5 minutes
+
+export default async function HomePage() {
+  const featured = await fetch('https://api.example.com/products/featured', {
+    next: { revalidate: 300, tags: ['featured-products'] }
+  }).then(r => r.json());
+  
+  return <FeaturedProducts products={featured} />;
+}
+
+// Product list - ISR with longer revalidation
+// app/products/page.tsx
+export const revalidate = 600; // 10 minutes
+
+export default async function ProductsPage() {
+  const products = await fetch('https://api.example.com/products', {
+    next: { revalidate: 600, tags: ['products'] }
+  }).then(r => r.json());
+  
+  return <ProductGrid products={products} />;
+}
+
+// Product detail - ISR with on-demand revalidation
+// app/products/[id]/page.tsx
+export const revalidate = 300; // 5 minutes
+
+export default async function ProductPage({ params }: { params: { id: string } }) {
+  const product = await fetch(`https://api.example.com/products/${params.id}`, {
+    next: { tags: [`product-${params.id}`] }
+  }).then(r => r.json());
+  
+  // Real-time stock from client component
+  return (
+    <>
+      <ProductInfo product={product} />
+      <StockStatus productId={params.id} /> {/* Client component */}
+    </>
+  );
+}
+
+// Cart - Dynamic (personalized)
+// app/cart/page.tsx
+export const dynamic = 'force-dynamic';
+
+export default async function CartPage() {
+  const user = await getCurrentUser();
+  const cart = await getCart(user.id);
+  
+  return <Cart items={cart.items} />;
+}
+
+// Revalidation endpoint
+// app/api/revalidate/route.ts
+import { revalidateTag, revalidatePath } from 'next/cache';
+
+export async function POST(request: Request) {
+  const { type, id } = await request.json();
+  
+  switch (type) {
+    case 'product':
+      revalidateTag(`product-${id}`);
+      revalidatePath('/products');
+      break;
+    case 'featured':
+      revalidateTag('featured-products');
+      revalidatePath('/');
+      break;
+    default:
+      revalidatePath('/products');
+  }
+  
+  return Response.json({ revalidated: true, now: Date.now() });
+}
+```
+
+---
+
+### Routing Patterns - Advanced
+
+#### Dynamic Routes
+
+```typescript
+// app/blog/[slug]/page.tsx
+export default function BlogPost({ 
+  params 
+}: { 
+  params: { slug: string } 
+}) {
+  return <div>Post: {params.slug}</div>;
+}
+// Matches: /blog/hello-world, /blog/nextjs-tips
+
+// app/shop/[category]/[product]/page.tsx
+export default function ProductPage({ 
+  params 
+}: { 
+  params: { category: string; product: string } 
+}) {
+  return <div>{params.category} / {params.product}</div>;
+}
+// Matches: /shop/electronics/laptop, /shop/books/react-guide
+```
+
+#### Catch-all Routes
+
+```typescript
+// app/docs/[[...slug]]/page.tsx (Optional catch-all)
+export default function DocsPage({ 
+  params 
+}: { 
+  params: { slug?: string[] } 
+}) {
+  const path = params.slug?.join('/') || 'index';
+  return <div>Docs: {path}</div>;
+}
+// Matches: /docs, /docs/getting-started, /docs/api/routes/advanced
+
+// app/blog/[...slug]/page.tsx (Required catch-all)
+export default function BlogPage({ 
+  params 
+}: { 
+  params: { slug: string[] } 
+}) {
+  const path = params.slug.join('/');
+  return <div>Blog: {path}</div>;
+}
+// Matches: /blog/2024, /blog/2024/01/post
+// Does NOT match: /blog (404)
+```
+
+#### Route Groups (Organization without URL)
+
+```typescript
+// Organize routes without affecting URL
+app/
+├── (marketing)/
+│   ├── layout.tsx          # Marketing layout
+│   ├── about/
+│   │   └── page.tsx        → /about
+│   └── contact/
+│       └── page.tsx        → /contact
+├── (shop)/
+│   ├── layout.tsx          # Shop layout
+│   ├── products/
+│   │   └── page.tsx        → /products
+│   └── cart/
+│       └── page.tsx        → /cart
+└── (auth)/
+    ├── layout.tsx          # Auth layout
+    ├── login/
+    │   └── page.tsx        → /login
+    └── signup/
+        └── page.tsx        → /signup
+
+// (marketing)/layout.tsx
+export default function MarketingLayout({ 
+  children 
+}: { 
+  children: React.ReactNode 
+}) {
+  return (
+    <>
+      <MarketingNav />
+      {children}
+      <MarketingFooter />
+    </>
+  );
+}
+
+// (shop)/layout.tsx
+export default function ShopLayout({ 
+  children 
+}: { 
+  children: React.ReactNode 
+}) {
+  return (
+    <>
+      <ShopNav />
+      <ShoppingCart />
+      {children}
+    </>
+  );
+}
+```
+
+#### Parallel Routes
+
+```typescript
+// Show multiple pages in the same layout
+app/
+├── @analytics/
+│   └── page.tsx
+├── @team/
+│   └── page.tsx
+├── layout.tsx
+└── page.tsx
+
+// layout.tsx
+export default function DashboardLayout({
+  children,
+  analytics,
+  team
+}: {
+  children: React.ReactNode;
+  analytics: React.ReactNode;
+  team: React.ReactNode;
+}) {
+  return (
+    <div className="dashboard">
+      <div className="main">{children}</div>
+      <div className="sidebar">
+        <div className="analytics-panel">{analytics}</div>
+        <div className="team-panel">{team}</div>
+      </div>
+    </div>
+  );
+}
+```
+
+#### Intercepting Routes
+
+```typescript
+// app/photo/[id]/page.tsx (Full page)
+export default function PhotoPage({ params }: { params: { id: string } }) {
+  return (
+    <div className="photo-page">
+      <Image src={`/photos/${params.id}.jpg`} />
+    </div>
+  );
+}
+
+// app/(..)photo/[id]/page.tsx (Modal intercept)
+export default function PhotoModal({ params }: { params: { id: string } }) {
+  return (
+    <Modal>
+      <Image src={`/photos/${params.id}.jpg`} />
+    </Modal>
+  );
+}
+
+// From /feed, clicking photo shows modal
+// Direct visit to /photo/123 shows full page
+// Refresh on modal shows full page
+```
+
+---
+
+### Middleware - Deep Dive
+
+```typescript
+// middleware.ts (root level)
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+
+export function middleware(request: NextRequest) {
+  // 1. Authentication
+  const token = request.cookies.get('auth-token');
+  
+  if (!token && request.nextUrl.pathname.startsWith('/dashboard')) {
+    return NextResponse.redirect(new URL('/login', request.url));
+  }
+  
+  // 2. Geolocation redirect
+  const country = request.geo?.country || 'US';
+  
+  if (country === 'CN' && !request.nextUrl.pathname.startsWith('/cn')) {
+    return NextResponse.redirect(new URL('/cn', request.url));
+  }
+  
+  // 3. A/B Testing
+  let response = NextResponse.next();
+  
+  if (!request.cookies.has('ab-test-variant')) {
+    const variant = Math.random() > 0.5 ? 'A' : 'B';
+    response.cookies.set('ab-test-variant', variant);
+    response.headers.set('x-ab-variant', variant);
+  }
+  
+  // 4. Rate limiting (check Redis/KV)
+  const ip = request.ip || 'unknown';
+  // await rateLimit(ip); // Implement with Vercel KV, Redis, etc.
+  
+  // 5. Custom headers
+  response.headers.set('x-request-id', crypto.randomUUID());
+  response.headers.set('x-response-time', Date.now().toString());
+  
+  // 6. Rewrite (change destination without changing URL)
+  if (request.nextUrl.pathname === '/old-blog') {
+    return NextResponse.rewrite(new URL('/blog', request.url));
+  }
+  
+  // 7. Conditional routing
+  const userAgent = request.headers.get('user-agent') || '';
+  
+  if (userAgent.includes('Mobile') && request.nextUrl.pathname === '/') {
+    return NextResponse.rewrite(new URL('/mobile', request.url));
+  }
+  
+  return response;
+}
+
+// Configure which routes middleware runs on
+export const config = {
+  matcher: [
+    /*
+     * Match all request paths except:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - public folder
+     */
+    '/((?!_next/static|_next/image|favicon.ico|public).*)',
+    
+    // Or specific paths
+    // '/dashboard/:path*',
+    // '/api/:path*',
+  ],
+};
+```
+
+**Advanced Middleware Patterns:**
+
+```typescript
+// middleware.ts
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+
+// Middleware composition pattern
+type MiddlewareFactory = (next: MiddlewareFunction) => MiddlewareFunction;
+type MiddlewareFunction = (request: NextRequest) => NextResponse | Promise<NextResponse>;
+
+// Auth middleware
+const withAuth: MiddlewareFactory = (next) => {
+  return async (request) => {
+    const token = request.cookies.get('auth-token')?.value;
+    
+    // Check if route requires auth
+    if (request.nextUrl.pathname.startsWith('/dashboard')) {
+      if (!token) {
+        return NextResponse.redirect(new URL('/login', request.url));
+      }
+      
+      // Validate token (simplified)
+      // const valid = await validateToken(token);
+      // if (!valid) {
+      //   return NextResponse.redirect(new URL('/login', request.url));
+      // }
+    }
+    
+    return next(request);
+  };
+};
+
+// Logging middleware
+const withLogging: MiddlewareFactory = (next) => {
+  return async (request) => {
+    const start = Date.now();
+    const response = await next(request);
+    const duration = Date.now() - start;
+    
+    console.log({
+      method: request.method,
+      url: request.url,
+      status: response.status,
+      duration: `${duration}ms`
+    });
+    
+    return response;
+  };
+};
+
+// CORS middleware
+const withCORS: MiddlewareFactory = (next) => {
+  return async (request) => {
+    const response = await next(request);
+    
+    if (request.nextUrl.pathname.startsWith('/api')) {
+      response.headers.set('Access-Control-Allow-Origin', '*');
+      response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+      response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    }
+    
+    return response;
+  };
+};
+
+// Security headers middleware
+const withSecurity: MiddlewareFactory = (next) => {
+  return async (request) => {
+    const response = await next(request);
+    
+    response.headers.set('X-Frame-Options', 'DENY');
+    response.headers.set('X-Content-Type-Options', 'nosniff');
+    response.headers.set('Referrer-Policy', 'origin-when-cross-origin');
+    response.headers.set(
+      'Content-Security-Policy',
+      "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline';"
+    );
+    
+    return response;
+  };
+};
+
+// Compose middlewares
+function composeMiddlewares(...middlewares: MiddlewareFactory[]) {
+  return middlewares.reduceRight(
+    (next, middleware) => middleware(next),
+    (request: NextRequest) => NextResponse.next()
+  );
+}
+
+// Apply all middlewares
+export default composeMiddlewares(
+  withLogging,
+  withAuth,
+  withSecurity,
+  withCORS
+);
+
+export const config = {
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+};
+```
+
+---
+
+### Server Actions - Deep Dive
+
+```typescript
+// app/actions.ts
+'use server';
+
+import { revalidatePath, revalidateTag } from 'next/cache';
+import { redirect } from 'next/navigation';
+import { z } from 'zod';
+import { db } from '@/lib/database';
+
+// Form validation schema
+const createPostSchema = z.object({
+  title: z.string().min(1).max(100),
+  content: z.string().min(10),
+  published: z.boolean().default(false)
+});
+
+// Server Action for creating a post
+export async function createPost(formData: FormData) {
+  // 1. Get current user (from session/cookies)
+  const user = await getCurrentUser();
+  
+  if (!user) {
+    return { error: 'Unauthorized' };
+  }
+  
+  // 2. Validate form data
+  const rawData = {
+    title: formData.get('title'),
+    content: formData.get('content'),
+    published: formData.get('published') === 'on'
+  };
+  
+  const result = createPostSchema.safeParse(rawData);
+  
+  if (!result.success) {
+    return { 
+      error: 'Invalid data', 
+      fieldErrors: result.error.flatten().fieldErrors 
+    };
+  }
+  
+  // 3. Create post in database
+  try {
+    const post = await db.post.create({
+      data: {
+        ...result.data,
+        authorId: user.id
+      }
+    });
+    
+    // 4. Revalidate relevant paths
+    revalidatePath('/blog');
+    revalidatePath(`/blog/${post.slug}`);
+    revalidateTag('posts');
+    
+    // 5. Redirect to new post
+    redirect(`/blog/${post.slug}`);
+  } catch (error) {
+    console.error('Failed to create post:', error);
+    return { error: 'Failed to create post' };
+  }
+}
+
+// Server Action for updating
+export async function updatePost(postId: string, formData: FormData) {
+  const user = await getCurrentUser();
+  
+  // Check ownership
+  const post = await db.post.findUnique({ 
+    where: { id: postId },
+    select: { authorId: true }
+  });
+  
+  if (post?.authorId !== user?.id) {
+    return { error: 'Unauthorized' };
+  }
+  
+  const rawData = {
+    title: formData.get('title'),
+    content: formData.get('content'),
+    published: formData.get('published') === 'on'
+  };
+  
+  const result = createPostSchema.safeParse(rawData);
+  
+  if (!result.success) {
+    return { error: 'Invalid data', fieldErrors: result.error.flatten().fieldErrors };
+  }
+  
+  try {
+    await db.post.update({
+      where: { id: postId },
+      data: result.data
+    });
+    
+    revalidatePath(`/blog/${postId}`);
+    revalidateTag('posts');
+    
+    return { success: true };
+  } catch (error) {
+    return { error: 'Failed to update post' };
+  }
+}
+
+// Server Action for deletion
+export async function deletePost(postId: string) {
+  const user = await getCurrentUser();
+  
+  const post = await db.post.findUnique({ 
+    where: { id: postId },
+    select: { authorId: true, slug: true }
+  });
+  
+  if (post?.authorId !== user?.id) {
+    return { error: 'Unauthorized' };
+  }
+  
+  try {
+    await db.post.delete({ where: { id: postId } });
+    
+    revalidatePath('/blog');
+    revalidateTag('posts');
+    
+    redirect('/blog');
+  } catch (error) {
+    return { error: 'Failed to delete post' };
+  }
+}
+
+// Async function for getCurrentUser
+async function getCurrentUser() {
+  // Implement your auth logic
+  // Example with cookies:
+  // const token = cookies().get('auth-token')?.value;
+  // return await verifyToken(token);
+  return { id: '1', name: 'User' }; // Placeholder
+}
+```
+
+**Using Server Actions in Client Components:**
+
+```typescript
+// app/blog/new/page.tsx
+'use client';
+
+import { useFormState, useFormStatus } from 'react-dom';
+import { createPost } from '@/app/actions';
+
+// Initial state for form
+const initialState = {
+  error: null,
+  fieldErrors: null
+};
+
+export default function NewPostPage() {
+  // useFormState for progressive enhancement
+  const [state, formAction] = useFormState(createPost, initialState);
+  
+  return (
+    <form action={formAction} className="post-form">
+      <div>
+        <label htmlFor="title">Title</label>
+        <input 
+          type="text" 
+          id="title" 
+          name="title" 
+          required 
+          maxLength={100}
+        />
+        {state?.fieldErrors?.title && (
+          <p className="error">{state.fieldErrors.title}</p>
+        )}
+      </div>
+      
+      <div>
+        <label htmlFor="content">Content</label>
+        <textarea 
+          id="content" 
+          name="content" 
+          required 
+          rows={10}
+        />
+        {state?.fieldErrors?.content && (
+          <p className="error">{state.fieldErrors.content}</p>
+        )}
+      </div>
+      
+      <div>
+        <label>
+          <input type="checkbox" name="published" />
+          Publish immediately
+        </label>
+      </div>
+      
+      {state?.error && (
+        <div className="error-banner">{state.error}</div>
+      )}
+      
+      <SubmitButton />
+    </form>
+  );
+}
+
+// Submit button with loading state
+function SubmitButton() {
+  const { pending } = useFormStatus();
+  
+  return (
+    <button type="submit" disabled={pending}>
+      {pending ? 'Creating...' : 'Create Post'}
+    </button>
+  );
+}
+```
+
+**Optimistic Updates:**
+
+```typescript
+'use client';
+
+import { useOptimistic } from 'react';
+import { deletePost } from '@/app/actions';
+
+export default function PostList({ 
+  initialPosts 
+}: { 
+  initialPosts: Post[] 
+}) {
+  const [optimisticPosts, addOptimisticPost] = useOptimistic(
+    initialPosts,
+    (state, postId: string) => state.filter(post => post.id !== postId)
+  );
+  
+  const handleDelete = async (postId: string) => {
+    // Optimistically remove from UI
+    addOptimisticPost(postId);
+    
+    // Perform server action
+    const result = await deletePost(postId);
+    
+    if (result?.error) {
+      // Handle error (optimistic update will revert automatically)
+      alert(result.error);
+    }
+  };
+  
+  return (
+    <ul>
+      {optimisticPosts.map(post => (
+        <li key={post.id}>
+          <h3>{post.title}</h3>
+          <button onClick={() => handleDelete(post.id)}>
+            Delete
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+```
+
+---
+
+### Route Handlers - Deep Dive
+
+```typescript
+// app/api/users/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
+import { db } from '@/lib/database';
+
+// GET /api/users
+export async function GET(request: NextRequest) {
+  try {
+    // Parse query parameters
+    const { searchParams } = new URL(request.url);
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '10');
+    const search = searchParams.get('search') || '';
+    
+    // Validate
+    if (page < 1 || limit < 1 || limit > 100) {
+      return NextResponse.json(
+        { error: 'Invalid pagination parameters' },
+        { status: 400 }
+      );
+    }
+    
+    // Query database
+    const users = await db.user.findMany({
+      where: search ? {
+        OR: [
+          { name: { contains: search } },
+          { email: { contains: search } }
+        ]
+      } : undefined,
+      skip: (page - 1) * limit,
+      take: limit,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        createdAt: true
+      }
+    });
+    
+    const total = await db.user.count({
+      where: search ? {
+        OR: [
+          { name: { contains: search } },
+          { email: { contains: search } }
+        ]
+      } : undefined
+    });
+    
+    // Return response with cache headers
+    return NextResponse.json(
+      {
+        users,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit)
+        }
+      },
+      {
+        status: 200,
+        headers: {
+          'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300'
+        }
+      }
+    );
+  } catch (error) {
+    console.error('GET /api/users error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
+// POST /api/users
+const createUserSchema = z.object({
+  name: z.string().min(2).max(50),
+  email: z.string().email(),
+  password: z.string().min(8)
+});
+
+export async function POST(request: NextRequest) {
+  try {
+    // Parse request body
+    const body = await request.json();
+    
+    // Validate
+    const result = createUserSchema.safeParse(body);
+    
+    if (!result.success) {
+      return NextResponse.json(
+        { 
+          error: 'Validation failed', 
+          details: result.error.flatten().fieldErrors 
+        },
+        { status: 400 }
+      );
+    }
+    
+    // Check if user exists
+    const existingUser = await db.user.findUnique({
+      where: { email: result.data.email }
+    });
+    
+    if (existingUser) {
+      return NextResponse.json(
+        { error: 'User already exists' },
+        { status: 409 }
+      );
+    }
+    
+    // Hash password
+    const hashedPassword = await hashPassword(result.data.password);
+    
+    // Create user
+    const user = await db.user.create({
+      data: {
+        name: result.data.name,
+        email: result.data.email,
+        password: hashedPassword
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        createdAt: true
+      }
+    });
+    
+    // Revalidate users list
+    // revalidatePath('/api/users'); // Note: doesn't work in route handlers
+    
+    return NextResponse.json(
+      { user },
+      { 
+        status: 201,
+        headers: {
+          'Location': `/api/users/${user.id}`
+        }
+      }
+    );
+  } catch (error) {
+    console.error('POST /api/users error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
+// Helper function
+async function hashPassword(password: string): Promise<string> {
+  // Implement with bcrypt or similar
+  return password; // Placeholder
+}
+```
+
+**Dynamic Route Handlers:**
+
+```typescript
+// app/api/users/[id]/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+import { db } from '@/lib/database';
+
+// GET /api/users/:id
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const user = await db.user.findUnique({
+      where: { id: params.id },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        createdAt: true,
+        posts: {
+          select: {
+            id: true,
+            title: true,
+            createdAt: true
+          }
+        }
+      }
+    });
+    
+    if (!user) {
+      return NextResponse.json(
+        { error: 'User not found' },
+        { status: 404 }
+      );
+    }
+    
+    return NextResponse.json({ user });
+  } catch (error) {
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
+// PATCH /api/users/:id
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const body = await request.json();
+    
+    // Authorization check
+    const currentUser = await getCurrentUser(request);
+    if (currentUser?.id !== params.id) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 403 }
+      );
+    }
+    
+    // Update user
+    const user = await db.user.update({
+      where: { id: params.id },
+      data: {
+        name: body.name,
+        // Only update provided fields
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true
+      }
+    });
+    
+    return NextResponse.json({ user });
+  } catch (error) {
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
+// DELETE /api/users/:id
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const currentUser = await getCurrentUser(request);
+    if (currentUser?.id !== params.id) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 403 }
+      );
+    }
+    
+    await db.user.delete({
+      where: { id: params.id }
+    });
+    
+    return new NextResponse(null, { status: 204 });
+  } catch (error) {
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
+async function getCurrentUser(request: NextRequest) {
+  // Implement auth logic
+  return null; // Placeholder
+}
+```
+
+**Route Handler with Streaming:**
+
+```typescript
+// app/api/stream/route.ts
+export async function GET() {
+  const encoder = new TextEncoder();
+  
+  const customReadable = new ReadableStream({
+    async start(controller) {
+      for (let i = 0; i < 10; i++) {
+        const message = `data: ${JSON.stringify({ count: i })}\n\n`;
+        controller.enqueue(encoder.encode(message));
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+      controller.close();
+    }
+  });
+  
+  return new Response(customReadable, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive'
+    }
+  });
+}
+```
+
+---
+
+### Edge Runtime vs Node.js Runtime
+
+**Node.js Runtime (Default):**
+
+```typescript
+// app/api/users/route.ts
+// Default: Node.js runtime
+
+export const runtime = 'nodejs'; // Explicit (optional)
+
+import fs from 'fs'; // ✅ Works
+import { db } from '@/lib/database'; // ✅ Works
+import crypto from 'crypto'; // ✅ Works
+
+export async function GET() {
+  // Full Node.js APIs available
+  const data = fs.readFileSync('./data.json', 'utf8');
+  const users = await db.user.findMany();
+  
+  return Response.json({ users });
+}
+
+// Pros:
+// - Full Node.js API
+// - All npm packages work
+// - Better for complex logic
+// - Database connections
+
+// Cons:
+// - Cold start latency
+// - Regional deployment only
+// - Higher resource usage
+```
+
+**Edge Runtime:**
+
+```typescript
+// app/api/geo/route.ts
+export const runtime = 'edge'; // Required
+
+// import fs from 'fs'; // ❌ Error: fs not available in edge
+// import { db } from '@/lib/database'; // ❌ Most DB clients don't work
+
+export async function GET(request: Request) {
+  // ✅ Web APIs available
+  const geo = request.headers.get('x-vercel-ip-country');
+  
+  // ✅ Fetch API
+  const data = await fetch('https://api.example.com/data').then(r => r.json());
+  
+  // ✅ Crypto Web API (not Node.js crypto)
+  const uuid = crypto.randomUUID();
+  
+  return Response.json({ 
+    country: geo,
+    requestId: uuid,
+    data 
+  });
+}
+
+// Pros:
+// - No cold starts
+// - Global deployment (closer to users)
+// - Lower latency
+// - Lower cost
+
+// Cons:
+// - Limited APIs (Web Standard only)
+// - No file system
+// - Limited npm packages
+// - Smaller memory/CPU limits
+```
+
+**When to use each:**
+
+| Use Case | Runtime | Reason |
+|----------|---------|--------|
+| API with database | Node.js | DB clients need Node.js |
+| Authentication | Node.js | Usually needs DB/crypto |
+| File uploads | Node.js | File system access |
+| Complex computations | Node.js | More CPU/memory |
+| A/B testing | Edge | Fast, geolocation |
+| Redirects | Edge | Low latency |
+| Geolocation routing | Edge | Access to geo headers |
+| Simple API proxy | Edge | Fast, globally distributed |
+| Personalization | Edge | Fast, use cookies/headers |
+
+**Edge-compatible patterns:**
+
+```typescript
+// app/api/edge-example/route.ts
+export const runtime = 'edge';
+
+// Use edge-compatible database (Vercel KV, Upstash, Neon, PlanetScale)
+import { kv } from '@vercel/kv';
+
+export async function GET(request: Request) {
+  // Geolocation
+  const country = request.geo?.country || 'US';
+  
+  // Redis/KV (edge-compatible)
+  const cachedData = await kv.get(`data:${country}`);
+  
+  if (cachedData) {
+    return Response.json(cachedData);
+  }
+  
+  // Fetch from API
+  const data = await fetch(`https://api.example.com/${country}`).then(r => r.json());
+  
+  // Cache for 1 hour
+  await kv.set(`data:${country}`, data, { ex: 3600 });
+  
+  return Response.json(data);
+}
+```
+
+---
+
+### Deployment Strategies & Trade-offs
+
+#### ISR vs SSG vs SSR Decision Matrix
+
+**Static Site Generation (SSG):**
+
+```typescript
+// app/blog/[slug]/page.tsx
+export async function generateStaticParams() {
+  const posts = await getAllPosts();
+  return posts.map(post => ({ slug: post.slug }));
+}
+
+export default async function BlogPost({ params }: { params: { slug: string } }) {
+  const post = await getPost(params.slug);
+  return <Article post={post} />;
+}
+
+// Build output: ○ /blog/first-post (Static)
+```
+
+**Pros:**
+- ⚡ Fastest possible (CDN edge)
+- 💰 Cheapest (static hosting)
+- 📈 Infinite scalability
+- 🔒 Most secure (no server)
+- 🌐 Works offline
+
+**Cons:**
+- ❌ Stale content until rebuild
+- ❌ Build time increases with pages
+- ❌ Can't personalize
+- ❌ Not suitable for frequently changing data
+
+**Use when:**
+- Content rarely changes
+- Same content for all users
+- Marketing pages, blogs, docs
+- Performance is critical
+
+---
+
+**Incremental Static Regeneration (ISR):**
+
+```typescript
+// app/products/[id]/page.tsx
+export const revalidate = 3600; // 1 hour
+
+export default async function ProductPage({ params }: { params: { id: string } }) {
+  const product = await getProduct(params.id);
+  return <Product data={product} />;
+}
+
+// Build output: ○ /products/123 (ISR: 3600 Seconds)
+```
+
+**Pros:**
+- ⚡ Fast (CDN cached)
+- 🔄 Content stays fresh
+- 📈 Scales well
+- 💰 Cost-effective
+- ⏱️ No full rebuilds needed
+- 🎯 On-demand revalidation
+
+**Cons:**
+- 🐌 First user after revalidation sees stale content briefly
+- ⚙️ More complex than SSG
+- 🏢 Requires hosting that supports ISR (Vercel, self-hosted Node)
+
+**Use when:**
+- E-commerce product pages
+- News articles
+- Social media content
+- Content updates periodically (not real-time)
+- Large sites (thousands of pages)
+
+---
+
+**Server-Side Rendering (SSR):**
+
+```typescript
+// app/dashboard/page.tsx
+export const dynamic = 'force-dynamic';
+
+export default async function Dashboard() {
+  const user = await getCurrentUser();
+  const data = await fetchUserData(user.id);
+  return <DashboardUI data={data} />;
+}
+
+// Build output: ƒ /dashboard (Dynamic)
+```
+
+**Pros:**
+- ✅ Always fresh data
+- 👤 Personalized per user
+- 🔍 Full SEO support
+- 🔐 Access to request context
+- 🎯 Real-time content
+
+**Cons:**
+- 🐌 Slower than static (server processing)
+- 💰 Higher server costs
+- 📊 Limited scalability
+- 🏢 Server must always be available
+- ⚠️ Potential bottleneck under load
+
+**Use when:**
+- User dashboards
+- Admin panels
+- Personalized feeds
+- Real-time data required
+- Authentication-dependent content
+
+---
+
+**Comparison Table:**
+
+| Metric | SSG | ISR | SSR |
+|--------|-----|-----|-----|
+| **Speed** | ⚡⚡⚡ (~10ms) | ⚡⚡⚡ (~15ms cached) | ⚡ (~500ms) |
+| **Data Freshness** | ❌ Stale until rebuild | 🟡 Periodic updates | ✅ Always fresh |
+| **Scalability** | ⭐⭐⭐⭐⭐ Infinite | ⭐⭐⭐⭐ Very high | ⭐⭐ Server limited |
+| **Cost** | 💰 Lowest | 💰💰 Low | 💰💰💰💰 High |
+| **Build Time** | 📈 Increases with pages | 📈 Initial only | ⚡ None |
+| **Personalization** | ❌ No | ❌ No | ✅ Yes |
+| **SEO** | ⭐⭐⭐⭐⭐ Perfect | ⭐⭐⭐⭐⭐ Perfect | ⭐⭐⭐⭐⭐ Perfect |
+| **Complexity** | ⭐ Simple | ⭐⭐ Medium | ⭐⭐⭐ Complex |
+
+---
+
+**Real-world Example: E-commerce Site:**
+
+```typescript
+// Homepage - ISR (5 minutes)
+// app/page.tsx
+export const revalidate = 300;
+
+export default async function HomePage() {
+  const featured = await getFeaturedProducts();
+  const categories = await getCategories();
+  
+  return (
+    <>
+      <Hero />
+      <FeaturedProducts products={featured} />
+      <Categories categories={categories} />
+    </>
+  );
+}
+// Why: Content updates periodically, needs to be fast
+
+// Product List - ISR (10 minutes)
+// app/products/page.tsx
+export const revalidate = 600;
+
+export default async function ProductsPage() {
+  const products = await getProducts();
+  return <ProductGrid products={products} />;
+}
+// Why: Inventory changes, but not constantly
+
+// Product Detail - ISR (5 minutes) + Client-side stock
+// app/products/[id]/page.tsx
+export const revalidate = 300;
+
+export default async function ProductPage({ params }: { params: { id: string } }) {
+  const product = await getProduct(params.id);
+  
+  return (
+    <>
+      <ProductInfo product={product} />
+      <StockStatus productId={params.id} /> {/* Client component */}
+    </>
+  );
+}
+// Why: Product info stable, but stock updates in real-time
+
+// Search Results - SSR
+// app/search/page.tsx
+export const dynamic = 'force-dynamic';
+
+export default async function SearchPage({ 
+  searchParams 
+}: { 
+  searchParams: { q: string } 
+}) {
+  const results = await searchProducts(searchParams.q);
+  return <SearchResults results={results} />;
+}
+// Why: Personalized, query-specific, can't pre-render
+
+// User Dashboard - SSR
+// app/dashboard/page.tsx
+export const dynamic = 'force-dynamic';
+
+export default async function Dashboard() {
+  const user = await getCurrentUser();
+  const orders = await getOrders(user.id);
+  const recommendations = await getRecommendations(user.id);
+  
+  return (
+    <>
+      <UserInfo user={user} />
+      <OrderHistory orders={orders} />
+      <Recommendations items={recommendations} />
+    </>
+  );
+}
+// Why: Personalized, requires auth, different for every user
+
+// Cart - SSR
+// app/cart/page.tsx
+export const dynamic = 'force-dynamic';
+
+export default async function CartPage() {
+  const user = await getCurrentUser();
+  const cart = await getCart(user.id);
+  
+  return <Cart items={cart.items} total={cart.total} />;
+}
+// Why: Personalized, real-time, requires auth
+
+// About Page - SSG
+// app/about/page.tsx
+export default function AboutPage() {
+  return <AboutContent />;
+}
+// Why: Static content, never changes
+```
+
+---
+
+**Deployment Checklist:**
+
+```typescript
+// 1. Analyze your routes
+// npm run build
+
+// Output tells you the rendering strategy:
+// ○ = Static (SSG)
+// ● = SSG with getStaticProps/fetch cache
+// ƒ = Dynamic (SSR)
+// λ = Server-rendered on-demand
+
+// 2. Optimize based on output
+// Too many dynamic routes? Consider:
+// - ISR instead of SSR
+// - Move to Client Components if no SEO needed
+// - Cache more aggressively
+
+// 3. Monitor performance
+// - Core Web Vitals
+// - Server response times
+// - Cache hit rates
+// - Error rates
+
+// 4. Set appropriate cache headers
+// app/api/data/route.ts
+export async function GET() {
+  return NextResponse.json(data, {
+    headers: {
+      'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400'
+    }
+  });
+}
+
+// 5. Use edge functions for speed
+export const runtime = 'edge';
+
+// 6. Implement proper error handling
+// app/error.tsx
+'use client';
+
+export default function Error({ error, reset }: { error: Error; reset: () => void }) {
+  return (
+    <div>
+      <h2>Something went wrong!</h2>
+      <button onClick={reset}>Try again</button>
+    </div>
+  );
+}
+```
+
+---
+
+## Summary: When to Use Each Strategy
+
+### Quick Decision Tree
+
+```
+Is content the same for all users?
+│
+├─ YES
+│  │
+│  ├─ Does content change?
+│  │  │
+│  │  ├─ Never/Rarely → SSG
+│  │  │  Example: About page, docs
+│  │  │
+│  │  ├─ Periodically → ISR
+│  │  │  Example: Blog posts, product pages
+│  │  │
+│  │  └─ Constantly → SSR or Client-side
+│  │     Example: Live scores, stock prices
+│  │
+│  └─ Is SEO important?
+│     ├─ YES → SSG/ISR/SSR
+│     └─ NO → Client-side rendering
+│
+└─ NO (Personalized)
+   │
+   ├─ Is SEO important?
+   │  │
+   │  ├─ YES → SSR
+   │  │  Example: User profile pages
+   │  │
+   │  └─ NO → Client-side
+   │     Example: Dashboard, admin panel
+   │
+   └─ Real-time updates needed?
+      ├─ YES → Client-side with WebSocket/polling
+      └─ NO → SSR
+```
+
+### Golden Rules
+
+1. **Default to Static** - Use SSG/ISR when possible
+2. **SSR Only When Needed** - Personalization, real-time, auth-required
+3. **Edge for Speed** - Redirects, A/B tests, geolocation
+4. **Cache Aggressively** - Use all 4 caching layers effectively
+5. **Monitor & Optimize** - Use analytics, adjust based on data
+
+---
 
 ### Q35: What is the difference between pages and app directory?
