@@ -36,6 +36,623 @@ button.addEventListener('click', () => {
 });
 ```
 
+### Q1.5: What is Event-Driven Programming?
+
+**Answer:**
+Event-driven is a programming paradigm where the flow of your program is determined by **events** rather than a predetermined sequence of instructions. JavaScript excels at event-driven programming.
+
+**Key Concepts:**
+
+**1. Events** - Actions triggered by users or the system:
+- User clicks a button, link, or input
+- User types in a text field
+- User submits a form
+- User hovers over an element
+- Page finishes loading
+- Timer/interval completes
+- API response arrives
+- Keyboard key is pressed
+
+**2. Event Listeners** - Functions that "listen" for events and execute code when they occur:
+```javascript
+// Add an event listener
+element.addEventListener('click', callback);
+```
+
+**3. Event Handlers** - Functions executed when an event occurs:
+```javascript
+function handleClick(event) {
+  console.log('Element clicked!');
+  console.log('Event object:', event);
+}
+```
+
+**Common JavaScript Events:**
+
+```javascript
+// Click event
+button.addEventListener('click', (event) => {
+  console.log('Button clicked');
+});
+
+// Double click
+element.addEventListener('dblclick', () => {
+  console.log('Double clicked');
+});
+
+// Input event (typing)
+input.addEventListener('input', (event) => {
+  console.log('User typed:', event.target.value);
+});
+
+// Change event (select/checkbox/radio)
+select.addEventListener('change', (event) => {
+  console.log('Selected value:', event.target.value);
+});
+
+// Mouse hover (mouseover/mouseout)
+element.addEventListener('mouseover', () => {
+  console.log('Mouse over element');
+});
+
+element.addEventListener('mouseout', () => {
+  console.log('Mouse left element');
+});
+
+// Mouse move
+element.addEventListener('mousemove', (event) => {
+  console.log('Mouse X:', event.clientX, 'Y:', event.clientY);
+});
+
+// Submit event (forms)
+form.addEventListener('submit', (event) => {
+  event.preventDefault(); // Prevent default form submission
+  console.log('Form submitted');
+});
+
+// Keyboard events
+element.addEventListener('keydown', (event) => {
+  console.log('Key pressed:', event.key);
+});
+
+element.addEventListener('keyup', (event) => {
+  console.log('Key released:', event.key);
+});
+
+// Focus/Blur events
+input.addEventListener('focus', () => {
+  console.log('Input focused');
+});
+
+input.addEventListener('blur', () => {
+  console.log('Input lost focus');
+});
+
+// Load event
+window.addEventListener('load', () => {
+  console.log('Page fully loaded');
+});
+
+// Resize event
+window.addEventListener('resize', () => {
+  console.log('Window resized');
+});
+
+// Scroll event
+window.addEventListener('scroll', () => {
+  console.log('Page scrolled');
+});
+```
+
+**Real-World Examples:**
+
+```javascript
+// Example 1: Simple button click
+const button = document.querySelector('button');
+const output = document.querySelector('#output');
+
+button.addEventListener('click', function(event) {
+  output.textContent = 'Button clicked at: ' + new Date().toLocaleTimeString();
+  output.style.color = 'green';
+});
+
+// Example 2: Form submission with validation
+const form = document.querySelector('form');
+const input = document.querySelector('input');
+
+form.addEventListener('submit', (event) => {
+  event.preventDefault();
+  
+  if (input.value.trim() === '') {
+    console.log('Please enter a value');
+    return;
+  }
+  
+  console.log('Form submitted with value:', input.value);
+  input.value = ''; // Clear input
+});
+
+// Example 3: Input validation in real-time
+input.addEventListener('input', (event) => {
+  const value = event.target.value;
+  
+  if (value.length < 3) {
+    input.style.borderColor = 'red';
+  } else if (value.length >= 3) {
+    input.style.borderColor = 'green';
+  }
+});
+
+// Example 4: Dropdown selection
+const dropdown = document.querySelector('select');
+
+dropdown.addEventListener('change', (event) => {
+  console.log('Selected:', event.target.value);
+});
+
+// Example 5: Multiple event listeners on same element
+const element = document.querySelector('.box');
+
+element.addEventListener('mouseenter', () => {
+  element.style.backgroundColor = 'lightblue';
+});
+
+element.addEventListener('mouseleave', () => {
+  element.style.backgroundColor = 'white';
+});
+
+element.addEventListener('click', () => {
+  alert('Box clicked!');
+});
+```
+
+**Event Object Properties:**
+
+```javascript
+element.addEventListener('click', (event) => {
+  console.log('event.type:', event.type);           // 'click'
+  console.log('event.target:', event.target);       // Element clicked
+  console.log('event.currentTarget:', event.currentTarget); // Element listener is on
+  console.log('event.clientX:', event.clientX);     // X position relative to viewport
+  console.log('event.clientY:', event.clientY);     // Y position relative to viewport
+  console.log('event.timeStamp:', event.timeStamp); // When event occurred
+  console.log('event.bubbles:', event.bubbles);     // Does event bubble?
+});
+```
+
+**Key Advantages of Event-Driven Programming:**
+
+✅ **Responsive** - App responds immediately to user actions  
+✅ **Efficient** - Code runs only when events occur, not continuously  
+✅ **Asynchronous** - Can handle multiple events without blocking  
+✅ **User-Friendly** - Creates interactive and dynamic web experiences  
+✅ **Scalable** - Easy to add/remove event listeners as needed  
+✅ **Decoupled** - Separates event triggering from event handling  
+
+**Event Removal (when needed):**
+
+```javascript
+// Define a named function
+function handleClick(event) {
+  console.log('Clicked');
+}
+
+// Add listener
+element.addEventListener('click', handleClick);
+
+// Remove listener (must use same function reference)
+element.removeEventListener('click', handleClick);
+
+// Or use once to auto-remove after first trigger
+element.addEventListener('click', () => {
+  console.log('This runs only once');
+}, { once: true });
+```
+
+**Event Delegation (listening on parent element):**
+
+```javascript
+// Instead of adding listener to each item
+const parent = document.querySelector('.list');
+
+parent.addEventListener('click', (event) => {
+  // Check if clicked element is a list item
+  if (event.target.tagName === 'LI') {
+    console.log('Clicked item:', event.target.textContent);
+  }
+});
+
+// This is more efficient than:
+// document.querySelectorAll('li').forEach(item => {
+//   item.addEventListener('click', handler);
+// });
+```
+
+**Common Event-Driven Patterns:**
+
+```javascript
+// Pattern 1: Click counter
+let count = 0;
+button.addEventListener('click', () => {
+  count++;
+  console.log('Clicked', count, 'times');
+});
+
+// Pattern 2: Toggle functionality
+let isActive = false;
+toggle.addEventListener('click', () => {
+  isActive = !isActive;
+  element.style.display = isActive ? 'block' : 'none';
+});
+
+// Pattern 3: Search/filter in real-time
+searchInput.addEventListener('input', (event) => {
+  const query = event.target.value.toLowerCase();
+  const items = document.querySelectorAll('.item');
+  
+  items.forEach(item => {
+    const text = item.textContent.toLowerCase();
+    item.style.display = text.includes(query) ? 'block' : 'none';
+  });
+});
+
+// Pattern 4: Form validation
+form.addEventListener('submit', (event) => {
+  event.preventDefault();
+  
+  const email = form.email.value;
+  const password = form.password.value;
+  
+  if (!email.includes('@')) {
+    console.log('Invalid email');
+    return;
+  }
+  
+  if (password.length < 8) {
+    console.log('Password too short');
+    return;
+  }
+  
+  console.log('Form valid, submit');
+});
+```
+
+**Event-Driven vs Other Paradigms:**
+
+| Paradigm | How it works | Example |
+|----------|------------|---------|
+| **Event-Driven** | Waits for events, executes handlers | Click button → show modal |
+| **Procedural** | Sequential steps in order | Step 1 → Step 2 → Step 3 |
+| **Reactive** | Responds to data changes | Data changes → Update UI |
+| **Polling** | Continuously checks for changes | Check every 100ms |
+
+**This is the foundation of interactive web development!**
+
+---
+
+### Q1.6: What does Single-Threaded mean in JavaScript?
+
+**Answer:**
+**Single-threaded** means JavaScript executes one operation at a time in a single thread of execution. However, JavaScript uses the **Event Loop** and **Asynchronous operations** to handle concurrent-like behavior without true multithreading.
+
+**Key Concept:**
+
+```
+Thread = A path of execution in a program
+Single-threaded = Only one path of execution at a time
+```
+
+**How Single-Threaded Works:**
+
+```javascript
+// These execute sequentially, one after another
+console.log('Step 1');
+console.log('Step 2');
+console.log('Step 3');
+
+// Output:
+// Step 1
+// Step 2
+// Step 3
+```
+
+**The Problem - Blocking Operations:**
+
+```javascript
+// ❌ BAD: Blocking operation blocks everything else
+function heavyCalculation() {
+  for (let i = 0; i < 1000000000; i++) {
+    // This takes time
+  }
+  return 'Done';
+}
+
+console.log('Start');
+console.log(heavyCalculation()); // Blocks for several seconds
+console.log('End'); // Waits until calculation finishes
+```
+
+**The Solution - Asynchronous Operations:**
+
+```javascript
+// ✅ GOOD: Async operations don't block the thread
+console.log('Start');
+
+setTimeout(() => {
+  console.log('Delayed message after 2 seconds');
+}, 2000);
+
+console.log('End'); // Logs immediately, doesn't wait
+
+// Output:
+// Start
+// End
+// Delayed message after 2 seconds
+```
+
+**The Call Stack & Event Loop:**
+
+```javascript
+// Understanding the execution model
+
+console.log('1. Start');
+
+setTimeout(() => {
+  console.log('2. Callback after 0ms');
+}, 0);
+
+Promise.resolve().then(() => {
+  console.log('3. Promise resolved');
+});
+
+console.log('4. End');
+
+// Output:
+// 1. Start
+// 4. End
+// 3. Promise resolved
+// 2. Callback after 0ms
+
+// Why this order?
+// 1. Synchronous code (console.log) runs first
+// 2. Microtasks (Promises) run next
+// 3. Macrotasks (setTimeout) run last
+```
+
+**Execution Model Visualization:**
+
+```
+┌─────────────────────────────────────────┐
+│          JAVASCRIPT ENGINE              │
+├─────────────────────────────────────────┤
+│                                         │
+│    ┌──────────────────────────────┐    │
+│    │      CALL STACK              │    │
+│    │  (Currently executing code)  │    │
+│    │                              │    │
+│    │  main()                      │    │
+│    │  functionA()                 │    │
+│    │  functionB()                 │    │
+│    └──────────────────────────────┘    │
+│                                         │
+│    ┌──────────────────────────────┐    │
+│    │  MEMORY HEAP                 │    │
+│    │  (Objects, variables stored) │    │
+│    └──────────────────────────────┘    │
+│                                         │
+├─────────────────────────────────────────┤
+│      WEB APIs (Browser-provided)        │
+│  setTimeout, fetch, addEventListener    │
+├─────────────────────────────────────────┤
+│                                         │
+│    ┌──────────────────────────────┐    │
+│    │    CALLBACK QUEUE            │    │
+│    │ (setTimeout callbacks, etc)  │    │
+│    └──────────────────────────────┘    │
+│                                         │
+│    ┌──────────────────────────────┐    │
+│    │  MICROTASK QUEUE             │    │
+│    │  (Promises, MutationObserver)│    │
+│    └──────────────────────────────┘    │
+│                                         │
+│    ┌──────────────────────────────┐    │
+│    │   EVENT LOOP                 │    │
+│    │  (Routes tasks to stack)     │    │
+│    └──────────────────────────────┘    │
+└─────────────────────────────────────────┘
+```
+
+**Common Asynchronous Patterns (Despite Being Single-Threaded):**
+
+**1. Callbacks:**
+```javascript
+function fetchData(callback) {
+  setTimeout(() => {
+    const data = { id: 1, name: 'John' };
+    callback(data);
+  }, 1000);
+}
+
+fetchData((data) => {
+  console.log('Data received:', data);
+});
+
+console.log('Request sent');
+// Output:
+// Request sent
+// Data received: { id: 1, name: 'John' }
+```
+
+**2. Promises:**
+```javascript
+function fetchData() {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      const data = { id: 1, name: 'John' };
+      resolve(data);
+    }, 1000);
+  });
+}
+
+fetchData()
+  .then(data => console.log('Data:', data))
+  .catch(error => console.log('Error:', error));
+
+console.log('Request sent');
+// Output:
+// Request sent
+// Data: { id: 1, name: 'John' }
+```
+
+**3. Async/Await:**
+```javascript
+async function main() {
+  console.log('Start');
+  
+  const data = await fetchData(); // Waits, but doesn't block others
+  console.log('Data:', data);
+  
+  console.log('End');
+}
+
+main();
+
+async function fetchData() {
+  return new Promise(resolve => {
+    setTimeout(() => {
+      resolve({ id: 1, name: 'John' });
+    }, 1000);
+  });
+}
+
+// Output:
+// Start
+// (waits 1 second)
+// Data: { id: 1, name: 'John' }
+// End
+```
+
+**Real-World Problem & Solution:**
+
+```javascript
+// ❌ PROBLEM: Blocking operation
+function loadUserData() {
+  // Imagine this takes 5 seconds
+  const user = synchronousFetchFromServer('/user/1'); // BLOCKS!
+  console.log('User loaded:', user);
+  updateUI(user); // Can't run until user is loaded
+}
+
+// Button click is blocked for 5 seconds!
+button.addEventListener('click', loadUserData);
+
+// ✅ SOLUTION: Async operation
+async function loadUserData() {
+  try {
+    const response = await fetch('/user/1'); // Non-blocking!
+    const user = await response.json();
+    console.log('User loaded:', user);
+    updateUI(user);
+  } catch (error) {
+    console.error('Error:', error);
+  }
+}
+
+// Button click is instant, data loads in background
+button.addEventListener('click', loadUserData);
+```
+
+**Why Single-Threaded?**
+
+| Advantage | Disadvantage |
+|-----------|--------------|
+| Simple to reason about | Can't use multiple CPU cores |
+| No race conditions | One slow task blocks everything |
+| No locking mechanisms | Complex async code required |
+| Easier debugging | Can't truly parallelize |
+
+**Multi-Threading Alternatives:**
+
+```javascript
+// Web Workers - Run code in background thread (separate thread)
+const worker = new Worker('worker.js');
+
+// Send data to worker
+worker.postMessage({ data: largeDataSet });
+
+// Receive result from worker
+worker.onmessage = (event) => {
+  console.log('Worker result:', event.data);
+};
+
+// The main thread is not blocked while worker processes
+```
+
+**Best Practices for Single-Threaded JavaScript:**
+
+```javascript
+// 1. Use async/await for I/O operations
+async function fetchAndProcess() {
+  const data = await fetch('/api/data').then(r => r.json());
+  return processData(data);
+}
+
+// 2. Use setTimeout for long-running operations
+function processLargeArray(items) {
+  let index = 0;
+  
+  function processBatch() {
+    const batchSize = 100;
+    const end = Math.min(index + batchSize, items.length);
+    
+    for (let i = index; i < end; i++) {
+      // Process item
+    }
+    
+    index = end;
+    
+    if (index < items.length) {
+      setTimeout(processBatch, 0); // Yield control back
+    }
+  }
+  
+  processBatch();
+}
+
+// 3. Use Web Workers for heavy computations
+const worker = new Worker('compute.js');
+worker.postMessage({ largeData });
+
+// 4. Avoid deeply nested callbacks (Callback Hell)
+// ❌ BAD:
+getData(function(a) {
+  getMoreData(a, function(b) {
+    getMoreData(b, function(c) {
+      console.log(c);
+    });
+  });
+});
+
+// ✅ GOOD:
+async function processData() {
+  const a = await getData();
+  const b = await getMoreData(a);
+  const c = await getMoreData(b);
+  console.log(c);
+}
+```
+
+**Key Takeaways:**
+
+✅ JavaScript is **single-threaded** - only one task executes at a time  
+✅ The **Event Loop** manages async operations without blocking  
+✅ **Asynchronous patterns** (callbacks, promises, async/await) work around single-threaded limitation  
+✅ **Microtasks** (promises) execute before **macrotasks** (timers)  
+✅ **Web Workers** can be used for true parallel processing  
+✅ Understanding this is crucial for writing responsive web applications  
+
+---
+
 ### Q2: Is JavaScript compiled or interpreted?
 
 **Answer:**
@@ -1505,6 +2122,231 @@ Promise.allSettled([promise1, promise2])
   });
 ```
 
+---
+
+#### **Detailed Promise.all() Examples:**
+
+```javascript
+// Real-world: Fetch multiple APIs and return all data
+async function loadDashboard() {
+  try {
+    const [user, notifications, settings] = await Promise.all([
+      fetch('/api/user').then(r => r.json()),
+      fetch('/api/notifications').then(r => r.json()),
+      fetch('/api/settings').then(r => r.json())
+    ]);
+    
+    console.log('Dashboard loaded:', { user, notifications, settings });
+    updateUI(user, notifications, settings);
+  } catch (error) {
+    console.error('Failed to load dashboard:', error);
+  }
+}
+
+// With timing - waits for all to complete
+const p1 = new Promise(r => setTimeout(() => r('Task 1 done'), 1000));
+const p2 = new Promise(r => setTimeout(() => r('Task 2 done'), 1500));
+const p3 = new Promise(r => setTimeout(() => r('Task 3 done'), 500));
+
+Promise.all([p1, p2, p3])
+  .then(results => {
+    console.log(results);
+    // After 1500ms: ['Task 1 done', 'Task 2 done', 'Task 3 done']
+  });
+
+// ❌ One rejection fails everything
+Promise.all([
+  Promise.resolve('Success'),
+  Promise.reject('Error occurred'),
+  Promise.resolve('Another success')
+])
+  .then(results => console.log(results))
+  .catch(error => console.log('Caught:', error));
+  // Output: 'Caught: Error occurred'
+```
+
+#### **Detailed Promise.race() Examples:**
+
+```javascript
+// Real-world: Implement request timeout
+function fetchWithTimeout(url, timeout = 5000) {
+  const fetchPromise = fetch(url).then(r => r.json());
+  
+  const timeoutPromise = new Promise((resolve, reject) => {
+    setTimeout(() => reject(new Error('Request timeout')), timeout);
+  });
+  
+  return Promise.race([fetchPromise, timeoutPromise]);
+}
+
+fetchWithTimeout('https://api.example.com/slow-endpoint', 3000)
+  .then(data => console.log('Success:', data))
+  .catch(error => console.log('Error:', error.message));
+
+// Racing with multiple sources - use first available
+function getDataFromFastestSource() {
+  return Promise.race([
+    fetch('https://primary.com/data').then(r => r.json()),
+    fetch('https://backup1.com/data').then(r => r.json()),
+    fetch('https://backup2.com/data').then(r => r.json())
+  ]);
+}
+
+getDataFromFastestSource()
+  .then(data => console.log('Data from fastest source:', data));
+
+// With timing example
+const slow = new Promise(r => setTimeout(() => r('Slow'), 1000));
+const fast = new Promise(r => setTimeout(() => r('Fast'), 100));
+const medium = new Promise(r => setTimeout(() => r('Medium'), 500));
+
+Promise.race([slow, fast, medium])
+  .then(result => console.log(result));
+  // Output: 'Fast' (resolves at 100ms, ignores others)
+```
+
+#### **Detailed Promise.any() Examples:**
+
+```javascript
+// Real-world: Try multiple APIs, use first working one
+function fetchFromFallback() {
+  return Promise.any([
+    fetch('https://server1.com/data').then(r => r.json()),
+    fetch('https://server2.com/data').then(r => r.json()),
+    fetch('https://server3.com/data').then(r => r.json())
+  ]);
+}
+
+fetchFromFallback()
+  .then(data => console.log('Data from first working server:', data))
+  .catch(error => console.log('All servers failed:', error));
+
+// With multiple scenarios
+const scenario1 = new Promise((r, j) => setTimeout(() => j('Attempt 1 failed'), 300));
+const scenario2 = new Promise((r, j) => setTimeout(() => j('Attempt 2 failed'), 200));
+const scenario3 = new Promise(r => setTimeout(() => r('Attempt 3 succeeded'), 500));
+
+Promise.any([scenario1, scenario2, scenario3])
+  .then(result => {
+    console.log('Success:', result);
+    // Output after 500ms: 'Success: Attempt 3 succeeded'
+  });
+
+// ❌ All rejections cause AggregateError
+Promise.any([
+  Promise.reject('Error 1'),
+  Promise.reject('Error 2'),
+  Promise.reject('Error 3')
+])
+  .catch(error => {
+    console.log('Error type:', error.constructor.name); // 'AggregateError'
+    console.log('All errors:', error.errors);
+  });
+```
+
+#### **Detailed Promise.allSettled() Examples:**
+
+```javascript
+// Real-world: Batch operations where some may fail
+async function uploadMultipleFiles(files) {
+  const uploadPromises = files.map(file =>
+    uploadFile(file)
+      .then(result => ({
+        success: true,
+        filename: file.name,
+        url: result.url
+      }))
+      .catch(error => ({
+        success: false,
+        filename: file.name,
+        error: error.message
+      }))
+  );
+  
+  const results = await Promise.allSettled(uploadPromises);
+  
+  const successful = results
+    .filter(r => r.status === 'fulfilled' && r.value.success)
+    .map(r => r.value);
+    
+  const failed = results
+    .filter(r => r.status === 'rejected' || !r.value.success);
+  
+  console.log(`${successful.length} files uploaded`);
+  console.log(`${failed.length} files failed`);
+  
+  return { successful, failed };
+}
+
+// Fetching data from multiple endpoints
+async function fetchAllMetrics() {
+  const endpoints = [
+    { name: 'users', url: '/api/users' },
+    { name: 'analytics', url: '/api/analytics' },
+    { name: 'reports', url: '/api/reports' }
+  ];
+  
+  const promises = endpoints.map(endpoint =>
+    fetch(endpoint.url)
+      .then(r => r.json())
+      .then(data => ({ 
+        name: endpoint.name, 
+        status: 'success', 
+        data 
+      }))
+      .catch(error => ({ 
+        name: endpoint.name, 
+        status: 'error', 
+        error: error.message 
+      }))
+  );
+  
+  const results = await Promise.allSettled(promises);
+  
+  const metrics = {};
+  results.forEach(result => {
+    const value = result.value || result.reason;
+    if (value.status === 'success') {
+      metrics[value.name] = value.data;
+    } else {
+      console.warn(`Failed to fetch ${value.name}`);
+    }
+  });
+  
+  return metrics; // Partial data returned even with failures
+}
+```
+
+#### **Comparison: When to Use Each:**
+
+```javascript
+// Promise.all() - Need ALL to succeed
+async function loadPage() {
+  const [user, content, comments] = await Promise.all([
+    fetchUser(), fetchContent(), fetchComments()
+  ]);
+  // If any fails, entire page fails
+}
+
+// Promise.race() - Need FIRST result (speed matters)
+const result = await Promise.race([
+  fetchPrimary(), timeout(5000), fetchBackup()
+]);
+// Returns fastest, ignores rest
+
+// Promise.any() - Need ANY to succeed
+const data = await Promise.any([
+  fetchServer1(), fetchServer2(), fetchServer3()
+]);
+// Succeeds if any server responds
+
+// Promise.allSettled() - Need ALL results regardless
+const results = await Promise.allSettled([
+  saveUser1(), saveUser2(), saveUser3()
+]);
+// Always resolves, shows success/failure for each
+```
+
 ### Q35: What is async/await?
 
 **Answer:**
@@ -1899,72 +2741,624 @@ class EmployeeClass extends PersonClass {
 ### Q40: What is bind(), call(), and apply()?
 
 **Answer:**
-These methods control what `this` refers to when calling a function.
+These three methods let you control what `this` means inside a function and call functions with specific context.
 
-**call() - Invoke immediately with arguments:**
+**Simple Analogy:**
+Think of a function as a recipe and `this` as a kitchen. These methods let you borrow someone else's kitchen to cook!
+
+---
+
+## **call() - Borrow and Use Immediately**
+
+**Simple Syntax:** `function.call(context, arg1, arg2, arg3...)`
+
 ```javascript
-function greet(greeting, punctuation) {
-  return `${greeting}, ${this.name}${punctuation}`;
+// SIMPLE EXAMPLE 1: Basic person introduction
+const person1 = {
+  name: 'Alice',
+  age: 25
+};
+
+const person2 = {
+  name: 'Bob',
+  age: 30
+};
+
+function greet() {
+  console.log(`Hello, I'm ${this.name} and I'm ${this.age} years old`);
 }
 
-const person = { name: 'Alice' };
+// Without call - doesn't work
+greet(); // "Hello, I'm undefined and I'm undefined years old"
 
-greet.call(person, 'Hello', '!'); // "Hello, Alice!"
+// With call - works!
+greet.call(person1); // "Hello, I'm Alice and I'm 25 years old"
+greet.call(person2); // "Hello, I'm Bob and I'm 30 years old"
 ```
 
-**apply() - Invoke immediately with array:**
+**Example 2: With Arguments**
 ```javascript
-greet.apply(person, ['Hi', '!!']); // "Hi, Alice!!"
+const person = {
+  name: 'Charlie',
+  age: 28
+};
 
-// Useful for Math functions
-const numbers = [5, 6, 2, 3, 7];
-Math.max.apply(null, numbers); // 7
+function introduce(hobby, job) {
+  console.log(`I'm ${this.name}, I'm ${this.age}, I like ${hobby}, and I'm a ${job}`);
+}
 
-// Modern alternative: spread
-Math.max(...numbers); // 7
+// Pass arguments directly
+introduce.call(person, 'reading', 'teacher');
+// Output: "I'm Charlie, I'm 28, I like reading, and I'm a teacher"
+
+// Think of it like:
+// introduce(hobby, job) but with this = person
 ```
 
-**bind() - Return new function:**
+**Real-World Example:**
 ```javascript
-const greetAlice = greet.bind(person);
-greetAlice('Hey', '?'); // "Hey, Alice?"
+const car = {
+  brand: 'Toyota',
+  getInfo() {
+    console.log(`This car is a ${this.brand}`);
+  }
+};
 
-// Partial application
-const sayHello = greet.bind(person, 'Hello');
-sayHello('!!!'); // "Hello, Alice!!!"
+const truck = {
+  brand: 'Ford'
+};
 
-// Event handlers
+// Use car's getInfo on truck object
+car.getInfo.call(truck); // "This car is a Ford"
+```
+
+---
+
+## **apply() - Borrow and Use Immediately (Array Style)**
+
+**Simple Syntax:** `function.apply(context, [arg1, arg2, arg3...])`
+
+**The Only Difference from call():** Arguments are in an **array** instead of separated by commas.
+
+```javascript
+// SIMPLE EXAMPLE 1: Same as call but with array
+const person = {
+  name: 'Diana',
+  age: 27
+};
+
+function introduce(hobby, job) {
+  console.log(`I'm ${this.name}, I like ${hobby}, and I'm a ${job}`);
+}
+
+// call() - pass arguments directly
+introduce.call(person, 'cooking', 'chef');
+
+// apply() - pass arguments as array
+introduce.apply(person, ['cooking', 'chef']);
+
+// Both output: "I'm Diana, I like cooking, and I'm a chef"
+```
+
+**Example 2: Working with Arrays**
+```javascript
+// USEFUL: Finding max number in array
+const numbers = [5, 10, 3, 20, 1];
+
+// Math.max doesn't accept array directly
+Math.max(numbers); // NaN ❌
+
+// Use apply to pass array as individual arguments
+Math.max.apply(null, numbers); // 20 ✅
+
+// Modern alternative (easier):
+Math.max(...numbers); // 20 ✅
+
+// apply(null) means "this doesn't matter"
+```
+
+**Real-World Example:**
+```javascript
+function sum(a, b, c, d) {
+  return a + b + c + d;
+}
+
+const numbers = [10, 20, 30, 40];
+
+// Without apply - error
+sum(numbers); // NaN ❌
+
+// With apply - converts array to arguments
+sum.apply(null, numbers); // 100 ✅
+
+// Modern way:
+sum(...numbers); // 100 ✅
+```
+
+---
+
+## **bind() - Borrow and Use Later**
+
+**Simple Syntax:** `function.bind(context, arg1, arg2...)`
+
+**Big Difference:** bind() does NOT execute immediately. It returns a **new function** that you can call later.
+
+```javascript
+// SIMPLE EXAMPLE 1: Create a new function with fixed 'this'
+const person = {
+  name: 'Eve',
+  age: 26
+};
+
+function greet(greeting) {
+  console.log(`${greeting}, I'm ${this.name}`);
+}
+
+// create a new function where 'this' is always person
+const greetEve = greet.bind(person);
+
+// Now call it whenever you want
+greetEve('Hello');  // "Hello, I'm Eve"
+greetEve('Hi');     // "Hi, I'm Eve"
+greetEve('Hey');    // "Hey, I'm Eve"
+
+// The original greet function is unchanged
+greet('Hello');     // "Hello, I'm undefined" ❌
+```
+
+**Example 2: bind() with pre-filled arguments (Partial Application)**
+```javascript
+const calculator = {
+  result: 0,
+  add(a, b) {
+    this.result = a + b;
+    console.log(`${a} + ${b} = ${this.result}`);
+    return this.result;
+  }
+};
+
+// Create a specialized version that always adds 10
+const addTen = calculator.add.bind(calculator, 10);
+
+addTen(5);   // "10 + 5 = 15"
+addTen(20);  // "10 + 20 = 30"
+addTen(100); // "10 + 100 = 110"
+```
+
+**Real-World Example: Event Handlers (Most Common Use)**
+```javascript
 class Button {
-  constructor(label) {
-    this.label = label;
-    this.clicks = 0;
+  constructor(name) {
+    this.name = name;
+    this.clickCount = 0;
   }
   
   handleClick() {
-    this.clicks++;
-    console.log(`${this.label}: ${this.clicks} clicks`);
+    this.clickCount++;
+    console.log(`${this.name} clicked ${this.clickCount} times`);
   }
 }
 
-const button = new Button('Submit');
+const submitBtn = new Button('Submit Button');
 
-// Without bind - this is the DOM element
-element.addEventListener('click', button.handleClick); // ❌ Error
+// ❌ WITHOUT bind - 'this' becomes the HTML element
+document.getElementById('myBtn').addEventListener('click', submitBtn.handleClick);
+// Error: Cannot read property 'clickCount' of undefined
 
-// With bind - this is the button object
-element.addEventListener('click', button.handleClick.bind(button)); // ✅
+// ✅ WITH bind - 'this' is submitBtn
+document.getElementById('myBtn').addEventListener('click', submitBtn.handleClick.bind(submitBtn));
+// "Submit Button clicked 1 times"
+// "Submit Button clicked 2 times"
 
-// Or use arrow function
-element.addEventListener('click', () => button.handleClick()); // ✅
+// ✅ MODERN ALTERNATIVE - Arrow function
+document.getElementById('myBtn').addEventListener('click', () => submitBtn.handleClick());
+// Works perfectly!
+```
+
+---
+
+## **Visual Comparison - Easy to Remember**
+
+```javascript
+function speak(mood) {
+  console.log(`${this.name} is feeling ${mood}`);
+}
+
+const person = { name: 'Frank' };
+
+// call() - Do it NOW
+speak.call(person, 'happy');
+// Executes immediately: "Frank is feeling happy"
+
+// apply() - Do it NOW (but with array)
+speak.apply(person, ['sad']);
+// Executes immediately: "Frank is feeling sad"
+
+// bind() - Do it LATER
+const frankSpeak = speak.bind(person);
+// Nothing happens yet! Just returns a function
+frankSpeak('excited');
+// Now it executes: "Frank is feeling excited"
+frankSpeak('angry');
+// Executes again: "Frank is feeling angry"
+```
+
+---
+
+## **Quick Cheat Sheet**
+
+```javascript
+// Remember: call and apply execute RIGHT NOW, bind executes LATER
+
+// call(context, arg1, arg2, arg3...)
+func.call(obj, 'a', 'b', 'c');
+
+// apply(context, [arg1, arg2, arg3...])
+func.apply(obj, ['a', 'b', 'c']);
+
+// bind(context, arg1, arg2, arg3...)
+const newFunc = func.bind(obj, 'a', 'b', 'c');
+newFunc(); // Called later
+
+// Difference:
+//   call  → Execute now + arguments separated
+//   apply → Execute now + arguments in array
+//   bind  → Execute later + returns new function
+```
+
+---
+
+## **Practical Examples You'll Actually Use**
+
+**1. Fixing 'this' in setTimeout:**
+```javascript
+const user = {
+  name: 'Grace',
+  greeting() {
+    console.log(`Hello, ${this.name}`);
+  }
+};
+
+// ❌ Without bind - 'this' is wrong
+setTimeout(user.greeting, 1000); // "Hello, undefined"
+
+// ✅ With bind - 'this' is correct
+setTimeout(user.greeting.bind(user), 1000); // "Hello, Grace"
+```
+
+**2. Borrowing Methods from Another Object:**
+```javascript
+const person1 = { name: 'Henry', age: 30 };
+const person2 = { name: 'Iris' };
+
+function showAge() {
+  console.log(`${this.name} is ${this.age} years old`);
+}
+
+showAge.call(person1);  // "Henry is 30 years old"
+showAge.call(person2);  // "Iris is undefined years old" (no age property)
+```
+
+**3. Array Methods on Array-Like Objects:**
+```javascript
+const arrayLike = { 0: 'a', 1: 'b', 2: 'c', length: 3 };
+
+// Borrow Array's slice method
+const realArray = Array.prototype.slice.call(arrayLike);
+console.log(realArray); // ['a', 'b', 'c']
+
+// Modern way (easier):
+const realArray2 = [...arrayLike]; // ['a', 'b', 'c']
 ```
 
 **Comparison:**
 
-| Method | Invokes | Arguments | Returns |
-|--------|---------|-----------|---------|
-| call | Immediately | Individual | Result |
-| apply | Immediately | Array | Result |
-| bind | Later | Partial OK | New function |
+| Method | When it Runs | Arguments Style | Most Use Case |
+|--------|-------------|-----------------|---------------|
+| **call** | Immediately | Separated: `arg1, arg2` | Borrowing methods once |
+| **apply** | Immediately | Array: `[arg1, arg2]` | Math functions with arrays |
+| **bind** | Later (when you call it) | Separated: `arg1, arg2` | Event handlers, setTimeout |
+
+---
+
+✅ **Key Takeaway:**
+- All three control what `this` means
+- `call()` and `apply()` run immediately
+- `bind()` runs later and creates a new function
+- `bind()` is used most in real projects (especially event handlers)
+
+---
+
+## **What is a Polyfill in JavaScript?**
+
+**Simple Definition:**
+A **polyfill** is code that adds missing features to older browsers so they can use modern JavaScript features.
+
+**Analogy:**
+Think of a polyfill like a patch for software. If your old car doesn't have seat warmers but new cars do, a "polyfill" would be adding seat warmers to your old car so it has the same feature.
+
+### **Why Do We Need Polyfills?**
+
+```javascript
+// Modern feature: Array.includes()
+const fruits = ['apple', 'banana', 'orange'];
+fruits.includes('apple'); // true
+
+// Problem: Old browsers (IE 11) don't support Array.includes()
+// Solution: Write a polyfill to add this feature
+```
+
+### **Polyfill vs Transpiler**
+
+| | Polyfill | Transpiler |
+|---|----------|-----------|
+| **What it does** | Adds missing features | Converts new syntax to old syntax |
+| **Example** | Adding `Array.includes()` | Converting `const` to `var` |
+| **Tool** | Custom code | Babel, TypeScript |
+
+---
+
+## **Simple Polyfill Example 1: Array.includes()**
+
+```javascript
+// Check if browser supports includes()
+if (!Array.prototype.includes) {
+  // If not, add it!
+  Array.prototype.includes = function(searchElement) {
+    // Loop through array
+    for (let i = 0; i < this.length; i++) {
+      // If element found, return true
+      if (this[i] === searchElement) {
+        return true;
+      }
+    }
+    // Element not found
+    return false;
+  };
+}
+
+// Now everyone can use includes()
+const colors = ['red', 'blue', 'green'];
+console.log(colors.includes('blue'));   // true
+console.log(colors.includes('yellow'));  // false
+```
+
+**How It Works:**
+1. Check if feature exists (`!Array.prototype.includes`)
+2. If not, add it to the prototype
+3. Now old browsers can use the feature!
+
+---
+
+## **Simple Polyfill Example 2: String.startsWith()**
+
+```javascript
+// Old browsers don't have String.startsWith()
+if (!String.prototype.startsWith) {
+  String.prototype.startsWith = function(searchString) {
+    // Check if string starts with searchString
+    return this.substring(0, searchString.length) === searchString;
+  };
+}
+
+// Now you can use it everywhere
+const message = 'Hello World';
+console.log(message.startsWith('Hello'));  // true
+console.log(message.startsWith('World'));  // false
+```
+
+---
+
+## **Simple Polyfill Example 3: Object.assign()**
+
+```javascript
+// Older browsers don't have Object.assign()
+if (!Object.assign) {
+  Object.assign = function(target, ...sources) {
+    // Copy properties from each source to target
+    sources.forEach(source => {
+      Object.keys(source).forEach(key => {
+        target[key] = source[key];
+      });
+    });
+    return target;
+  };
+}
+
+// Now you can merge objects
+const obj1 = { name: 'John' };
+const obj2 = { age: 30 };
+const merged = Object.assign({}, obj1, obj2);
+console.log(merged); // { name: 'John', age: 30 }
+```
+
+---
+
+## **Real-World Polyfill: Array.flat()**
+
+```javascript
+// Modern feature: Array.flat() - flattens nested arrays
+// Old browsers don't support it
+
+if (!Array.prototype.flat) {
+  Array.prototype.flat = function(depth = 1) {
+    // Flatten array up to given depth
+    return this.reduce((flat, item) => {
+      // If item is array and we have depth left, flatten it
+      if (Array.isArray(item) && depth > 0) {
+        flat.push(...item.flat(depth - 1));
+      } else {
+        // Otherwise, just add the item
+        flat.push(item);
+      }
+      return flat;
+    }, []);
+  };
+}
+
+// Test it
+const nested = [1, [2, [3, [4]]]];
+console.log(nested.flat());      // [1, 2, [3, [4]]]
+console.log(nested.flat(2));     // [1, 2, 3, [4]]
+console.log(nested.flat(Infinity)); // [1, 2, 3, 4]
+```
+
+---
+
+## **Polyfill vs Native Implementation**
+
+```javascript
+// Modern browser (has native implementation)
+const arr = [1, 2, 3];
+arr.includes(2); // Uses native code - FAST
+
+// Old browser with polyfill
+// Same code runs, but uses the polyfilled version - SLOWER
+// But at least it works!
+```
+
+**Native implementations are faster because they're optimized by browser makers.**
+
+---
+
+## **Popular Real-World Polyfills**
+
+```javascript
+// 1. Promise polyfill (for IE 11)
+// Allows using Promises in old browsers
+
+// 2. fetch() polyfill
+// Allows using fetch API in old browsers
+
+// 3. Array methods polyfills
+// - Array.includes()
+// - Array.find()
+// - Array.findIndex()
+// - Array.flat()
+
+// 4. Object polyfills
+// - Object.assign()
+// - Object.entries()
+// - Object.fromEntries()
+
+// 5. String methods
+// - String.includes()
+// - String.startsWith()
+// - String.endsWith()
+// - String.repeat()
+
+// Most are now handled by Babel or @babel/polyfill
+```
+
+---
+
+## **Should You Write Polyfills?**
+
+❌ **Don't write polyfills for:**
+- Common features (too much work)
+- Complex features (hard to implement correctly)
+- When you can use Babel
+
+✅ **Write polyfills for:**
+- Your own custom methods
+- Specific internal features
+- Lightweight utilities
+
+```javascript
+// Example: Custom company feature
+if (!Array.prototype.groupBy) {
+  Array.prototype.groupBy = function(key) {
+    return this.reduce((groups, item) => {
+      const group = item[key];
+      groups[group] = groups[group] || [];
+      groups[group].push(item);
+      return groups;
+    }, {});
+  };
+}
+
+// Use it
+const users = [
+  { type: 'admin', name: 'John' },
+  { type: 'user', name: 'Jane' },
+  { type: 'admin', name: 'Bob' }
+];
+
+const grouped = users.groupBy('type');
+// {
+//   admin: [{ type: 'admin', name: 'John' }, { type: 'admin', name: 'Bob' }],
+//   user: [{ type: 'user', name: 'Jane' }]
+// }
+```
+
+---
+
+## **Important: Polyfill Best Practices**
+
+```javascript
+// ✅ GOOD: Always check if feature exists
+if (!Array.prototype.includes) {
+  Array.prototype.includes = function(item) {
+    // implementation
+  };
+}
+
+// ❌ BAD: Overwriting without checking
+Array.prototype.includes = function(item) {
+  // What if browser already has this?
+  // You're replacing the native, optimized version!
+};
+
+// ✅ GOOD: Use descriptive names
+if (!String.prototype.myCustomMethod) {
+  String.prototype.myCustomMethod = function() {
+    // your code
+  };
+}
+
+// ❌ BAD: Generic names that might conflict
+if (!String.prototype.format) {
+  String.prototype.format = function() {
+    // Many libraries use "format", causing conflicts!
+  };
+}
+```
+
+---
+
+## **How to Use Polyfills in Your Project**
+
+```javascript
+// Method 1: Include polyfill file first
+<script src="polyfills.js"></script>
+<script src="your-app.js"></script>
+
+// Method 2: Use @babel/polyfill (recommended for projects)
+npm install @babel/polyfill
+// Import at top of your app
+import '@babel/polyfill';
+
+// Method 3: Use core-js (modern approach)
+npm install core-js
+import 'core-js/stable';
+import 'regenerator-runtime/runtime';
+
+// Method 4: Babel automatically includes polyfills
+// (.babelrc configured with @babel/preset-env)
+```
+
+---
+
+## **Key Takeaways:**
+
+✅ Polyfill = Code that adds missing features to old browsers  
+✅ Check if feature exists before adding polyfill  
+✅ Native implementations are faster than polyfills  
+✅ Use Babel/core-js for production projects  
+✅ Write custom polyfills only when necessary  
+✅ Always check for feature before using polyfill  
+
+---
 
 ### Q41: Write a polyfill for bind()
 
