@@ -1,5 +1,26 @@
 # Bootstrap Framework - 200 Basic Level Questions & Answers
 
+---
+
+## 📱 Visual Guide to Bootstrap Components
+
+This guide includes complete HTML examples for each topic to help you understand how Bootstrap components look and work.
+
+### Browser Display Preview Legend
+- **Complete HTML Examples**: Full working code that you can copy and paste into an HTML file
+- **What you see**: Description of how the component appears in the browser
+- **Visual Components**: Includes colors, spacing, and interactive elements
+- **Responsive Design**: Shows how components adapt to different screen sizes
+
+### Key Things to Remember
+1. Always include the Bootstrap CDN or CSS file in `<head>`
+2. Include Bootstrap JS bundle before closing `</body>`
+3. Use container classes to wrap content
+4. Test examples on different screen sizes
+5. Copy complete examples and open them in your browser to see results
+
+---
+
 ## Table of Contents
 1. [Introduction & Basics (1-20)](#introduction--basics)
 2. [Grid System (21-40)](#grid-system)
@@ -48,6 +69,32 @@ Bootstrap 5 is the latest and recommended version. It dropped jQuery dependency,
 npm install bootstrap
 ```
 
+**Complete HTML Example:**
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bootstrap Setup</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-5">
+        <h1 class="text-center text-primary">Welcome to Bootstrap</h1>
+        <p class="text-center">Bootstrap is now included in your project!</p>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+```
+
+**What you see:**
+- Centered heading in blue color
+- Centered paragraph text
+- Page with proper spacing and styling
+- Ready to use Bootstrap components
+
 ### 6. What is a Container in Bootstrap?
 A container is a Bootstrap element that wraps content and provides padding and responsive behavior. There are two types: `.container` (fixed width) and `.container-fluid` (full width).
 
@@ -95,6 +142,52 @@ The viewport meta tag tells the browser how to render the page on different devi
 </body>
 </html>
 ```
+
+**Complete Example with More Content:**
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>My Bootstrap Page</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar navbar-light bg-light">
+        <div class="container">
+            <span class="navbar-brand mb-0 h1">MyApp</span>
+        </div>
+    </nav>
+    
+    <div class="container mt-5">
+        <div class="row">
+            <div class="col-md-8">
+                <h1>Welcome to Bootstrap</h1>
+                <p>This is a basic Bootstrap page with a navbar and grid layout.</p>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Sidebar</h5>
+                        <p class="card-text">Additional content goes here</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+```
+
+**What you see:**
+- Navbar at the top with "MyApp" text
+- Page title and description
+- Two-column layout (8 columns main content, 4 columns sidebar)
+- Card component in the sidebar
+- Proper spacing and responsive design
 
 ### 13. What is the difference between .container and .container-fluid?
 - `.container`: Has fixed width and centered with left/right margins
@@ -169,6 +262,45 @@ Use `.col-{breakpoint}-{number}` to set column width at specific breakpoints. Ex
 </div>
 ```
 
+**Complete Example:**
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-5">
+        <h2>Equal Width Columns</h2>
+        <div class="row">
+            <div class="col bg-light border p-3">
+                <h5>Column 1</h5>
+                <p>Each column takes equal width</p>
+            </div>
+            <div class="col bg-light border p-3">
+                <h5>Column 2</h5>
+                <p>Responsive on all screens</p>
+            </div>
+            <div class="col bg-light border p-3">
+                <h5>Column 3</h5>
+                <p>Stacks on mobile devices</p>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+```
+
+**What you see:**
+- Three columns with equal width (each 33.33%)
+- Light gray background with borders
+- Text describing each column
+- On mobile: stacks into single column
+- On desktop: displays side by side
+
 ### 29. What is the .row-cols class?
 `.row-cols-{number}` sets the number of columns in a row. Example: `.row-cols-3` creates 3 equal-width columns.
 
@@ -179,6 +311,81 @@ Use `.col-{breakpoint}-{number}` to set column width at specific breakpoints. Ex
     <div class="col-md-4">Narrow column</div>
 </div>
 ```
+
+**Complete Example:**
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-5">
+        <h2>Unequal Column Widths</h2>
+        
+        <h5 class="mt-4">8 Column + 4 Column Layout:</h5>
+        <div class="row mb-4">
+            <div class="col-md-8 bg-light border p-3">
+                <h5>Main Content (8 columns - 66%)</h5>
+                <p>This is the main content area taking up 8 out of 12 columns.</p>
+                <p>On mobile, this stacks above the sidebar.</p>
+            </div>
+            <div class="col-md-4 bg-light border p-3">
+                <h5>Sidebar (4 columns - 33%)</h5>
+                <p>This is the sidebar taking up 4 columns.</p>
+            </div>
+        </div>
+        
+        <h5>9 Column + 3 Column Layout:</h5>
+        <div class="row mb-4">
+            <div class="col-md-9 bg-info text-white border p-3">
+                <h5>Main (9 columns - 75%)</h5>
+                <p>Larger main content area</p>
+            </div>
+            <div class="col-md-3 bg-success text-white border p-3">
+                <h5>Side (3 columns - 25%)</h5>
+                <p>Smaller sidebar</p>
+            </div>
+        </div>
+        
+        <h5>5 Column + 7 Column Layout:</h5>
+        <div class="row mb-4">
+            <div class="col-md-5 bg-warning border p-3">
+                <h5>Section 1 (5 columns)</h5>
+                <p>Custom column ratio</p>
+            </div>
+            <div class="col-md-7 bg-danger text-white border p-3">
+                <h5>Section 2 (7 columns)</h5>
+                <p>Unequal distribution</p>
+            </div>
+        </div>
+        
+        <h5>Responsive Unequal Columns:</h5>
+        <div class="row">
+            <div class="col-12 col-md-7 bg-primary text-white border p-3 mb-2 mb-md-0">
+                <h5>Main Content</h5>
+                <p>Full width on mobile, 7 columns on desktop</p>
+            </div>
+            <div class="col-12 col-md-5 bg-secondary text-white border p-3">
+                <h5>Secondary Content</h5>
+                <p>Full width on mobile, 5 columns on desktop</p>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+```
+
+**What you see:**
+- First layout: Main content takes 8 columns (66%), sidebar takes 4 columns (33%)
+- Second layout: 9 columns and 3 columns ratio (75% / 25%)
+- Third layout: 5 columns and 7 columns (custom ratio)
+- Fourth layout: On mobile - full width stacking, on desktop - side by side
+- Different background colors to show column divisions
+- Responsive: Columns stack on small screens
 
 ### 31. What does auto layout mean in Bootstrap grid?
 Auto layout automatically sizes columns based on content width. Use `.col-auto` for columns that size based on content.
@@ -351,6 +558,64 @@ Use `.text-{color}`:
 <p class="text-danger">Danger text</p>
 ```
 
+**Complete Example:**
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-5">
+        <h2 class="mb-4">Text Color Examples</h2>
+        
+        <h5>Theme Colors:</h5>
+        <p class="text-primary">Primary text (Blue)</p>
+        <p class="text-secondary">Secondary text (Gray)</p>
+        <p class="text-success">Success text (Green)</p>
+        <p class="text-danger">Danger text (Red)</p>
+        <p class="text-warning">Warning text (Yellow)</p>
+        <p class="text-info">Info text (Cyan)</p>
+        <p class="text-light">Light text (Light Gray)</p>
+        <p class="text-dark">Dark text (Dark Gray)</p>
+        
+        <h5 class="mt-4">Special Text Colors:</h5>
+        <p class="text-muted">Muted text (Faded gray)</p>
+        <p class="text-body">Body text (Default color)</p>
+        <p class="text-emphasis">Emphasis text (Darker)</p>
+        
+        <h5 class="mt-4">Background with Text Color:</h5>
+        <p class="bg-primary text-white p-2">Primary background with white text</p>
+        <p class="bg-success text-white p-2">Success background with white text</p>
+        <p class="bg-danger text-white p-2">Danger background with white text</p>
+        <p class="bg-warning text-dark p-2">Warning background with dark text</p>
+        <p class="bg-info text-white p-2">Info background with white text</p>
+        
+        <h5 class="mt-4">Opacity Variations (Bootstrap 5):</h5>
+        <p class="text-primary-50">50% opacity primary</p>
+        <p class="text-success-75">75% opacity success</p>
+        <p class="text-danger-25">25% opacity danger</p>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+```
+
+**What you see:**
+- Primary text in blue
+- Secondary text in gray
+- Success text in green
+- Danger text in red
+- Warning text in yellow/orange
+- Info text in cyan
+- Light text in light gray
+- Dark text in dark gray
+- Muted text appears faded
+- Text colors are consistent with theme
+- Good contrast for readability
+
 ### 63. What color values do Bootstrap colors have by default?
 - `primary`: #0d6efd (blue)
 - `secondary`: #6c757d (gray)
@@ -465,6 +730,58 @@ Bootstrap components are pre-built, reusable UI elements like buttons, navbars, 
 <a href="#" class="btn btn-success">Link Button</a>
 ```
 
+**Complete Example with Multiple Button Styles:**
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-5">
+        <h2 class="mb-4">Button Examples</h2>
+        
+        <h5>Solid Buttons:</h5>
+        <div class="mb-3">
+            <button class="btn btn-primary">Primary</button>
+            <button class="btn btn-secondary">Secondary</button>
+            <button class="btn btn-success">Success</button>
+            <button class="btn btn-danger">Danger</button>
+            <button class="btn btn-warning">Warning</button>
+            <button class="btn btn-info">Info</button>
+            <button class="btn btn-light">Light</button>
+            <button class="btn btn-dark">Dark</button>
+        </div>
+        
+        <h5>Outline Buttons:</h5>
+        <div class="mb-3">
+            <button class="btn btn-outline-primary">Primary</button>
+            <button class="btn btn-outline-secondary">Secondary</button>
+            <button class="btn btn-outline-success">Success</button>
+            <button class="btn btn-outline-danger">Danger</button>
+        </div>
+        
+        <h5>Button Sizes:</h5>
+        <div>
+            <button class="btn btn-primary btn-lg">Large Button</button>
+            <button class="btn btn-primary">Regular Button</button>
+            <button class="btn btn-primary btn-sm">Small Button</button>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+```
+
+**What you see:**
+- Multiple button colors (primary, secondary, success, danger, warning, info, light, dark)
+- Solid buttons with colored background and white text
+- Outline buttons with colored border and text, transparent background
+- Three button sizes: Large, Regular, Small
+- All buttons are clickable and styled with Bootstrap
+
 ### 83. What are button styles in Bootstrap?
 - `.btn-primary` - Primary action
 - `.btn-secondary` - Secondary action
@@ -511,6 +828,89 @@ A badge is a small count or label component:
 <span class="badge bg-danger">Important</span>
 ```
 
+**Complete Example:**
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-5">
+        <h2 class="mb-4">Badge Examples</h2>
+        
+        <h5>Basic Badges:</h5>
+        <p>
+            <span class="badge bg-primary">Primary</span>
+            <span class="badge bg-secondary">Secondary</span>
+            <span class="badge bg-success">Success</span>
+            <span class="badge bg-danger">Danger</span>
+            <span class="badge bg-warning text-dark">Warning</span>
+            <span class="badge bg-info">Info</span>
+            <span class="badge bg-light text-dark">Light</span>
+            <span class="badge bg-dark">Dark</span>
+        </p>
+        
+        <h5>Pills (Rounded Badges):</h5>
+        <p>
+            <span class="badge rounded-pill bg-primary">New</span>
+            <span class="badge rounded-pill bg-success">Approved</span>
+            <span class="badge rounded-pill bg-danger">Rejected</span>
+            <span class="badge rounded-pill bg-warning text-dark">Pending</span>
+        </p>
+        
+        <h5>Badges in Headings:</h5>
+        <h1>Heading <span class="badge bg-secondary">v5.0</span></h1>
+        <h2>Another Heading <span class="badge bg-info">New</span></h2>
+        
+        <h5>Badges with Numbers:</h5>
+        <p>
+            <span class="badge bg-primary">5</span>
+            <span class="badge bg-success">99+</span>
+            <span class="badge bg-danger">3</span>
+        </p>
+        
+        <h5>Badges in List Items:</h5>
+        <ul class="list-group mt-3">
+            <li class="list-group-item">
+                Inbox 
+                <span class="badge bg-primary rounded-pill float-end">5</span>
+            </li>
+            <li class="list-group-item">
+                Important 
+                <span class="badge bg-danger rounded-pill float-end">2</span>
+            </li>
+            <li class="list-group-item">
+                Archived 
+                <span class="badge bg-success rounded-pill float-end">12</span>
+            </li>
+        </ul>
+        
+        <h5 class="mt-4">Status Badges:</h5>
+        <p>
+            <span class="badge bg-success">Active</span>
+            <span class="badge bg-secondary">Inactive</span>
+            <span class="badge bg-danger">Error</span>
+            <span class="badge bg-warning text-dark">Warning</span>
+        </p>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+```
+
+**What you see:**
+- Badges are small inline labels with background colors
+- Rectangular badges for standard display
+- Rounded/pill badges (fully rounded corners)
+- Different color themes (Primary, Secondary, Success, Danger, etc.)
+- Badges with numbers and text
+- Used in headings to show version or status
+- Badges in list items showing counts (inbox, messages, etc.)
+- Great for notifications, status indicators, and tags
+
 ### 90. How do you create an alert in Bootstrap?
 ```html
 <div class="alert alert-primary">Alert message</div>
@@ -519,6 +919,59 @@ A badge is a small count or label component:
     Message
 </div>
 ```
+
+**Complete Example:**
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-5">
+        <h2 class="mb-4">Alert Examples</h2>
+        
+        <div class="alert alert-primary" role="alert">
+            <strong>Primary Alert!</strong> This is a primary information message.
+        </div>
+        
+        <div class="alert alert-success" role="alert">
+            <strong>Success!</strong> Your action was completed successfully.
+        </div>
+        
+        <div class="alert alert-warning" role="alert">
+            <strong>Warning!</strong> Please be careful with this action.
+        </div>
+        
+        <div class="alert alert-danger" role="alert">
+            <strong>Error!</strong> Something went wrong. Please try again.
+        </div>
+        
+        <div class="alert alert-info alert-dismissible fade show" role="alert">
+            <strong>Info:</strong> You can dismiss this alert by clicking the X button.
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <strong>Dismissible Alert!</strong> Click the X button to close this alert.
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+```
+
+**What you see:**
+- Primary alert: Blue background with bold text
+- Success alert: Green background indicating successful action
+- Warning alert: Yellow/orange background for caution
+- Danger alert: Red background for errors
+- Info alert: Cyan background for information
+- Dismissible alerts: Have an X button to close them
+- Each alert has different color and styling
 
 ### 91. What is a breadcrumb in Bootstrap?
 Breadcrumbs show navigation hierarchy:
@@ -540,6 +993,70 @@ Breadcrumbs show navigation hierarchy:
     </div>
 </div>
 ```
+
+**Complete Example with Multiple Cards:**
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-5">
+        <h2 class="mb-4">Card Examples</h2>
+        
+        <div class="row">
+            <div class="col-md-4 mb-4">
+                <div class="card">
+                    <img src="https://via.placeholder.com/300x200" class="card-img-top" alt="Card image">
+                    <div class="card-body">
+                        <h5 class="card-title">Card Title 1</h5>
+                        <p class="card-text">This is a basic card with an image on top.</p>
+                        <a href="#" class="btn btn-primary">Learn More</a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Card with Header</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="card-text">Cards can have headers and footers.</p>
+                    </div>
+                    <div class="card-footer text-muted">
+                        Footer text here
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4 mb-4">
+                <div class="card bg-light">
+                    <div class="card-body">
+                        <h5 class="card-title">Colored Card</h5>
+                        <p class="card-text">Cards can have background colors.</p>
+                        <span class="badge bg-primary">Tag 1</span>
+                        <span class="badge bg-success">Tag 2</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+```
+
+**What you see:**
+- Three cards displayed in a row
+- First card: Has image at top, title, text, and button
+- Second card: Has header, body, and footer sections
+- Third card: Light background with title, text, and badge tags
+- Cards stack vertically on mobile devices
+- Professional layout for content organization
 
 ### 93. What are card parts?
 - `.card` - Container
@@ -563,6 +1080,99 @@ Breadcrumbs show navigation hierarchy:
 </div>
 ```
 
+**Complete Example with Different Dropdown Types:**
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-5">
+        <h2 class="mb-4">Dropdown Examples</h2>
+        
+        <h5>Basic Dropdown:</h5>
+        <div class="dropdown mb-4">
+            <button class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown">
+                Basic Dropdown
+            </button>
+            <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="#">Action</a></li>
+                <li><a class="dropdown-item" href="#">Another action</a></li>
+                <li><a class="dropdown-item" href="#">Something else here</a></li>
+            </ul>
+        </div>
+        
+        <h5>Dropdown with Divider:</h5>
+        <div class="dropdown mb-4">
+            <button class="btn btn-success dropdown-toggle" data-bs-toggle="dropdown">
+                Menu Options
+            </button>
+            <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="#">Edit</a></li>
+                <li><a class="dropdown-item" href="#">Delete</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item" href="#">Report</a></li>
+            </ul>
+        </div>
+        
+        <h5>Dropdown with Headers:</h5>
+        <div class="dropdown mb-4">
+            <button class="btn btn-info dropdown-toggle" data-bs-toggle="dropdown">
+                Categories
+            </button>
+            <ul class="dropdown-menu">
+                <li><h6 class="dropdown-header">Office Suite</h6></li>
+                <li><a class="dropdown-item" href="#">Word</a></li>
+                <li><a class="dropdown-item" href="#">Excel</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><h6 class="dropdown-header">Creative</h6></li>
+                <li><a class="dropdown-item" href="#">Photoshop</a></li>
+                <li><a class="dropdown-item" href="#">Illustrator</a></li>
+            </ul>
+        </div>
+        
+        <h5>Disabled Items in Dropdown:</h5>
+        <div class="dropdown mb-4">
+            <button class="btn btn-warning dropdown-toggle" data-bs-toggle="dropdown">
+                Settings
+            </button>
+            <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="#">Profile</a></li>
+                <li><a class="dropdown-item" href="#">Preferences</a></li>
+                <li><a class="dropdown-item disabled" href="#">Advanced (Disabled)</a></li>
+            </ul>
+        </div>
+        
+        <h5>Dropdown Button Group:</h5>
+        <div class="btn-group mb-4">
+            <button type="button" class="btn btn-danger">Left</button>
+            <button type="button" class="btn btn-danger dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown">
+                <span class="visually-hidden">Toggle</span>
+            </button>
+            <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="#">Action</a></li>
+                <li><a class="dropdown-item" href="#">Another</a></li>
+            </ul>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+```
+
+**What you see:**
+- Basic dropdown: Click button to show menu items
+- Dropdown with divider: Separates related items with a line
+- Dropdown with headers: Organize items into categories
+- Disabled items: Items that can't be clicked (grayed out)
+- Split dropdown: Button and arrow are separate
+- Menu items appear below the button
+- Click outside to close the dropdown
+- Smooth animation when opening/closing
+
 ### 95. How do you create a navbar in Bootstrap?
 ```html
 <nav class="navbar navbar-expand-lg navbar-light bg-light">
@@ -580,6 +1190,71 @@ Breadcrumbs show navigation hierarchy:
     </div>
 </nav>
 ```
+
+**Complete Example with Different Navbar Styles:**
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <!-- Light Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-light border-bottom">
+        <div class="container">
+            <a class="navbar-brand fw-bold" href="#">MyApp</a>
+            <button class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item"><a class="nav-link active" href="#">Home</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#">Features</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#">Pricing</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#">Contact</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+    
+    <!-- Dark Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-5">
+        <div class="container">
+            <a class="navbar-brand fw-bold" href="#">DarkApp</a>
+            <button class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbarNav2">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav2">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item"><a class="nav-link active" href="#">Home</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#">Features</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#">About</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#">Sign In</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+    
+    <div class="container mt-5">
+        <p>The navbars above collapse on mobile screens. Click the hamburger menu on small screens.</p>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+```
+
+**What you see:**
+- Light navbar with gray background
+- Dark navbar with dark background and white text
+- "MyApp" and "DarkApp" brand names on left
+- Navigation links (Home, Features, Pricing/About, Contact/Sign In) on right
+- Hamburger menu button that appears on mobile screens
+- Active link is highlighted
+- On mobile: Menu items hide and show via hamburger button
+- On desktop: All menu items visible horizontally
 
 ### 96. What is `.navbar-brand`?
 `.navbar-brand` is used for logo or brand name in navbar. Usually an `<a>` or `<span>` element.
@@ -602,6 +1277,82 @@ A modal is a dialog box overlay:
 </div>
 ```
 
+**Complete Example:**
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-5">
+        <h2 class="mb-4">Modal Examples</h2>
+        
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#basicModal">
+            Open Basic Modal
+        </button>
+        <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#confirmModal">
+            Confirmation Modal
+        </button>
+    </div>
+    
+    <!-- Basic Modal -->
+    <div class="modal fade" id="basicModal">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Welcome!</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>This is a basic Bootstrap modal.</p>
+                    <p>You can add any content here - text, forms, images, etc.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Confirmation Modal -->
+    <div class="modal fade" id="confirmModal">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title">Confirm Action</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p><strong>Are you sure?</strong></p>
+                    <p>This action cannot be undone.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-danger">Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+```
+
+**What you see:**
+- Two buttons that trigger modals when clicked
+- Basic modal: Contains a title, message, and action buttons
+- Confirmation modal: Has red header indicating a dangerous action
+- Modal has a backdrop (darkened background)
+- Close button (X) in the header
+- Footer with Cancel/Close and action buttons
+- When modal opens: Page content becomes slightly dimmed
+- Click outside modal or X button to close it
+
 ### 98. How do you trigger a modal?
 ```html
 <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#myModal">
@@ -619,12 +1370,215 @@ A modal is a dialog box overlay:
 </ul>
 ```
 
+**Complete Example:**
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-5">
+        <h2 class="mb-4">Pagination Examples</h2>
+        
+        <h5>Basic Pagination:</h5>
+        <nav class="mb-4">
+            <ul class="pagination">
+                <li class="page-item disabled">
+                    <a class="page-link" href="#">Previous</a>
+                </li>
+                <li class="page-item active"><span class="page-link">1</span></li>
+                <li class="page-item"><a class="page-link" href="#">2</a></li>
+                <li class="page-item"><a class="page-link" href="#">3</a></li>
+                <li class="page-item"><a class="page-link" href="#">Next</a></li>
+            </ul>
+        </nav>
+        
+        <h5>Pagination with Full Set:</h5>
+        <nav class="mb-4">
+            <ul class="pagination">
+                <li class="page-item">
+                    <a class="page-link" href="#" aria-label="Previous">
+                        <span aria-hidden="true">&laquo;</span>
+                    </a>
+                </li>
+                <li class="page-item"><a class="page-link" href="#">1</a></li>
+                <li class="page-item"><a class="page-link" href="#">2</a></li>
+                <li class="page-item"><a class="page-link" href="#">3</a></li>
+                <li class="page-item"><a class="page-link" href="#">4</a></li>
+                <li class="page-item"><a class="page-link" href="#">5</a></li>
+                <li class="page-item">
+                    <a class="page-link" href="#" aria-label="Next">
+                        <span aria-hidden="true">&raquo;</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        
+        <h5>Large Pagination:</h5>
+        <nav class="mb-4">
+            <ul class="pagination pagination-lg">
+                <li class="page-item disabled"><a class="page-link" href="#">Previous</a></li>
+                <li class="page-item active"><span class="page-link">1</span></li>
+                <li class="page-item"><a class="page-link" href="#">2</a></li>
+                <li class="page-item"><a class="page-link" href="#">3</a></li>
+                <li class="page-item"><a class="page-link" href="#">Next</a></li>
+            </ul>
+        </nav>
+        
+        <h5>Small Pagination:</h5>
+        <nav class="mb-4">
+            <ul class="pagination pagination-sm">
+                <li class="page-item disabled"><a class="page-link" href="#">Previous</a></li>
+                <li class="page-item active"><span class="page-link">1</span></li>
+                <li class="page-item"><a class="page-link" href="#">2</a></li>
+                <li class="page-item"><a class="page-link" href="#">3</a></li>
+                <li class="page-item"><a class="page-link" href="#">Next</a></li>
+            </ul>
+        </nav>
+        
+        <h5>Centered Pagination:</h5>
+        <nav class="d-flex justify-content-center mb-4">
+            <ul class="pagination">
+                <li class="page-item disabled"><a class="page-link" href="#">Prev</a></li>
+                <li class="page-item active"><span class="page-link">1</span></li>
+                <li class="page-item"><a class="page-link" href="#">2</a></li>
+                <li class="page-item"><a class="page-link" href="#">3</a></li>
+                <li class="page-item"><a class="page-link" href="#">Next</a></li>
+            </ul>
+        </nav>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+```
+
+**What you see:**
+- Basic pagination with Previous/Next and page numbers
+- Current page highlighted in blue (active state)
+- Previous button disabled (grayed out) when on first page
+- Large pagination with bigger buttons
+- Small pagination with compact size
+- Centered pagination using flexbox
+- Arrow symbols (&laquo; and &raquo;) for Previous/Next
+- Numbered buttons for direct page access
+- Good for navigating large lists or search results
+
 ### 100. How do you create a progress bar in Bootstrap?
 ```html
 <div class="progress">
     <div class="progress-bar" role="progressbar" style="width: 25%"></div>
 </div>
 ```
+
+**Complete Example with Different Progress Bars:**
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-5">
+        <h2 class="mb-4">Progress Bar Examples</h2>
+        
+        <h5>Basic Progress Bars:</h5>
+        <div class="mb-3">
+            <p>25% Complete</p>
+            <div class="progress">
+                <div class="progress-bar" role="progressbar" style="width: 25%"></div>
+            </div>
+        </div>
+        
+        <div class="mb-3">
+            <p>50% Complete</p>
+            <div class="progress">
+                <div class="progress-bar" role="progressbar" style="width: 50%"></div>
+            </div>
+        </div>
+        
+        <div class="mb-3">
+            <p>75% Complete</p>
+            <div class="progress">
+                <div class="progress-bar" role="progressbar" style="width: 75%"></div>
+            </div>
+        </div>
+        
+        <div class="mb-4">
+            <p>100% Complete</p>
+            <div class="progress">
+                <div class="progress-bar" role="progressbar" style="width: 100%"></div>
+            </div>
+        </div>
+        
+        <h5>Colored Progress Bars:</h5>
+        <div class="mb-3">
+            <p>Success (75%)</p>
+            <div class="progress">
+                <div class="progress-bar bg-success" role="progressbar" style="width: 75%"></div>
+            </div>
+        </div>
+        
+        <div class="mb-3">
+            <p>Info (60%)</p>
+            <div class="progress">
+                <div class="progress-bar bg-info" role="progressbar" style="width: 60%"></div>
+            </div>
+        </div>
+        
+        <div class="mb-3">
+            <p>Warning (45%)</p>
+            <div class="progress">
+                <div class="progress-bar bg-warning" role="progressbar" style="width: 45%"></div>
+            </div>
+        </div>
+        
+        <div class="mb-4">
+            <p>Danger (30%)</p>
+            <div class="progress">
+                <div class="progress-bar bg-danger" role="progressbar" style="width: 30%"></div>
+            </div>
+        </div>
+        
+        <h5>Progress Bar with Label:</h5>
+        <div class="mb-3">
+            <div class="progress">
+                <div class="progress-bar" role="progressbar" style="width: 68%">68%</div>
+            </div>
+        </div>
+        
+        <h5>Striped Progress Bar:</h5>
+        <div class="mb-3">
+            <div class="progress">
+                <div class="progress-bar progress-bar-striped" role="progressbar" style="width: 80%"></div>
+            </div>
+        </div>
+        
+        <h5>Animated Progress Bar:</h5>
+        <div class="mb-3">
+            <div class="progress">
+                <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 90%"></div>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+```
+
+**What you see:**
+- Progress bars at different percentages (25%, 50%, 75%, 100%)
+- Default blue color for progress bars
+- Different color variants: Success (green), Info (cyan), Warning (yellow), Danger (red)
+- Progress bar with percentage label displayed inside
+- Striped pattern (diagonal lines)
+- Animated striped progress bar (lines move from left to right)
+- Each bar has a background container and filled portion
+- Responsive and easy to customize
 
 ### 101. What is a spinner in Bootstrap?
 ```html
@@ -649,6 +1603,117 @@ A modal is a dialog box overlay:
     </tbody>
 </table>
 ```
+
+**Complete Example with Multiple Table Styles:**
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-5">
+        <h2 class="mb-4">Table Examples</h2>
+        
+        <h5>Basic Striped & Hover Table:</h5>
+        <table class="table table-striped table-hover mb-5">
+            <thead class="table-dark">
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>1</td>
+                    <td>John Doe</td>
+                    <td>john@example.com</td>
+                    <td><span class="badge bg-success">Active</span></td>
+                </tr>
+                <tr>
+                    <td>2</td>
+                    <td>Jane Smith</td>
+                    <td>jane@example.com</td>
+                    <td><span class="badge bg-success">Active</span></td>
+                </tr>
+                <tr>
+                    <td>3</td>
+                    <td>Bob Johnson</td>
+                    <td>bob@example.com</td>
+                    <td><span class="badge bg-warning">Pending</span></td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <h5>Bordered Table:</h5>
+        <table class="table table-bordered table-hover mb-5">
+            <thead class="table-light">
+                <tr>
+                    <th>Product</th>
+                    <th>Price</th>
+                    <th>Quantity</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Laptop</td>
+                    <td>$999</td>
+                    <td>5</td>
+                </tr>
+                <tr>
+                    <td>Mouse</td>
+                    <td>$25</td>
+                    <td>15</td>
+                </tr>
+                <tr>
+                    <td>Keyboard</td>
+                    <td>$79</td>
+                    <td>8</td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <h5>Dark Table:</h5>
+        <table class="table table-dark table-striped">
+            <thead>
+                <tr>
+                    <th>Feature</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Responsive</td>
+                    <td>Works on all screen sizes</td>
+                </tr>
+                <tr>
+                    <td>Accessible</td>
+                    <td>WCAG compliant design</td>
+                </tr>
+                <tr>
+                    <td>Lightweight</td>
+                    <td>Minimal CSS overhead</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+```
+
+**What you see:**
+- First table: Dark header with white text, striped rows (alternating colors), hover effect
+- Second table: Borders around all cells, light header, responsive design
+- Third table: Dark background with white text
+- Striped rows: Alternating row colors for better readability
+- Hover effect: Rows highlight when you mouse over them
+- Badge badges show different statuses in different colors
+- Tables are responsive and scroll horizontally on small screens
 
 ### 103. What are table styles in Bootstrap?
 - `.table` - Basic styling
@@ -709,6 +1774,92 @@ Collapsible content that expands/collapses when clicked:
 </div>
 ```
 
+**Complete Example:**
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-5">
+        <h2 class="mb-4">Accordion Example</h2>
+        
+        <div class="accordion" id="faqAccordion">
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#faq1">
+                        What is Bootstrap?
+                    </button>
+                </h2>
+                <div id="faq1" class="accordion-collapse collapse show" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body">
+                        Bootstrap is a popular CSS framework that provides pre-built components and utilities 
+                        for creating responsive web applications quickly. It includes buttons, forms, modals, navbars, and much more.
+                    </div>
+                </div>
+            </div>
+            
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq2">
+                        Is Bootstrap free?
+                    </button>
+                </h2>
+                <div id="faq2" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body">
+                        Yes, Bootstrap is completely free and open-source. You can download it from getbootstrap.com 
+                        or include it via CDN without any cost.
+                    </div>
+                </div>
+            </div>
+            
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq3">
+                        Can I customize Bootstrap?
+                    </button>
+                </h2>
+                <div id="faq3" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body">
+                        Absolutely! You can customize Bootstrap in several ways: override CSS with your own styles, 
+                        use SCSS variables for customization, or modify the source code before building.
+                    </div>
+                </div>
+            </div>
+            
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq4">
+                        What version should I use?
+                    </button>
+                </h2>
+                <div id="faq4" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body">
+                        Bootstrap 5 is the latest and recommended version. It has no jQuery dependency, 
+                        improved customization, and better features than Bootstrap 4.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+```
+
+**What you see:**
+- Accordion with 4 collapsible sections
+- Each section has a question as the header
+- Click header to expand/collapse the section
+- Only one section can be open at a time (default behavior)
+- First section is expanded by default (`.show` class)
+- Other sections are collapsed and expand when clicked
+- Smooth animation when opening/closing
+- Good for FAQs and organizing content
+
 ### 110. What is a carousel in Bootstrap?
 ```html
 <div id="carouselExample" class="carousel slide">
@@ -724,6 +1875,84 @@ Collapsible content that expands/collapses when clicked:
     <button class="carousel-control-next" data-bs-target="#carouselExample" data-bs-slide="next"></button>
 </div>
 ```
+
+**Complete Example:**
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-5">
+        <h2 class="mb-4">Image Carousel</h2>
+        
+        <div id="imageCarousel" class="carousel slide" data-bs-ride="carousel">
+            <div class="carousel-indicators">
+                <button type="button" data-bs-target="#imageCarousel" data-bs-slide-to="0" class="active"></button>
+                <button type="button" data-bs-target="#imageCarousel" data-bs-slide-to="1"></button>
+                <button type="button" data-bs-target="#imageCarousel" data-bs-slide-to="2"></button>
+                <button type="button" data-bs-target="#imageCarousel" data-bs-slide-to="3"></button>
+            </div>
+            
+            <div class="carousel-inner">
+                <div class="carousel-item active">
+                    <img src="https://via.placeholder.com/800x400?text=Slide+1" class="d-block w-100" alt="Slide 1">
+                    <div class="carousel-caption d-none d-md-block">
+                        <h5>First Slide</h5>
+                        <p>Welcome to the carousel</p>
+                    </div>
+                </div>
+                
+                <div class="carousel-item">
+                    <img src="https://via.placeholder.com/800x400?text=Slide+2" class="d-block w-100" alt="Slide 2">
+                    <div class="carousel-caption d-none d-md-block">
+                        <h5>Second Slide</h5>
+                        <p>Swipe or click to navigate</p>
+                    </div>
+                </div>
+                
+                <div class="carousel-item">
+                    <img src="https://via.placeholder.com/800x400?text=Slide+3" class="d-block w-100" alt="Slide 3">
+                    <div class="carousel-caption d-none d-md-block">
+                        <h5>Third Slide</h5>
+                        <p>Carousels are responsive</p>
+                    </div>
+                </div>
+                
+                <div class="carousel-item">
+                    <img src="https://via.placeholder.com/800x400?text=Slide+4" class="d-block w-100" alt="Slide 4">
+                    <div class="carousel-caption d-none d-md-block">
+                        <h5>Fourth Slide</h5>
+                        <p>Perfect for image galleries</p>
+                    </div>
+                </div>
+            </div>
+            
+            <button class="carousel-control-prev" type="button" data-bs-target="#imageCarousel" data-bs-slide="prev">
+                <span class="carousel-control-prev-icon"></span>
+            </button>
+            <button class="carousel-control-next" type="button" data-bs-target="#imageCarousel" data-bs-slide="next">
+                <span class="carousel-control-next-icon"></span>
+            </button>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+```
+
+**What you see:**
+- Large image area showing one slide at a time
+- Carousel indicators (dots) at the top - click to jump to specific slide
+- Left and right arrow buttons to navigate
+- Captions/titles on each slide (hidden on mobile, visible on desktop)
+- Automatic rotation through slides
+- Smooth transitions between images
+- Responsive: images scale to fit container
+- Can be used for image galleries, testimonials, or banners
 
 ### 111. What is a nav component in Bootstrap?
 ```html
@@ -797,6 +2026,105 @@ In Bootstrap 5, use `.hero` or just `.display-4` with `.py-5` for large hero sec
     </div>
 </form>
 ```
+
+**Complete Form Example:**
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-5">
+        <div class="row">
+            <div class="col-md-6 mx-auto">
+                <h2 class="mb-4">Registration Form</h2>
+                
+                <form>
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Full Name</label>
+                        <input type="text" class="form-control" id="name" placeholder="Enter your name">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Email Address</label>
+                        <input type="email" class="form-control" id="email" placeholder="your@example.com">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Password</label>
+                        <input type="password" class="form-control" id="password" placeholder="Enter password">
+                        <small class="form-text text-muted">Must be 8+ characters</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="country" class="form-label">Country</label>
+                        <select class="form-select" id="country">
+                            <option selected>Choose a country...</option>
+                            <option>United States</option>
+                            <option>Canada</option>
+                            <option>United Kingdom</option>
+                            <option>India</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="bio" class="form-label">Biography</label>
+                        <textarea class="form-control" id="bio" rows="3" placeholder="Tell us about yourself..."></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input" id="terms">
+                            <label class="form-check-label" for="terms">
+                                I agree to the terms and conditions
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input" id="newsletter">
+                            <label class="form-check-label" for="newsletter">
+                                Subscribe to our newsletter
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Gender</label>
+                        <div class="form-check">
+                            <input type="radio" class="form-check-input" name="gender" id="male" value="male">
+                            <label class="form-check-label" for="male">Male</label>
+                        </div>
+                        <div class="form-check">
+                            <input type="radio" class="form-check-input" name="gender" id="female" value="female">
+                            <label class="form-check-label" for="female">Female</label>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary w-100 mb-2">Register</button>
+                    <button type="reset" class="btn btn-secondary w-100">Clear Form</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+```
+
+**What you see:**
+- Form centered with max-width on medium screens
+- Text inputs for Name and Email
+- Password input field with help text
+- Dropdown select for country
+- Large textarea for biography
+- Checkboxes for terms and newsletter subscription
+- Radio buttons for gender selection
+- Register button (primary blue) and Clear button (secondary gray)
+- Form fields have proper spacing with `.mb-3` margin
+- Labels are clearly associated with inputs
+- Form is responsive and mobile-friendly
 
 ### 122. What are form control classes?
 - `.form-control` - Text input styling
@@ -968,6 +2296,74 @@ Use grid classes for responsive layouts:
     Centered content
 </div>
 ```
+
+**Complete Example with Flexbox:**
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-5">
+        <h2 class="mb-4">Flexbox Examples</h2>
+        
+        <h5>Center Content Horizontally and Vertically:</h5>
+        <div class="d-flex justify-content-center align-items-center bg-light p-5 mb-4" style="height: 200px;">
+            <div class="text-center">
+                <h4>Centered Box</h4>
+                <p>This content is perfectly centered</p>
+            </div>
+        </div>
+        
+        <h5>Space Between Items:</h5>
+        <div class="d-flex justify-content-between bg-light p-3 mb-4">
+            <div>Item 1</div>
+            <div>Item 2</div>
+            <div>Item 3</div>
+        </div>
+        
+        <h5>Space Around Items:</h5>
+        <div class="d-flex justify-content-around bg-light p-3 mb-4">
+            <button class="btn btn-primary">Button 1</button>
+            <button class="btn btn-success">Button 2</button>
+            <button class="btn btn-danger">Button 3</button>
+        </div>
+        
+        <h5>Vertical Stack (flex-column):</h5>
+        <div class="d-flex flex-column gap-2 mb-4">
+            <div class="bg-primary text-white p-3">Item 1</div>
+            <div class="bg-success text-white p-3">Item 2</div>
+            <div class="bg-danger text-white p-3">Item 3</div>
+        </div>
+        
+        <h5>Horizontal with Gap:</h5>
+        <div class="d-flex gap-3">
+            <div class="card flex-grow-1">
+                <div class="card-body">Card 1</div>
+            </div>
+            <div class="card flex-grow-1">
+                <div class="card-body">Card 2</div>
+            </div>
+            <div class="card flex-grow-1">
+                <div class="card-body">Card 3</div>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+```
+
+**What you see:**
+- First box: Content centered both horizontally and vertically
+- Second row: Items with space distributed between them (Item 1 left, Item 3 right)
+- Third row: Buttons with equal space around each
+- Fourth section: Items stacked vertically with gaps between them
+- Last row: Cards that grow equally to fill available space
+- Flexbox is responsive and works on all screen sizes
 
 ### 144. What is `.justify-content-{value}`?
 Controls flex main axis alignment:
