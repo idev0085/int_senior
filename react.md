@@ -6067,6 +6067,8 @@ function SearchProducts() {
 ```
 
 **Virtualization for Large Lists:**
+
+**FixedSizeList - All items same height (preferred):**
 ```javascript
 import { FixedSizeList } from 'react-window';
 
@@ -6081,11 +6083,128 @@ function ProductList({ products }) {
     <FixedSizeList
       height={600}
       itemCount={products.length}
-      itemSize={100}
+      itemSize={100}          // Fixed: every item is 100px
       width="100%"
     >
       {Row}
     </FixedSizeList>
+  );
+}
+```
+
+**VariableSizeList - Items with different heights (when needed):**
+```javascript
+import { VariableSizeList } from 'react-window';
+import { useRef } from 'react';
+
+function CommentList({ comments }) {
+  const listRef = useRef();
+  
+  // Return height for each item dynamically
+  const itemSize = (index) => {
+    const comment = comments[index];
+    // Base height + height based on text length
+    return 60 + Math.ceil(comment.text.length / 50) * 20;
+  };
+
+  const Row = ({ index, style }) => (
+    <div style={style} className="comment">
+      <strong>{comments[index].author}</strong>
+      <p>{comments[index].text}</p>
+    </div>
+  );
+
+  return (
+    <VariableSizeList
+      height={600}
+      itemCount={comments.length}
+      itemSize={itemSize}     // Function, not number!
+      width="100%"
+      ref={listRef}
+    >
+      {Row}
+    </VariableSizeList>
+  );
+}
+
+// When item height changes, reset the cache:
+// listRef.current?.resetAfterIndex(changedIndex);
+```
+
+**FixedSizeList vs VariableSizeList Comparison:**
+
+| Feature | FixedSizeList | VariableSizeList |
+|---------|---------------|------------------|
+| **Item Size** | Fixed (number) | Variable (function) |
+| **Performance** | ⚡ Faster (instant calculation) | 🐢 Slower (calculates each position) |
+| **Use Case** | Uniform items | Dynamic content |
+| **Setup Complexity** | Simple | Complex |
+| **Reset Cache** | Not needed | Required when height changes |
+| **Memory Usage** | Lower | Higher |
+| **Best For** | Most apps (95%+ cases) | Only when truly needed |
+
+**Key Points:**
+- ✅ Use **FixedSizeList** for product listings, data tables, feed items, messages
+- ✅ Only use **VariableSizeList** if items genuinely have different heights
+- ✅ VariableSizeList performance degrades with huge lists (10k+ items)
+- ✅ Both render only visible items — huge performance win for 100+ items
+- ✅ Always profile before choosing VariableSizeList
+
+**Advanced Pattern - Expandable Items with VariableSizeList:**
+```javascript
+function ExpandableCommentList({ comments }) {
+  const listRef = useRef();
+  const [expandedIds, setExpandedIds] = useState(new Set());
+
+  const itemSize = (index) => {
+    const comment = comments[index];
+    const isExpanded = expandedIds.has(comment.id);
+    const baseHeight = 60;
+    const textHeight = isExpanded ? 
+      Math.ceil(comment.text.length / 50) * 20 : 0;
+    return baseHeight + textHeight;
+  };
+
+  const handleToggle = (id) => {
+    const newSet = new Set(expandedIds);
+    if (newSet.has(id)) {
+      newSet.delete(id);
+    } else {
+      newSet.add(id);
+    }
+    setExpandedIds(newSet);
+    // Reset cache for this item
+    const idx = comments.findIndex(c => c.id === id);
+    listRef.current?.resetAfterIndex(idx);
+  };
+
+  const Row = ({ index, style }) => {
+    const comment = comments[index];
+    const isExpanded = expandedIds.has(comment.id);
+
+    return (
+      <div style={style} className="comment">
+        <div className="comment-header">
+          <strong>{comment.author}</strong>
+          <button onClick={() => handleToggle(comment.id)}>
+            {isExpanded ? 'Collapse' : 'Expand'}
+          </button>
+        </div>
+        {isExpanded && <p>{comment.text}</p>}
+      </div>
+    );
+  };
+
+  return (
+    <VariableSizeList
+      height={600}
+      itemCount={comments.length}
+      itemSize={itemSize}
+      width="100%"
+      ref={listRef}
+    >
+      {Row}
+    </VariableSizeList>
   );
 }
 ```
@@ -8701,6 +8820,1429 @@ describe('Complete Shopping Flow', () => {
 12. **Error Boundaries**: Graceful error handling at feature levels
 
 **Remember**: Start simple and scale as needed. Don't over-engineer early, but plan for growth!
+
+---
+
+## React 18 - Concurrent Features & Improvements
+
+React 18 (released March 2022) introduced concurrent rendering capabilities that fundamentally changed how React handles updates, providing better performance and user experience for complex applications.
+
+---
+
+### **1. Automatic Batching**
+
+**What Changed:**
+React 18 automatically batches state updates, even in asynchronous code.
+
+**React 17 Behavior (Non-batched):**
+```javascript
+// React 17: Two separate renders
+function handleClick() {
+  setCount(c => c + 1);    // Triggers render 1
+  setName('John');          // Triggers render 2
+  
+  setTimeout(() => {
+    setEmail('john@example.com'); // Triggers render 3 (NOT batched)
+  }, 1000);
+}
+```
+
+**React 18 Behavior (Batched):**
+```javascript
+// React 18: All updates batched into single render
+function handleClick() {
+  setCount(c => c + 1);    // Batched
+  setName('John');          // Batched
+  
+  setTimeout(() => {
+    setEmail('john@example.com'); // Also batched in React 18!
+  }, 1000);
+}
+
+// If you need synchronous updates, use flushSync:
+import { flushSync } from 'react-dom';
+
+function handleClick() {
+  flushSync(() => {
+    setCount(c => c + 1);   // Renders immediately
+  });
+  // Component has been re-rendered
+  setName('John');          // Batched with subsequent updates
+}
+```
+
+**Benefits:**
+- ✅ Fewer re-renders
+- ✅ Better performance
+- ✅ More consistent behavior
+
+---
+
+### **2. useTransition Hook**
+
+**Purpose:** Implement non-blocking state updates for expensive operations.
+
+**Basic Usage:**
+```javascript
+import { useTransition, useState } from 'react';
+
+function TabContainer() {
+  const [isPending, startTransition] = useTransition();
+  const [tab, setTab] = useState('home');
+  
+  const selectTab = (nextTab) => {
+    // startTransition marks updates as non-urgent
+    startTransition(() => {
+      setTab(nextTab);
+    });
+  };
+  
+  return (
+    <div>
+      <button onClick={() => selectTab('home')} disabled={isPending}>
+        Home {tab === 'home' && '✓'}
+      </button>
+      <button onClick={() => selectTab('posts')} disabled={isPending}>
+        Posts {tab === 'posts' && '✓'}
+      </button>
+      
+      {isPending && <Spinner />}
+      
+      {tab === 'home' && <HomePage />}
+      {tab === 'posts' && <PostsPage />}
+    </div>
+  );
+}
+```
+
+**Advanced Pattern with useDeferredValue:**
+```javascript
+import { useTransition, useDeferredValue } from 'react';
+import SearchResults from './SearchResults';
+
+function SearchApp() {
+  const [query, setQuery] = useState('');
+  const deferredQuery = useDeferredValue(query);
+  const [isPending, startTransition] = useTransition();
+  
+  const handleChange = (e) => {
+    const newQuery = e.target.value;
+    // Update immediately for input responsiveness
+    setQuery(newQuery);
+    // Deferred update for expensive search
+    startTransition(() => {
+      // This happens after urgent updates
+    });
+  };
+  
+  return (
+    <>
+      <input 
+        value={query} 
+        onChange={handleChange}
+        placeholder="Search..."
+      />
+      {isPending && <span>Searching...</span>}
+      <SearchResults query={deferredQuery} />
+    </>
+  );
+}
+```
+
+---
+
+### **3. useDeferredValue Hook**
+
+**Purpose:** Defer expensive updates without blocking urgent UI updates.
+
+**Basic Usage:**
+```javascript
+import { useDeferredValue } from 'react';
+
+function App() {
+  const [count, setCount] = useState(0);
+  const deferredCount = useDeferredValue(count);
+  
+  return (
+    <>
+      <button onClick={() => setCount(c => c + 1)}>
+        Increment
+      </button>
+      
+      <h1>{count}</h1>
+      
+      {/* This renders with deferred value */}
+      <ExpensiveList count={deferredCount} />
+    </>
+  );
+}
+```
+
+**Difference from useTransition:**
+```javascript
+// useTransition: You control WHEN to defer
+const [isPending, startTransition] = useTransition();
+startTransition(() => {
+  setState(value);
+});
+
+// useDeferredValue: You defer a VALUE
+const deferredValue = useDeferredValue(value);
+// Use deferredValue in rendering
+```
+
+---
+
+### **4. Suspense for Data Fetching**
+
+**Purpose:** Suspend rendering while data is loading.
+
+**Basic Usage:**
+```javascript
+import { Suspense } from 'react';
+
+function App() {
+  return (
+    <Suspense fallback={<Loading />}>
+      <UserProfile userId={1} />
+    </Suspense>
+  );
+}
+
+// Component that suspends
+async function UserProfile({ userId }) {
+  const user = await fetchUser(userId);
+  return <div>{user.name}</div>;
+}
+```
+
+**Multiple Suspense Boundaries:**
+```javascript
+function App() {
+  return (
+    <div>
+      <h1>My App</h1>
+      
+      <Suspense fallback={<UserLoader />}>
+        <UserProfile userId={1} />
+      </Suspense>
+      
+      <Suspense fallback={<PostsLoader />}>
+        <UserPosts userId={1} />
+      </Suspense>
+    </div>
+  );
+}
+
+// Different components load independently
+```
+
+**Advanced: Suspense with useTransition:**
+```javascript
+function SearchApp() {
+  const [query, setQuery] = useState('');
+  const [isPending, startTransition] = useTransition();
+  
+  const handleSearch = (newQuery) => {
+    startTransition(() => {
+      setQuery(newQuery);
+    });
+  };
+  
+  return (
+    <>
+      <SearchInput onSearch={handleSearch} />
+      
+      {isPending && <span>Loading results...</span>}
+      
+      <Suspense fallback={<ResultsLoader />}>
+        <SearchResults query={query} />
+      </Suspense>
+    </>
+  );
+}
+```
+
+---
+
+### **5. useId Hook**
+
+**Purpose:** Generate stable unique IDs for accessibility and form controls.
+
+**Basic Usage:**
+```javascript
+import { useId } from 'react';
+
+function Form() {
+  const emailId = useId();
+  const passwordId = useId();
+  
+  return (
+    <>
+      <label htmlFor={emailId}>Email:</label>
+      <input id={emailId} type="email" />
+      
+      <label htmlFor={passwordId}>Password:</label>
+      <input id={passwordId} type="password" />
+    </>
+  );
+}
+
+// IDs are stable across re-renders
+// Prevents hydration mismatches
+```
+
+**Complex Component:**
+```javascript
+import { useId } from 'react';
+
+function PasswordField() {
+  const inputId = useId();
+  const validationId = useId();
+  const descriptionId = useId();
+  
+  return (
+    <div>
+      <label htmlFor={inputId}>Password:</label>
+      <input
+        id={inputId}
+        aria-describedby={`${validationId} ${descriptionId}`}
+      />
+      <div id={validationId} role="alert">
+        {/* Validation messages */}
+      </div>
+      <div id={descriptionId}>
+        {/* Password requirements */}
+      </div>
+    </div>
+  );
+}
+```
+
+---
+
+### **6. useInsertionEffect Hook**
+
+**Purpose:** Run side effects before DOM mutations (for CSS-in-JS libraries).
+
+**Basic Usage:**
+```javascript
+import { useInsertionEffect } from 'react';
+
+function StyledComponent() {
+  useInsertionEffect(() => {
+    // Inject styles before rendering
+    const style = document.createElement('style');
+    style.textContent = `
+      .my-component { color: blue; }
+    `;
+    document.head.appendChild(style);
+    
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
+  
+  return <div className="my-component">Styled</div>;
+}
+```
+
+**For CSS-in-JS Libraries:**
+```javascript
+function useEmotionStyles(styles) {
+  const className = useId();
+  
+  useInsertionEffect(() => {
+    // Inject CSS before component renders
+    const style = document.createElement('style');
+    style.textContent = `.${className} { ${styles} }`;
+    document.head.appendChild(style);
+    
+    return () => style.remove();
+  }, [className, styles]);
+  
+  return className;
+}
+```
+
+---
+
+### **7. Strict Mode Double Rendering in Development**
+
+**Purpose:** Help detect side effects and impure functions.
+
+**What Happens:**
+```javascript
+// In development, React renders twice:
+function MyComponent() {
+  // First render (development)
+  // Second render (development)
+  // Single render (production)
+  
+  return <div>Content</div>;
+}
+```
+
+**Detecting Side Effects:**
+```javascript
+function ProblematicComponent() {
+  let localVariable = 0;
+  
+  // This will log twice in development
+  console.log('Rendered:', localVariable++);
+  
+  useEffect(() => {
+    // Called once per mount
+    console.log('Effect');
+  }, []);
+  
+  return <div>{localVariable}</div>;
+}
+
+// Better approach: Pure functions
+function BetterComponent() {
+  const [count, setCount] = useState(0);
+  
+  return (
+    <div>
+      {count}
+      <button onClick={() => setCount(c => c + 1)}>+</button>
+    </div>
+  );
+}
+```
+
+---
+
+### **8. startTransition Function**
+
+**Purpose:** Mark state updates as non-urgent outside of event handlers.
+
+**Usage Outside Event Handlers:**
+```javascript
+import { startTransition } from 'react';
+
+// In event handler
+function handleClick() {
+  startTransition(() => {
+    setTab('posts');
+  });
+}
+
+// In async code
+async function fetchAndUpdate() {
+  const data = await fetch('/api/data');
+  const json = await data.json();
+  
+  startTransition(() => {
+    setData(json);
+  });
+}
+
+// In effect
+useEffect(() => {
+  startTransition(() => {
+    setItems(loadItems());
+  });
+}, []);
+```
+
+---
+
+### **9. Concurrent Rendering Features**
+
+**Priority System:**
+```javascript
+// Urgent: Immediate updates
+// - User input
+// - Click/keyboard events
+setCount(c => c + 1);
+
+// Transition: Can be interrupted
+import { startTransition } from 'react';
+startTransition(() => {
+  setTab('posts');
+});
+
+// Deferred: Low priority
+const deferredValue = useDeferredValue(value);
+```
+
+**Real-world Priority Example:**
+```javascript
+function SearchApp() {
+  const [input, setInput] = useState('');
+  const [results, setResults] = useState([]);
+  const [isPending, startTransition] = useTransition();
+  
+  const handleInputChange = (e) => {
+    // Urgent: Update input immediately
+    const newInput = e.target.value;
+    setInput(newInput);
+    
+    // Non-urgent: Search results
+    startTransition(() => {
+      const filtered = searchDatabase(newInput);
+      setResults(filtered);
+    });
+  };
+  
+  return (
+    <>
+      <input 
+        value={input}
+        onChange={handleInputChange}
+      />
+      {isPending && <Spinner />}
+      {/* Show results with deferredInput */}
+      <ResultsList results={results} />
+    </>
+  );
+}
+```
+
+---
+
+### **10. Improved Error Boundaries**
+
+**React 18 Error Boundary:**
+```javascript
+import { Component } from 'react';
+
+class ErrorBoundary extends Component {
+  state = { hasError: false, error: null };
+  
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  
+  componentDidCatch(error, errorInfo) {
+    // Log to error reporting service
+    logErrorToService(error, errorInfo);
+  }
+  
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div>
+          <h1>Something went wrong</h1>
+          <p>{this.state.error?.message}</p>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+// Granular error boundaries
+function App() {
+  return (
+    <>
+      <ErrorBoundary>
+        <Header />
+      </ErrorBoundary>
+      <ErrorBoundary>
+        <MainContent />
+      </ErrorBoundary>
+    </>
+  );
+}
+```
+
+---
+
+### **11. Root API Changes**
+
+**React 17 (Old API):**
+```javascript
+import ReactDOM from 'react-dom';
+
+ReactDOM.render(<App />, document.getElementById('root'));
+```
+
+**React 18 (New API):**
+```javascript
+import { createRoot } from 'react-dom/client';
+
+const root = createRoot(document.getElementById('root'));
+root.render(<App />);
+```
+
+**Unmounting:**
+```javascript
+const root = createRoot(document.getElementById('root'));
+root.render(<App />);
+
+// Later...
+root.unmount();
+```
+
+---
+
+### **12. Hydration API**
+
+**Server-Side Rendering (SSR):**
+```javascript
+// Server
+import { renderToPipeableStream } from 'react-dom/server';
+
+app.get('/', (req, res) => {
+  const { pipe } = renderToPipeableStream(<App />);
+  pipe(res);
+});
+
+// Client
+import { hydrateRoot } from 'react-dom/client';
+
+hydrateRoot(
+  document.getElementById('root'),
+  <App />
+);
+```
+
+---
+
+### **13. Server Components (Experimental in 18)**
+
+**Purpose:** Components that run only on server.
+
+```javascript
+// app.server.js - Runs only on server
+export default async function HomePage() {
+  const posts = await getPosts();
+  
+  return (
+    <div>
+      <Header />
+      {posts.map(post => (
+        <PostPreview key={post.id} post={post} />
+      ))}
+    </div>
+  );
+}
+
+// components/Header.js - Client component
+'use client';
+
+export default function Header() {
+  const [isOpen, setIsOpen] = useState(false);
+  
+  return (
+    <header>
+      <nav>
+        <button onClick={() => setIsOpen(!isOpen)}>
+          Menu
+        </button>
+      </nav>
+    </header>
+  );
+}
+```
+
+---
+
+### **React 18 Cheat Sheet:**
+
+| Feature | Use Case | Hook/API |
+|---------|----------|----------|
+| Automatic Batching | Multiple state updates | Built-in |
+| useTransition | Non-blocking updates | `useTransition()` |
+| useDeferredValue | Defer expensive renders | `useDeferredValue()` |
+| Suspense | Data fetching | `<Suspense>` |
+| useId | Accessible IDs | `useId()` |
+| useInsertionEffect | CSS injection | `useInsertionEffect()` |
+| startTransition | Priority updates | `startTransition()` |
+| createRoot | New React DOM | `createRoot()` |
+| hydrateRoot | SSR hydration | `hydrateRoot()` |
+| Concurrent Rendering | Better performance | Built-in |
+
+---
+
+### **Migration from React 17 to React 18:**
+
+```bash
+# Update packages
+npm install react@18 react-dom@18
+
+# Common breaking changes:
+# 1. ReactDOM.render → createRoot + render
+# 2. Automatic batching may affect some apps
+# 3. useLayoutEffect batching changed
+# 4. Some flushSync behavior changed
+```
+
+**Breaking Changes:**
+```javascript
+// ❌ React 17 pattern (no longer works)
+ReactDOM.render(<App />, root);
+
+// ✅ React 18 pattern
+const root = createRoot(root);
+root.render(<App />);
+
+// ❌ These fire in different order now
+useLayoutEffect(() => {}); // Now batched
+useEffect(() => {});
+
+// useLayoutEffect now batches with Effects in React 18
+```
+
+---
+
+### **Performance Improvements in React 18:**
+
+1. **Automatic Batching** - Fewer re-renders
+2. **Concurrent Features** - Non-blocking updates
+3. **Suspense** - Better data loading UX
+4. **Transitions** - Smoother interactions
+5. **Streaming SSR** - Faster initial load
+
+---
+
+### **Real-World Example: Data Table with Pagination**
+
+```javascript
+import { useState, useTransition, useDeferredValue } from 'react';
+
+function DataTable({ data }) {
+  const [page, setPage] = useState(1);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isPending, startTransition] = useTransition();
+  const deferredSearchQuery = useDeferredValue(searchQuery);
+  
+  const filteredData = data.filter(item =>
+    item.name.includes(deferredSearchQuery)
+  );
+  
+  const itemsPerPage = 10;
+  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+  const startIdx = (page - 1) * itemsPerPage;
+  const paginatedData = filteredData.slice(
+    startIdx,
+    startIdx + itemsPerPage
+  );
+  
+  const handleSearch = (newQuery) => {
+    setSearchQuery(newQuery);
+    startTransition(() => {
+      setPage(1); // Reset to first page
+    });
+  };
+  
+  const handlePageChange = (newPage) => {
+    startTransition(() => {
+      setPage(newPage);
+    });
+  };
+  
+  return (
+    <>
+      <input
+        type="text"
+        value={searchQuery}
+        onChange={(e) => handleSearch(e.target.value)}
+        placeholder="Search..."
+      />
+      
+      {isPending && <Spinner />}
+      
+      <table>
+        <tbody>
+          {paginatedData.map(item => (
+            <tr key={item.id}>
+              <td>{item.name}</td>
+              <td>{item.email}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      
+      <Pagination
+        currentPage={page}
+        totalPages={totalPages}
+        onPageChange={handlePageChange}
+        disabled={isPending}
+      />
+    </>
+  );
+}
+```
+
+---
+
+**Key Takeaways for React 18:**
+
+1. **Concurrent Rendering** - Foundation for better UX
+2. **Automatic Batching** - Out-of-the-box performance
+3. **useTransition & useDeferredValue** - Control update priority
+4. **Suspense** - Better data fetching patterns
+5. **useId** - Improved accessibility
+6. **New Root API** - createRoot instead of render
+7. **Server Components** - Move logic to server
+8. **Better SSR/Hydration** - Faster page loads
+9. **Backward Compatible** - Gradual adoption possible
+10. **Performance Focus** - Prioritized responsiveness
+
+---
+
+## React 19 - New Features & Improvements
+
+React 19 (stable since December 2024 / January 2025 patches) introduces significant improvements for async work tracking, performance tooling, and developer experience.
+
+---
+
+### **1. Activity API (New)**
+
+**Purpose:** Track and prioritize asynchronous work across components.
+
+**What Changed:**
+```javascript
+// React 19: New Activity tracking for async operations
+import { useActivity } from 'react';
+
+function DataFetcher() {
+  const activity = useActivity();
+  
+  useEffect(() => {
+    const controller = new AbortController();
+    
+    activity.track(async () => {
+      const response = await fetch('/api/data', {
+        signal: controller.signal
+      });
+      return response.json();
+    });
+    
+    return () => controller.abort();
+  }, [activity]);
+  
+  return <div>Fetching data...</div>;
+}
+```
+
+**Key Benefits:**
+- Unified tracking of all async work
+- Better prioritization of updates
+- Improved performance for concurrent operations
+- Automatic cleanup of cancelled operations
+
+---
+
+### **2. useEffectEvent Hook (Stable)**
+
+**Purpose:** Prevent stale closures in event handlers and effects.
+
+**React 18 Problem:**
+```javascript
+function ChatRoom({ roomId }) {
+  const [message, setMessage] = useState('');
+  
+  useEffect(() => {
+    const handleConnected = () => {
+      console.log(`Connected to room ${roomId}`); // ❌ Can be stale
+    };
+    
+    return connection.subscribe(handleConnected);
+  }, [roomId]); // Need roomId as dependency
+}
+```
+
+**React 19 Solution:**
+```javascript
+import { useEffectEvent } from 'react';
+
+function ChatRoom({ roomId }) {
+  const [message, setMessage] = useState('');
+  
+  // Create stable event handler that always has latest roomId
+  const handleConnected = useEffectEvent(() => {
+    console.log(`Connected to room ${roomId}`); // ✅ Always current
+  });
+  
+  useEffect(() => {
+    return connection.subscribe(handleConnected);
+  }, []); // No dependency needed!
+}
+```
+
+**Use Cases:**
+```javascript
+// 1. Event handlers that shouldn't re-subscribe
+function Form() {
+  const [count, setCount] = useState(0);
+  
+  const handleSubmit = useEffectEvent(() => {
+    console.log('Submitted with count:', count); // Always latest
+  });
+  
+  useEffect(() => {
+    // Register once, even if count changes
+    form.addEventListener('submit', handleSubmit);
+    return () => form.removeEventListener('submit', handleSubmit);
+  }, []);
+  
+  return (
+    <form>
+      <button onClick={() => setCount(c => c + 1)}>{count}</button>
+      <input onSubmit={handleSubmit} />
+    </form>
+  );
+}
+
+// 2. Analytics tracking
+function ProductPage({ productId }) {
+  const trackView = useEffectEvent(() => {
+    analytics.track('product_viewed', { productId });
+  });
+  
+  useEffect(() => {
+    trackView(); // Tracks latest productId
+  }, [productId]); // Only re-run when productId changes, not trackView
+}
+```
+
+---
+
+### **3. Performance Tracks (New)**
+
+**Purpose:** Better tracing and visualization of performance across async flows.
+
+**Implementation:**
+```javascript
+import { usePerformanceTrack } from 'react';
+
+function DataIntensiveComponent() {
+  const track = usePerformanceTrack();
+  
+  useEffect(() => {
+    track.mark('data-fetch-start');
+    
+    fetchData().then(() => {
+      track.mark('data-fetch-end');
+      track.measure('data-fetch', 'data-fetch-start', 'data-fetch-end');
+    });
+  }, [track]);
+  
+  return <div>Processing data...</div>;
+}
+
+// Monitor in DevTools Performance tab
+// Shows exact timing of async operations
+```
+
+**Advanced Tracking:**
+```javascript
+function ComplexAsyncFlow() {
+  const track = usePerformanceTrack();
+  
+  const handleAsyncOperation = async () => {
+    track.startInterval('total-operation');
+    
+    track.startInterval('phase-1');
+    await phase1();
+    track.endInterval('phase-1');
+    
+    track.startInterval('phase-2');
+    await phase2();
+    track.endInterval('phase-2');
+    
+    const duration = track.endInterval('total-operation');
+    console.log(`Total time: ${duration}ms`);
+  };
+  
+  return <button onClick={handleAsyncOperation}>Start</button>;
+}
+```
+
+---
+
+### **4. View Transitions (Experimental)**
+
+**Purpose:** Native-like page/route transitions with smooth animations.
+
+**Basic Usage:**
+```javascript
+import { useTransition } from 'react';
+
+function NavigationExample() {
+  const [currentPage, setCurrentPage] = useTransition();
+  const [page, setPage] = useState('home');
+  
+  const navigate = (newPage) => {
+    currentPage(() => {
+      setPage(newPage);
+    });
+  };
+  
+  return (
+    <div>
+      <button onClick={() => navigate('home')}>Home</button>
+      <button onClick={() => navigate('about')}>About</button>
+      <div className="page-content">{page}</div>
+    </div>
+  );
+}
+
+// CSS for transition
+const styles = `
+  @supports (view-transition-name: none) {
+    .page-content {
+      view-transition-name: page;
+    }
+    
+    ::view-transition-old(page) {
+      animation: slide-out 0.3s ease-out;
+    }
+    
+    ::view-transition-new(page) {
+      animation: slide-in 0.3s ease-out;
+    }
+  }
+`;
+```
+
+**Advanced Transitions:**
+```javascript
+function PageTransition() {
+  const [isPending, startTransition] = useTransition();
+  const [currentPage, setCurrentPage] = useState('home');
+  
+  const handleNavigate = (page) => {
+    startTransition(() => {
+      // Use document.startViewTransition API
+      if (document.startViewTransition) {
+        document.startViewTransition(() => {
+          setCurrentPage(page);
+        });
+      } else {
+        setCurrentPage(page); // Fallback for unsupported browsers
+      }
+    });
+  };
+  
+  return (
+    <div>
+      <nav>
+        <button 
+          onClick={() => handleNavigate('home')}
+          disabled={isPending}
+        >
+          Home
+        </button>
+        <button 
+          onClick={() => handleNavigate('about')}
+          disabled={isPending}
+        >
+          About
+        </button>
+      </nav>
+      {isPending && <Spinner />}
+      <PageContent page={currentPage} />
+    </div>
+  );
+}
+```
+
+---
+
+### **5. React Compiler v1.0 (Stable)**
+
+**Purpose:** Automatic optimization and memoization without explicit `useMemo`/`useCallback`.
+
+**What It Does:**
+```javascript
+// Before Compiler (manual optimization)
+const ProductCard = memo(({ product, onUpdate }) => {
+  const handleUpdate = useCallback(() => {
+    onUpdate(product.id);
+  }, [product.id, onUpdate]);
+  
+  const price = useMemo(() => product.price * 1.1, [product.price]);
+  
+  return (
+    <div>
+      <h3>{product.name}</h3>
+      <p>${price}</p>
+      <button onClick={handleUpdate}>Update</button>
+    </div>
+  );
+});
+
+// After Compiler (automatic optimization!)
+const ProductCard = ({ product, onUpdate }) => {
+  const handleUpdate = () => {
+    onUpdate(product.id);
+  };
+  
+  const price = product.price * 1.1;
+  
+  return (
+    <div>
+      <h3>{product.name}</h3>
+      <p>${price}</p>
+      <button onClick={handleUpdate}>Update</button>
+    </div>
+  );
+};
+
+// Compiler automatically optimizes!
+```
+
+**Enable in Your Project:**
+```bash
+npm install -D babel-plugin-react-compiler
+```
+
+```javascript
+// babel.config.js
+module.exports = {
+  plugins: [['babel-plugin-react-compiler']],
+};
+```
+
+**Compiler Benefits:**
+- Eliminates manual `useMemo`/`useCallback`
+- Smaller bundle sizes
+- Faster runtime performance
+- Reduced re-renders automatically
+- No behavior changes needed
+
+---
+
+### **6. Server Components & Server Actions (Hardened)**
+
+**Security Improvements:**
+```javascript
+// React 19: Enhanced security for Server Components
+
+// 1. DoS Protection for large payloads
+async function DataServer() {
+  // Automatic size limits on serialized data
+  const largeData = await fetchLargeDataset();
+  
+  // React 19 validates and limits serialization
+  // Prevents memory exhaustion attacks
+  return <DataDisplay data={largeData} />;
+}
+
+// 2. Loop Protection for recursive structures
+async function ProcessRecursive() {
+  const data = await fetchData();
+  
+  // React 19 detects and prevents infinite loops
+  // in Server Components and Server Actions
+  return <Component data={data} />;
+}
+
+// 3. Promise cycle detection
+async function ServerAction(formData) {
+  'use server';
+  
+  // React 19 detects Promise cycles
+  // prevents "then.then.then..." loops
+  
+  const result = await processFormData(formData);
+  return result;
+}
+```
+
+**Server Action Type Safety:**
+```typescript
+// Form actions with improved typing
+async function createProduct(formData: FormData): Promise<Product> {
+  'use server';
+  
+  const name = formData.get('name') as string;
+  const price = parseFloat(formData.get('price') as string);
+  
+  if (!name || isNaN(price)) {
+    throw new Error('Invalid input');
+  }
+  
+  const product = await db.products.create({ name, price });
+  return product;
+}
+
+// Component with type-safe action
+function ProductForm() {
+  const [error, setError] = useState<string | null>(null);
+  
+  return (
+    <form action={createProduct}>
+      <input name="name" required />
+      <input name="price" type="number" required />
+      <button type="submit">Create</button>
+      {error && <div className="error">{error}</div>}
+    </form>
+  );
+}
+```
+
+---
+
+### **7. Automatic Batching Improvements**
+
+**Better Update Batching:**
+```javascript
+// React 19: Improved automatic batching
+function FormHandler() {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    // React 19 batches both updates together
+    setName('');
+    setEmail('');
+    
+    // Even after async operations
+    const response = await submitForm({ name, email });
+    
+    // React 19 batches these too!
+    setName(response.name);
+    setEmail(response.email);
+  };
+  
+  return (
+    <form onSubmit={handleSubmit}>
+      {/* Form content */}
+    </form>
+  );
+}
+```
+
+---
+
+### **8. Hydration Improvements**
+
+**Better SSR/SSG Hydration:**
+```javascript
+// React 19: Improved hydration mismatch handling
+import { hydrateRoot } from 'react-dom/client';
+
+const root = hydrateRoot(
+  document.getElementById('root'),
+  <App />,
+  {
+    // React 19 is more lenient with minor mismatches
+    // and provides better error messages
+    onRecoverableError: (error) => {
+      console.error('Hydration mismatch recovered:', error);
+      // App continues working
+    },
+  }
+);
+```
+
+**Server Component Hydration:**
+```javascript
+// app.jsx (Server Component)
+export default async function App() {
+  const data = await fetchData();
+  
+  return (
+    <html>
+      <body>
+        <Header data={data} />
+        <Content data={data} />
+        <Footer />
+      </body>
+    </html>
+  );
+}
+
+// Better streaming and hydration in React 19
+```
+
+---
+
+### **9. useCallback ref cleanup**
+
+**New Cleanup Pattern:**
+```javascript
+import { useCallback } from 'react';
+
+function ResizeObserver() {
+  const handleResize = useCallback((element) => {
+    if (!element) {
+      // Cleanup when ref is removed
+      console.log('Element removed');
+      return;
+    }
+    
+    // Setup when ref is attached
+    observer.observe(element);
+    
+    // Return cleanup function (NEW in React 19)
+    return () => {
+      observer.unobserve(element);
+    };
+  }, []);
+  
+  return <div ref={handleResize} />;
+}
+```
+
+---
+
+### **10. Breaking Changes & Migration**
+
+**What Changed:**
+```javascript
+// 1. useErrorBoundary now available (was proposed before)
+import { useErrorBoundary } from 'react';
+
+function Component() {
+  const [error, resetError] = useErrorBoundary();
+  
+  return error ? (
+    <div>
+      <p>{error.message}</p>
+      <button onClick={resetError}>Retry</button>
+    </div>
+  ) : (
+    <div>Normal content</div>
+  );
+}
+
+// 2. Stricter Rules of Hooks enforcement
+// This now errors instead of warning:
+function BadComponent() {
+  if (someCondition) {
+    useEffect(() => {}); // ❌ Error: hooks in conditional
+  }
+}
+
+// 3. Improved TypeScript support
+// Better inference for generic components
+const GenericComponent = <T,>({ items }: { items: T[] }) => {
+  return items.map(item => <div key={item as string}>{item}</div>);
+};
+```
+
+**Migration Checklist:**
+```markdown
+✅ Update React to 19.x
+✅ Update React DOM to 19.x
+✅ Update TypeScript (4.8+)
+✅ Review error boundaries (new useErrorBoundary hook)
+✅ Enable React Compiler if using Babel
+✅ Check for deprecated APIs
+✅ Test Server Components in frameworks (Next.js 15+)
+✅ Update DevTools to latest version
+✅ Review performance with new profiler
+```
+
+---
+
+### **11. Upgrade Guide**
+
+**Step-by-Step Migration:**
+
+```bash
+# 1. Update packages
+npm install react@19 react-dom@19
+
+# 2. Update TypeScript (if using)
+npm install --save-dev typescript@5.0
+
+# 3. Update related packages
+npm install --save-dev @types/react@19 @types/react-dom@19
+
+# 4. Rebuild and test
+npm run build
+npm test
+```
+
+**Common Issues:**
+
+```javascript
+// Issue 1: Missing useEffectEvent import
+// React 18 workaround:
+const useEffectEvent = (cb) => {
+  const ref = useRef(cb);
+  useEffect(() => { ref.current = cb; }, [cb]);
+  return useCallback((...args) => ref.current(...args), []);
+};
+
+// React 19: Direct import
+import { useEffectEvent } from 'react';
+
+// Issue 2: Server Components only in frameworks
+// React 19 Server Components work best with:
+// - Next.js 15+
+// - Remix 2.0+
+// - Astro 4.0+
+
+// Issue 3: View Transitions browser support
+// Check: https://caniuse.com/view-transitions
+// Fallback gracefully for older browsers
+```
+
+---
+
+### **React 19 Cheat Sheet:**
+
+| Feature | Use Case | Status |
+|---------|----------|--------|
+| Activity API | Track async work | ✅ Stable |
+| useEffectEvent | Stable event handlers | ✅ Stable |
+| Performance Tracks | Monitor async perf | ✅ Stable |
+| View Transitions | Page animations | 🧪 Experimental |
+| React Compiler | Auto-optimization | ✅ Stable (v1.0) |
+| Server Actions | Form handlers | ✅ Stable |
+| useErrorBoundary | Functional error handling | ✅ Stable |
+| Automatic Batching | Update merging | ✅ Stable |
+
+---
+
+### **Production-Ready React 19 Setup:**
+
+```javascript
+// React 19 optimized configuration
+import { StrictMode } from 'react';
+import { hydrateRoot } from 'react-dom/client';
+
+const root = hydrateRoot(
+  document.getElementById('root'),
+  <StrictMode>
+    <App />
+  </StrictMode>,
+  {
+    onRecoverableError: (error, info) => {
+      // Send to error tracking (Sentry, etc.)
+      console.error('Hydration error:', error, info);
+    },
+  }
+);
+
+// TypeScript support
+import type { ReactNode } from 'react';
+
+interface AppProps {
+  children: ReactNode;
+}
+
+export const App: React.FC<AppProps> = ({ children }) => {
+  return <div>{children}</div>;
+};
+```
+
+---
+
+**Key Takeaways for React 19:**
+
+1. **Activity API** - Better async work tracking and prioritization
+2. **useEffectEvent** - Eliminates stale closure bugs
+3. **Performance Tracks** - Granular performance monitoring
+4. **View Transitions** - Smooth, native-like page transitions
+5. **React Compiler** - Automatic optimization without manual memoization
+6. **Security Hardening** - Better DoS protection and loop detection
+7. **Server Components** - More stable and secure implementations
+8. **Better DevTools** - Improved debugging and profiling
+9. **TypeScript Support** - Enhanced type inference and safety
+10. **Gradual Adoption** - Features can be adopted incrementally
 
 ---
 
